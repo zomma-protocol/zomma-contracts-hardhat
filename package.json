@@ -1,0 +1,23 @@
+{
+  "name": "zomma-contracts-hardhat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.8.0",
+    "@openzeppelin/test-helpers": "^0.5.16",
+    "dotenv": "^8.1.0",
+    "lodash": "^4.17.15",
+    "shelljs": "^0.8.5",
+    "solidity-coverage": "^0.8.2"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^2.0.1",
+    "hardhat": "^2.12.7"
+  },
+  "scripts": {
+    "test": "hardhat test"
+  },
+  "author": "Yi-Cyuan Chen",
+  "license": "ISC"
+}
