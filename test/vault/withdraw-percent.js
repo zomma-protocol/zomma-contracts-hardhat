@@ -1494,6 +1494,60 @@ describe('Vault', () => {
               assert.equal(strFromDecimal(poolPosition.size), '-3');
             });
           });
+
+          context('when partial close size', () => {
+            const rate = toDecimalStr('0.5');
+            const strike2 = toDecimalStr(1200);
+            let vaultChange, walletChange, insuranceAccountChange, position, position2;
+
+            before(async () => {
+              await vault.setIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false), buildIv(expiry, strike2, true, false, toDecimalStr(0.8), false)]);
+              await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr(-1), 0);
+              ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                vault, usdc, trader, expiry, strike, true, toDecimalStr(-1), {
+                  rate, freeWithdrawableRate, reservedRate,
+                  beforeClear: async () => {
+                    position2 = await vault.positionOf(trader.address, expiry, strike2, true);
+                  }
+                }
+              ));
+            });
+
+            // equity: '999.234239739249416691',
+            // available: '799.234239739249416691',
+            // healthFactor: '4.996171198696247083'
+            // balance: 999.246625347893416734
+
+            // expectToWithdrawAmount: 499.617119869624708345
+            // expectedRemainEquity: equity after free - remain to remove = 999.234239739249416691 - 499.617119869624708345 = 499.617119869624708346
+
+            // realized: -0.000352753317780893
+            // fee: -0.325890589674585746
+            // equity after remove position: 998.908349149574830945
+            // withdraw amount: equity after remove position - expectedRemainEquity
+            //                  = 998.908349149574830945 - 499.617119869624708346 = 499.291229279950122599
+
+            // -withdraw amount + realized + fee
+            it('should change vault balance -499.617472622942489238', async () => {
+              assert.equal(strFromDecimal(vaultChange), '-499.617472622942489238');
+            });
+
+            it('should change wallet balance 499.291229', async () => {
+              assert.equal(strFromDecimal(walletChange, 6), '499.291229');
+            });
+
+            it('should change insurance account balance 0.000000279950122599', async () => {
+              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000279950122599');
+            });
+
+            it('should be trader size -1', async () => {
+              assert.equal(strFromDecimal(position.size), '-1');
+            });
+
+            it('should be trader other size 0', async () => {
+              assert.equal(strFromDecimal(position2.size), '0');
+            });
+          });
         });
       });
 
@@ -2034,36 +2088,217 @@ describe('Vault', () => {
 
         context('when freeWithdrawableRate 0', () => {
           const freeWithdrawableRate = toDecimalStr(0);
+          context('when tradable', () => {
+            context('when rate 1', () => {
+              const rate = toDecimalStr(1);
 
-          context('when rate 1', () => {
-            const rate = toDecimalStr(1);
+              context('when reservedRate 1', () => {
+                const reservedRate = toDecimalStr(1);
 
-            context('when reservedRate 1', () => {
-              const reservedRate = toDecimalStr(1);
+                context('when other pool not available', () => {
+                  before(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
+                  });
 
-              context('when other pool not available', () => {
-                before(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
+                  after(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).deposit(toDecimalStr(1000));
+                    await vault.connect(trader2).deposit(toDecimalStr(1000));
+                    await reset();
+                  });
+
+                  it('should revert with "pool unavailable"', async () => {
+                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  });
                 });
 
-                after(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).deposit(toDecimalStr(1000));
-                  await vault.connect(trader2).deposit(toDecimalStr(1000));
-                  await reset();
-                });
+                context('when other pool available', () => {
+                  let vaultChange, walletChange, insuranceAccountChange, position;
 
-                it('should revert with "pool unavailable"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  before(async () => {
+                    ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                      vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                        rate, freeWithdrawableRate, reservedRate
+                      }
+                    ));
+                  });
+
+                  // equity: '998.1066730974275311',
+                  // available: '959.824297541896274758',
+                  // healthFactor: '26.072224061686145190'
+                  // balance: 998.711131658830656187
+
+                  // realized: -0.604458561403125087
+                  // fee: -1.282823755555312563
+                  // withdraw amount: 996.823849341872218537
+
+                  it('should change vault balance -998.711131658830656187', async () => {
+                    assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
+                  });
+
+                  it('should change wallet balance 996.823849', async () => {
+                    assert.equal(strFromDecimal(walletChange, 6), '996.823849');
+                  });
+
+                  it('should change insurance account balance 0.000000341872218537', async () => {
+                    assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
+                  });
+
+                  it('should be trader size 0', async () => {
+                    assert.equal(strFromDecimal(position.size), '0');
+                  });
+
+                  it('should be trader notional 0', async () => {
+                    assert.equal(strFromDecimal(position.notional), '0');
+                  });
                 });
               });
 
-              context('when other pool available', () => {
+              context('when reservedRate 0.5', () => {
+                const reservedRate = toDecimalStr(0.5);
+
+                context('when other pool not available', () => {
+                  before(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
+                  });
+
+                  after(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).deposit(toDecimalStr(1000));
+                    await vault.connect(trader2).deposit(toDecimalStr(1000));
+                    await reset();
+                  });
+
+                  it('should revert with "pool unavailable"', async () => {
+                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  });
+                });
+
+                context('when other pool available', () => {
+                  let vaultChange, walletChange, insuranceAccountChange, position;
+
+                  before(async () => {
+                    ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                      vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                        rate, freeWithdrawableRate, reservedRate
+                      }
+                    ));
+                  });
+
+                  // equity: '998.1066730974275311',
+                  // available: '959.824297541896274758',
+                  // healthFactor: '26.072224061686145190'
+                  // balance: 998.711131658830656187
+
+                  // realized: -0.604458561403125087
+                  // fee: -1.282823755555312563
+                  // withdraw amount: 996.823849341872218537
+
+                  it('should change vault balance -998.711131658830656187', async () => {
+                    assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
+                  });
+
+                  it('should change wallet balance 996.823849', async () => {
+                    assert.equal(strFromDecimal(walletChange, 6), '996.823849');
+                  });
+
+                  it('should change insurance account balance 0.000000341872218537', async () => {
+                    assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
+                  });
+
+                  it('should be trader size 0', async () => {
+                    assert.equal(strFromDecimal(position.size), '0');
+                  });
+
+                  it('should be trader notional 0', async () => {
+                    assert.equal(strFromDecimal(position.notional), '0');
+                  });
+                });
+              });
+
+              context('when reservedRate 0', () => {
+                const reservedRate = toDecimalStr(0);
+
+                context('when other pool not available', () => {
+                  before(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
+                  });
+
+                  after(async () => {
+                    await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                    await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
+                    await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
+                    await vault.connect(trader).deposit(toDecimalStr(1000));
+                    await vault.connect(trader2).deposit(toDecimalStr(1000));
+                    await reset();
+                  });
+
+                  it('should revert with "pool unavailable"', async () => {
+                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  });
+                });
+
+                context('when other pool available', () => {
+                  let vaultChange, walletChange, insuranceAccountChange, position;
+
+                  before(async () => {
+                    ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                      vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                        rate, freeWithdrawableRate, reservedRate
+                      }
+                    ));
+                  });
+
+                  // equity: '998.1066730974275311',
+                  // available: '959.824297541896274758',
+                  // healthFactor: '26.072224061686145190'
+                  // balance: 998.711131658830656187
+
+                  // realized: -0.604458561403125087
+                  // fee: -1.282823755555312563
+                  // withdraw amount: 996.823849341872218537
+
+                  it('should change vault balance -998.711131658830656187', async () => {
+                    assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
+                  });
+
+                  it('should change wallet balance 996.823849', async () => {
+                    assert.equal(strFromDecimal(walletChange, 6), '996.823849');
+                  });
+
+                  it('should change insurance account balance 0.000000341872218537', async () => {
+                    assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
+                  });
+
+                  it('should be trader size 0', async () => {
+                    assert.equal(strFromDecimal(position.size), '0');
+                  });
+
+                  it('should be trader notional 0', async () => {
+                    assert.equal(strFromDecimal(position.notional), '0');
+                  });
+                });
+              });
+            });
+
+            context('when rate 0.5', () => {
+              const rate = toDecimalStr(0.5);
+
+              context('when reservedRate 1', () => {
+                const reservedRate = toDecimalStr(1);
                 let vaultChange, walletChange, insuranceAccountChange, position;
 
                 before(async () => {
@@ -2079,58 +2314,32 @@ describe('Vault', () => {
                 // healthFactor: '26.072224061686145190'
                 // balance: 998.711131658830656187
 
-                // realized: -0.604458561403125087
-                // fee: -1.282823755555312563
-                // withdraw amount: 996.823849341872218537
+                // expectToWithdrawAmount: 499.05333654871376555
+                // expectToWithdrawAmount < available won't remove buy position
 
-                it('should change vault balance -998.711131658830656187', async () => {
-                  assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
+                // realized: 0
+                // fee: 0
+                // withdraw amount: 499.05333654871376555
+
+                it('should change vault balance -499.05333654871376555', async () => {
+                  assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
                 });
 
-                it('should change wallet balance 996.823849', async () => {
-                  assert.equal(strFromDecimal(walletChange, 6), '996.823849');
+                it('should change wallet balance 499.053336', async () => {
+                  assert.equal(strFromDecimal(walletChange, 6), '499.053336');
                 });
 
-                it('should change insurance account balance 0.000000341872218537', async () => {
-                  assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
+                it('should change insurance account balance 0.00000054871376555', async () => {
+                  assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
                 });
 
-                it('should be trader size 0', async () => {
-                  assert.equal(strFromDecimal(position.size), '0');
-                });
-
-                it('should be trader notional 0', async () => {
-                  assert.equal(strFromDecimal(position.notional), '0');
-                });
-              });
-            });
-
-            context('when reservedRate 0.5', () => {
-              const reservedRate = toDecimalStr(0.5);
-
-              context('when other pool not available', () => {
-                before(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
-                });
-
-                after(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).deposit(toDecimalStr(1000));
-                  await vault.connect(trader2).deposit(toDecimalStr(1000));
-                  await reset();
-                });
-
-                it('should revert with "pool unavailable"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                it('should be trader size 3', async () => {
+                  assert.equal(strFromDecimal(position.size), '3');
                 });
               });
 
-              context('when other pool available', () => {
+              context('when reservedRate 0.5', () => {
+                const reservedRate = toDecimalStr(0.5);
                 let vaultChange, walletChange, insuranceAccountChange, position;
 
                 before(async () => {
@@ -2146,319 +2355,203 @@ describe('Vault', () => {
                 // healthFactor: '26.072224061686145190'
                 // balance: 998.711131658830656187
 
-                // realized: -0.604458561403125087
-                // fee: -1.282823755555312563
-                // withdraw amount: 996.823849341872218537
+                // expectToWithdrawAmount: 499.05333654871376555
+                // expectToWithdrawAmount < available won't remove buy position
 
-                it('should change vault balance -998.711131658830656187', async () => {
-                  assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
+                // realized: 0
+                // fee: 0
+                // withdraw amount: 499.05333654871376555
+
+                it('should change vault balance -499.05333654871376555', async () => {
+                  assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
                 });
 
-                it('should change wallet balance 996.823849', async () => {
-                  assert.equal(strFromDecimal(walletChange, 6), '996.823849');
+                it('should change wallet balance 499.053336', async () => {
+                  assert.equal(strFromDecimal(walletChange, 6), '499.053336');
                 });
 
-                it('should change insurance account balance 0.000000341872218537', async () => {
-                  assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
+                it('should change insurance account balance 0.00000054871376555', async () => {
+                  assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
                 });
 
-                it('should be trader size 0', async () => {
-                  assert.equal(strFromDecimal(position.size), '0');
+                it('should be trader size 3', async () => {
+                  assert.equal(strFromDecimal(position.size), '3');
+                });
+              });
+
+              context('when reservedRate 0', () => {
+                const reservedRate = toDecimalStr(0);
+                let vaultChange, walletChange, insuranceAccountChange, position;
+
+                before(async () => {
+                  ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                    vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                      rate, freeWithdrawableRate, reservedRate
+                    }
+                  ));
                 });
 
-                it('should be trader notional 0', async () => {
-                  assert.equal(strFromDecimal(position.notional), '0');
+                // equity: '998.1066730974275311',
+                // available: '959.824297541896274758',
+                // healthFactor: '26.072224061686145190'
+                // balance: 998.711131658830656187
+
+                // expectToWithdrawAmount: 499.05333654871376555
+                // expectToWithdrawAmount < available won't remove buy position
+
+                // realized: 0
+                // fee: 0
+                // withdraw amount: 499.05333654871376555
+
+                it('should change vault balance -499.05333654871376555', async () => {
+                  assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
+                });
+
+                it('should change wallet balance 499.053336', async () => {
+                  assert.equal(strFromDecimal(walletChange, 6), '499.053336');
+                });
+
+                it('should change insurance account balance 0.00000054871376555', async () => {
+                  assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
+                });
+
+                it('should be trader size 3', async () => {
+                  assert.equal(strFromDecimal(position.size), '3');
                 });
               });
             });
 
-            context('when reservedRate 0', () => {
+            context('when rate 0.961645005902295551', () => {
+              const rate = toDecimalStr('0.961645005902295551');
               const reservedRate = toDecimalStr(0);
 
-              context('when other pool not available', () => {
+              let vaultChange, walletChange, insuranceAccountChange, position;
+
+              before(async () => {
+                ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                  vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                    rate, freeWithdrawableRate, reservedRate
+                  }
+                ));
+              });
+
+              // equity: '998.1066730974275311',
+              // available: '959.824297541896274758',
+              // healthFactor: '26.072224061686145190'
+              // balance: 998.711131658830656187
+
+              // expectToWithdrawAmount: 959.824297541896274191
+              // expectToWithdrawAmount < available won't remove buy position
+
+              // realized: 0
+              // fee: 0
+              // withdraw amount: 959.824297541896274191
+
+              it('should change vault balance -959.824297541896274191', async () => {
+                assert.equal(strFromDecimal(vaultChange), '-959.824297541896274191');
+              });
+
+              it('should change wallet balance 959.824297', async () => {
+                assert.equal(strFromDecimal(walletChange, 6), '959.824297');
+              });
+
+              it('should change insurance account balance 0.000000541896274191', async () => {
+                assert.equal(strFromDecimal(insuranceAccountChange), '0.000000541896274191');
+              });
+
+              it('should be trader size 3', async () => {
+                assert.equal(strFromDecimal(position.size), '3');
+              });
+            });
+
+            context('when rate 0.961645005902295552', () => {
+              const rate = toDecimalStr('0.961645005902295552');
+              const reservedRate = toDecimalStr(0);
+
+              let vaultChange, walletChange, insuranceAccountChange, position;
+
+              before(async () => {
+                ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
+                  vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
+                    rate, freeWithdrawableRate, reservedRate
+                  }
+                ));
+              });
+
+              // equity: '998.1066730974275311',
+              // available: '959.824297541896274758',
+              // healthFactor: '26.072224061686145190'
+              // balance: 998.711131658830656187
+
+              // expectToWithdrawAmount: 959.824297541896275189
+              // remain to remove: expectToWithdrawAmount - available = 0.000000000000000431
+              // equity after free: 998.1066730974275311 - 959.824297541896274758 = 38.282375555531256342
+              // expectedRemainEquity: equity after free - remain to remove = 38.282375555531256342 - 0.000000000000000431 = 38.282375555531255911
+
+              // full premium; 38.282375555531256342
+              // full fee: -1.282823755555312563
+              // remove size: roundUp(-3 * 0.000000000000000431 / (38.282375555531256342 - 1.282823755555312563))
+              //              = -0.000000000000000035
+
+              // realized: -0.000000000000000007
+              // fee: -0.000000000000000014
+              // equity after remove position: 998.106673097427531085
+              // withdraw amount: 998.106673097427531085 - 38.282375555531255911 = 959.824297541896275174
+
+              // -withdraw amount + realized + fee
+              it('should change vault balance -959.824297541896275195', async () => {
+                assert.equal(strFromDecimal(vaultChange), '-959.824297541896275195');
+              });
+
+              it('should change wallet balance 959.824297', async () => {
+                assert.equal(strFromDecimal(walletChange, 6), '959.824297');
+              });
+
+              it('should change insurance account balance 0.000000541896275174', async () => {
+                assert.equal(strFromDecimal(insuranceAccountChange), '0.000000541896275174');
+              });
+
+              it('should be trader size 2.999999999999999965', async () => {
+                assert.equal(strFromDecimal(position.size), '2.999999999999999965');
+              });
+            });
+          });
+
+          context('when untradable', () => {
+            before(async () => {
+              await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+            });
+
+            after(async () => {
+              await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(1));
+              await vault.connect(trader).deposit(toDecimalStr(1000));
+              await reset();
+            });
+
+            context('when market disabled', () => {
+              context('when sell', () => {
                 before(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
+                  await vault.setIv([buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)]);
                 });
 
                 after(async () => {
-                  await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(6), INT_MAX);
-                  await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
-                  await vault.connect(trader).deposit(toDecimalStr(1000));
-                  await vault.connect(trader2).deposit(toDecimalStr(1000));
-                  await reset();
+                  await vault.setIv([buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)]);
                 });
 
-                it('should revert with "pool unavailable"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
-                });
-              });
-
-              context('when other pool available', () => {
-                let vaultChange, walletChange, insuranceAccountChange, position;
-
-                before(async () => {
-                  ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                    vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                      rate, freeWithdrawableRate, reservedRate
-                    }
-                  ));
+                context('when rate 1', () => {
+                  it('should revert with "withdraw too much"', async () => {
+                    await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                  });
                 });
 
-                // equity: '998.1066730974275311',
-                // available: '959.824297541896274758',
-                // healthFactor: '26.072224061686145190'
-                // balance: 998.711131658830656187
-
-                // realized: -0.604458561403125087
-                // fee: -1.282823755555312563
-                // withdraw amount: 996.823849341872218537
-
-                it('should change vault balance -998.711131658830656187', async () => {
-                  assert.equal(strFromDecimal(vaultChange), '-998.711131658830656187');
-                });
-
-                it('should change wallet balance 996.823849', async () => {
-                  assert.equal(strFromDecimal(walletChange, 6), '996.823849');
-                });
-
-                it('should change insurance account balance 0.000000341872218537', async () => {
-                  assert.equal(strFromDecimal(insuranceAccountChange), '0.000000341872218537');
-                });
-
-                it('should be trader size 0', async () => {
-                  assert.equal(strFromDecimal(position.size), '0');
-                });
-
-                it('should be trader notional 0', async () => {
-                  assert.equal(strFromDecimal(position.notional), '0');
+                context('when rate 0.0001', () => {
+                  it('should not remove position', async () => {
+                    await vault.connect(trader).withdrawPercent(toDecimalStr(0.0001), 0, freeWithdrawableRate);
+                    const position = await vault.positionOf(trader.address, expiry, strike, true);
+                    assert.equal(strFromDecimal(position.size), '1');
+                  });
                 });
               });
-            });
-          });
-
-          context('when rate 0.5', () => {
-            const rate = toDecimalStr(0.5);
-
-            context('when reservedRate 1', () => {
-              const reservedRate = toDecimalStr(1);
-              let vaultChange, walletChange, insuranceAccountChange, position;
-
-              before(async () => {
-                ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                  vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                    rate, freeWithdrawableRate, reservedRate
-                  }
-                ));
-              });
-
-              // equity: '998.1066730974275311',
-              // available: '959.824297541896274758',
-              // healthFactor: '26.072224061686145190'
-              // balance: 998.711131658830656187
-
-              // expectToWithdrawAmount: 499.05333654871376555
-              // expectToWithdrawAmount < available won't remove buy position
-
-              // realized: 0
-              // fee: 0
-              // withdraw amount: 499.05333654871376555
-
-              it('should change vault balance -499.05333654871376555', async () => {
-                assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
-              });
-
-              it('should change wallet balance 499.053336', async () => {
-                assert.equal(strFromDecimal(walletChange, 6), '499.053336');
-              });
-
-              it('should change insurance account balance 0.00000054871376555', async () => {
-                assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
-              });
-
-              it('should be trader size 3', async () => {
-                assert.equal(strFromDecimal(position.size), '3');
-              });
-            });
-
-            context('when reservedRate 0.5', () => {
-              const reservedRate = toDecimalStr(0.5);
-              let vaultChange, walletChange, insuranceAccountChange, position;
-
-              before(async () => {
-                ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                  vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                    rate, freeWithdrawableRate, reservedRate
-                  }
-                ));
-              });
-
-              // equity: '998.1066730974275311',
-              // available: '959.824297541896274758',
-              // healthFactor: '26.072224061686145190'
-              // balance: 998.711131658830656187
-
-              // expectToWithdrawAmount: 499.05333654871376555
-              // expectToWithdrawAmount < available won't remove buy position
-
-              // realized: 0
-              // fee: 0
-              // withdraw amount: 499.05333654871376555
-
-              it('should change vault balance -499.05333654871376555', async () => {
-                assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
-              });
-
-              it('should change wallet balance 499.053336', async () => {
-                assert.equal(strFromDecimal(walletChange, 6), '499.053336');
-              });
-
-              it('should change insurance account balance 0.00000054871376555', async () => {
-                assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
-              });
-
-              it('should be trader size 3', async () => {
-                assert.equal(strFromDecimal(position.size), '3');
-              });
-            });
-
-            context('when reservedRate 0', () => {
-              const reservedRate = toDecimalStr(0);
-              let vaultChange, walletChange, insuranceAccountChange, position;
-
-              before(async () => {
-                ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                  vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                    rate, freeWithdrawableRate, reservedRate
-                  }
-                ));
-              });
-
-              // equity: '998.1066730974275311',
-              // available: '959.824297541896274758',
-              // healthFactor: '26.072224061686145190'
-              // balance: 998.711131658830656187
-
-              // expectToWithdrawAmount: 499.05333654871376555
-              // expectToWithdrawAmount < available won't remove buy position
-
-              // realized: 0
-              // fee: 0
-              // withdraw amount: 499.05333654871376555
-
-              it('should change vault balance -499.05333654871376555', async () => {
-                assert.equal(strFromDecimal(vaultChange), '-499.05333654871376555');
-              });
-
-              it('should change wallet balance 499.053336', async () => {
-                assert.equal(strFromDecimal(walletChange, 6), '499.053336');
-              });
-
-              it('should change insurance account balance 0.00000054871376555', async () => {
-                assert.equal(strFromDecimal(insuranceAccountChange), '0.00000054871376555');
-              });
-
-              it('should be trader size 3', async () => {
-                assert.equal(strFromDecimal(position.size), '3');
-              });
-            });
-          });
-
-          context('when rate 0.961645005902295551', () => {
-            const rate = toDecimalStr('0.961645005902295551');
-            const reservedRate = toDecimalStr(0);
-
-            let vaultChange, walletChange, insuranceAccountChange, position;
-
-            before(async () => {
-              ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                  rate, freeWithdrawableRate, reservedRate
-                }
-              ));
-            });
-
-            // equity: '998.1066730974275311',
-            // available: '959.824297541896274758',
-            // healthFactor: '26.072224061686145190'
-            // balance: 998.711131658830656187
-
-            // expectToWithdrawAmount: 959.824297541896274191
-            // expectToWithdrawAmount < available won't remove buy position
-
-            // realized: 0
-            // fee: 0
-            // withdraw amount: 959.824297541896274191
-
-            it('should change vault balance -959.824297541896274191', async () => {
-              assert.equal(strFromDecimal(vaultChange), '-959.824297541896274191');
-            });
-
-            it('should change wallet balance 959.824297', async () => {
-              assert.equal(strFromDecimal(walletChange, 6), '959.824297');
-            });
-
-            it('should change insurance account balance 0.000000541896274191', async () => {
-              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000541896274191');
-            });
-
-            it('should be trader size 3', async () => {
-              assert.equal(strFromDecimal(position.size), '3');
-            });
-          });
-
-          context('when rate 0.961645005902295552', () => {
-            const rate = toDecimalStr('0.961645005902295552');
-            const reservedRate = toDecimalStr(0);
-
-            let vaultChange, walletChange, insuranceAccountChange, position;
-
-            before(async () => {
-              ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
-                vault, usdc, trader, expiry, strike, true, toDecimalStr(3), {
-                  rate, freeWithdrawableRate, reservedRate
-                }
-              ));
-            });
-
-            // equity: '998.1066730974275311',
-            // available: '959.824297541896274758',
-            // healthFactor: '26.072224061686145190'
-            // balance: 998.711131658830656187
-
-            // expectToWithdrawAmount: 959.824297541896275189
-            // remain to remove: expectToWithdrawAmount - available = 0.000000000000000431
-            // equity after free: 998.1066730974275311 - 959.824297541896274758 = 38.282375555531256342
-            // expectedRemainEquity: equity after free - remain to remove = 38.282375555531256342 - 0.000000000000000431 = 38.282375555531255911
-
-            // full premium; 38.282375555531256342
-            // full fee: -1.282823755555312563
-            // remove size: ceil(-3 * 0.000000000000000431 / (38.282375555531256342 - 1.282823755555312563))
-            //              = -0.000000000000000034
-
-            // realized: -0.000000000000000007
-            // fee: -0.000000000000000014
-            // equity after remove position: 998.106673097427531085
-            // withdraw amount: 998.106673097427531085 - 38.282375555531255911 = 959.824297541896275174
-
-            // -withdraw amount + realized + fee
-            it('should change vault balance -959.824297541896275195', async () => {
-              assert.equal(strFromDecimal(vaultChange), '-959.824297541896275195');
-            });
-
-            it('should change wallet balance 959.824297', async () => {
-              assert.equal(strFromDecimal(walletChange, 6), '959.824297');
-            });
-
-            it('should change insurance account balance 0.000000541896275174', async () => {
-              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000541896275174');
-            });
-
-            it('should be trader size 2.999999999999999966', async () => {
-              assert.equal(strFromDecimal(position.size), '2.999999999999999966');
             });
           });
         });
@@ -2500,14 +2593,14 @@ describe('Vault', () => {
             // full fee: -1.282056698430280995
             // already remove value: 12.333183933325314593
             // deploy remain to remove: 25.521583703687504926 - 12.333183933325314593 = 13.188399770362190333
-            // remove size: ceil(-3 * 13.188399770362190333 / (38.205669843028099737 - 1.282056698430280995))
-            //              = -1.071541919696318632
+            // remove size: roundUp(-3 * 13.188399770362190333 / (38.205669843028099737 - 1.282056698430280995))
+            //              = -1.071541919696318633
 
-            // realized: -0.044489192051917276
+            // realized: -0.044489192051917277
             // fee: -0.885709742577530509
-            // equity after remove position: 997.326405052249818486
+            // equity after remove position: 997.326405052249818485
             // withdraw amount: equity after remove position - expectedRemainEquity
-            //                  = 997.326405052249818486 - 25.52158370368750353 = 971.804821348562314956
+            //                  = 997.326405052249818485 - 25.52158370368750353 = 971.804821348562314955
 
             // -withdraw amount + realized + fee
             it('should change vault balance -972.735020283191762741', async () => {
@@ -2518,16 +2611,16 @@ describe('Vault', () => {
               assert.equal(strFromDecimal(walletChange, 6), '971.804821');
             });
 
-            it('should change insurance account balance 0.000000348562314956', async () => {
-              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000348562314956');
+            it('should change insurance account balance 0.000000348562314955', async () => {
+              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000348562314955');
             });
 
-            it('should be trader size 1.928458080303681368', async () => {
-              assert.equal(strFromDecimal(position.size), '1.928458080303681368');
+            it('should be trader size 1.928458080303681367', async () => {
+              assert.equal(strFromDecimal(position.size), '1.928458080303681367');
             });
 
-            it('should be pool size 1.071541919696318632', async () => {
-              assert.equal(strFromDecimal(poolPosition.size), '1.071541919696318632');
+            it('should be pool size 1.071541919696318633', async () => {
+              assert.equal(strFromDecimal(poolPosition.size), '1.071541919696318633');
             });
 
             it('should be available > 0', async () => {
@@ -2566,14 +2659,14 @@ describe('Vault', () => {
 
             // full premium; 12.760791851843752114
             // full fee: -0.427607918518437521
-            // remove size: ceil(-1 * 0.000000000000000398 / (12.760791851843752114 - 0.427607918518437521))
-            //              = -0.000000000000000032
+            // remove size: roundUp(-1 * 0.000000000000000398 / (12.760791851843752114 - 0.427607918518437521))
+            //              = -0.000000000000000033
 
             // realized: 0
-            // fee: -0.000000000000000013
-            // equity after remove position: 998.221913377577403999
+            // fee: -0.000000000000000014
+            // equity after remove position: 998.221913377577403998
             // withdraw amount: equity after remove position - expectedRemainEquity
-            //                  = 998.221913377577403999 - 51.043167407375008058 = 947.178745970202395941
+            //                  = 998.221913377577403998 - 51.043167407375008058 = 947.17874597020239594
 
             // -withdraw amount + realized + fee
             it('should change vault balance -947.178745970202395954', async () => {
@@ -2584,16 +2677,16 @@ describe('Vault', () => {
               assert.equal(strFromDecimal(walletChange, 6), '947.178745');
             });
 
-            it('should change insurance account balance 0.000000970202395941', async () => {
-              assert.equal(strFromDecimal(insuranceAccountChange), '0.000000970202395941');
+            it('should change insurance account balance 0.00000097020239594', async () => {
+              assert.equal(strFromDecimal(insuranceAccountChange), '0.00000097020239594');
             });
 
-            it('should be trader size 3.999999999999999968', async () => {
-              assert.equal(strFromDecimal(position.size), '3.999999999999999968');
+            it('should be trader size 3.999999999999999967', async () => {
+              assert.equal(strFromDecimal(position.size), '3.999999999999999967');
             });
 
-            it('should be pool size -0.999999999999999968', async () => {
-              assert.equal(strFromDecimal(poolPosition.size), '-0.999999999999999968');
+            it('should be pool size -0.999999999999999967', async () => {
+              assert.equal(strFromDecimal(poolPosition.size), '-0.999999999999999967');
             });
 
             it('should be available > 0', async () => {

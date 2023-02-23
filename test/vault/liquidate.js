@@ -178,7 +178,7 @@ describe('Vault', () => {
                   await mintAndDeposit(vault, usdc, liquidator, { amount: 10000 });
                   await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
                   await vault.connect(trader).trade(expiry, strike, false, toDecimalStr('0.000000000000000001'), INT_MAX);
-                  await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr(6), INT_MAX);
+                  await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr('6.000000000000000001'), INT_MAX);
                   await spotPricer.setPrice(toDecimalStr(1200));
                   await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
                   await vault.setTradeDisabled(true);
@@ -248,28 +248,28 @@ describe('Vault', () => {
                 });
 
                 context('when liquidate partial', () => {
-                  // size 6
-                  // premium: 720.278795636963590878
-                  // fee: -9.542787956369635908
-                  // available: -158.656794908544846652
-                  // maxLiquidation = 158.656794908544846652 + 72.027879563696359087 = 230.684674472241205739
-                  // resize = 6 * 230.684674472241205739 / (720.278795636963590878 - 9.542787956369635908) = 1.947429188722724584
+                  // size 6.000000000000000001
+                  // premium: 720.278795636963590998
+                  // fee: -9.542787956369635909
+                  // available: -158.656794908544846654
+                  // maxLiquidation = 158.656794908544846654 + 72.027879563696359099 = 230.684674472241205753
+                  // resize = 6.000000000000000001 * 230.684674472241205753 / (720.278795636963590998 - 9.542787956369635909) = 1.947429188722724584
 
                   // liquidate size 1.947429188722724584
                   // premium: 233.781991773578856918
                   // fee: -3.097317301337651156
 
                   // position
-                  // notional: -15.595913507734673472
+                  // notional: -15.595913507734673474
                   // premium: 233.781991773578856918
                   // fee: -3.097317301337651156
                   // reward: 23.378199177357885691
-                  // notional change: 5.06198953162625283
+                  // notional change: 5.061989531626252829
 
                   // realized = premium + fee - reward - notional change
-                  //          = 233.781991773578856918 - 3.097317301337651156 - 23.378199177357885691 - 5.06198953162625283
+                  //          = 233.781991773578856918 - 3.097317301337651156 - 23.378199177357885691 - 5.061989531626252829
                   it('should change trader balance 202.244485763257067241', async () => {
-                    assert.equal(strFromDecimal(traderBalanceChange2), '202.244485763257067241');
+                    assert.equal(strFromDecimal(traderBalanceChange2), '202.244485763257067242');
                   });
 
                   it('should change liquidator balance 23.378199177357885691', async () => {
@@ -280,13 +280,13 @@ describe('Vault', () => {
                     assert.equal(strFromDecimal(insuranceAccountBalanceChange2), '3.097317301337651156');
                   });
 
-                  it('should be trader size 4.052570811277275416', async () => {
-                    assert.equal(strFromDecimal(traderPosition2.size), '4.052570811277275416');
+                  it('should be trader size 4.052570811277275417', async () => {
+                    assert.equal(strFromDecimal(traderPosition2.size), '4.052570811277275417');
                   });
 
                   // notional - notional change
-                  it('should be trader notional -10.533923976108420642', async () => {
-                    assert.equal(strFromDecimal(traderPosition2.notional), '-10.533923976108420642');
+                  it('should be trader notional -10.533923976108420645', async () => {
+                    assert.equal(strFromDecimal(traderPosition2.notional), '-10.533923976108420645');
                   });
 
                   it('should be liquidator size 1.947429188722724584', async () => {
@@ -296,6 +296,46 @@ describe('Vault', () => {
                   it('should be liquidator notional -233.781991773578856918', async () => {
                     assert.equal(strFromDecimal(liquidatorPosition2.notional), '-233.781991773578856918');
                   });
+                });
+              });
+
+              context('when liquidate partial buy position', () => {
+                let vault, config, usdc;
+                let traderPosition;
+
+                before(async () => {
+                  await spotPricer.setPrice(toDecimalStr(1000));
+                  ({ vault, config, usdc } = await setup());
+                  await setupMarket(vault);
+                  await vault.setIv([
+                    buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
+                    buildIv(expiry, strike, false, false, toDecimalStr(0.8), false),
+                    buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false),
+                    buildIv(expiry, strike2, true, false, toDecimalStr(0.8), false)
+                  ]);
+                  await addPool(config, pool);
+                  await mintAndDeposit(vault, usdc, pool, { amount: 10000 });
+                  await mintAndDeposit(vault, usdc, trader);
+                  await mintAndDeposit(vault, usdc, liquidator, { amount: 10000 });
+                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-6), 0);
+                  await vault.connect(trader).trade(expiry, strike, false, toDecimalStr('1'), INT_MAX);
+                      await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr('6.000000000000000001'), INT_MAX);
+                  await spotPricer.setPrice(toDecimalStr(1200));
+                  await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
+                  await vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(6));
+                  await spotPricer.setPrice(toDecimalStr(1600));
+                  await vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(6));
+                  await spotPricer.setPrice(toDecimalStr(1300));
+
+                  // liquidate all
+                  await vault.connect(liquidator).liquidate(trader.address, expiry, strike, false, toDecimalStr(0.5));
+                  traderPosition = await vault.positionOf(trader.address, expiry, strike, false);
+
+                  await spotPricer.setPrice(spot);
+                });
+
+                it('should be trader size 0.5', async () => {
+                  assert.equal(strFromDecimal(traderPosition.size), '0.5');
                 });
               });
             });

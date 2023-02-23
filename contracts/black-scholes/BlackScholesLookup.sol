@@ -34,9 +34,9 @@ contract BlackScholesLookup is LnLookup, CdfLookup, LookupUpdater {
     uint strikePV = strike.decimalMul(pvs[expiry]);
     uint spotNd1 = spot.decimalMul(cdf(d1));
     uint strikeNd2 = strikePV.decimalMul(cdf(d2));
-    uint call = strikeNd2 <= spotNd1 ? spotNd1 - strikeNd2 : 0;
+    uint call = strikeNd2 < spotNd1 ? spotNd1 - strikeNd2 : 0;
     uint put = call + strikePV;
-    put = spot <= put ? put - spot : 0;
+    put = spot < put ? put - spot : 0;
     return isCall ? call : put;
   }
 }

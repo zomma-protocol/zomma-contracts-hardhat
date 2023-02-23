@@ -62,6 +62,12 @@ describe('LookupUpdater', () => {
       });
     });
 
+    context('when exp(-42.000000000000000001)', () => {
+      it('should be 0', async () => {
+        assert.equal(strFromDecimal(await lookupUpdater.exp(toDecimalStr('-42.000000000000000001'))), '0');
+      });
+    });
+
     context('when exp(100)', () => {
       it('should be 26881171418161356081172547590863453358990658.240212544679575552', async () => {
         assert.equal(strFromDecimal(await lookupUpdater.exp(toDecimalStr(100))), '26881171418161356081172547590863453358990658.240212544679575552');

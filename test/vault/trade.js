@@ -58,6 +58,7 @@ describe('Vault', () => {
     before(async () => {
       ({ vault, config, usdc } = await subSetup());
       await addPool(config, pool);
+      await addPool(config, pool2);
       await mintAndDeposit(vault, usdc, pool, { mint: 10000000 });
       await mintAndDeposit(vault, usdc, trader, { mint: 10000000 });
     });
@@ -644,6 +645,28 @@ describe('Vault', () => {
               position = await vault.positionOf(pool3.address, expiry, strike, true);
               assert.equal(strFromDecimal(position.size), '0');
             });
+          });
+        });
+
+        context('when pool2 available 0.000000000000000001', () => {
+          let vault, config, usdc;
+
+          before(async () => {
+            ({ vault, config, usdc } = await subSetup());
+            await addPool(config, pool);
+            await addPool(config, pool2);
+            await addPool(config, pool3);
+            await mintAndDeposit(vault, usdc, pool, { mint: 10000000 });
+            await mintAndDeposit(vault, usdc, pool2, { mint: 10000000, amount: '0.000001' });
+            await mintAndDeposit(vault, usdc, pool3, { mint: 10000000 });
+            await mintAndDeposit(vault, usdc, trader, { mint: 10000000 });
+            await vault.connect(pool2).withdraw(toDecimalStr('0.000000999999999999'));
+            await vault.connect(trader).trade(expiry, strike, true, toDecimalStr('-1'), 0);
+          });
+
+          it('should pool2 have no position"', async () => {
+            position = await vault.positionOf(pool2.address, expiry, strike, true);
+            assert.equal(strFromDecimal(position.size), '0');
           });
         });
       });

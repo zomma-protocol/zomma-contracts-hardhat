@@ -13,15 +13,15 @@ library SignedSafeDecimalMath {
     return x * y / UNIT;
   }
 
-  function decimalMulRound(int x, int y) internal pure returns (int) {
-    int quotientTimesTen = x.mul(y) / (UNIT / 10);
+  // function decimalMulRound(int x, int y) internal pure returns (int) {
+  //   int quotientTimesTen = x.mul(y) / (UNIT / 10);
 
-    if (quotientTimesTen % 10 >= 5) {
-      quotientTimesTen += 10;
-    }
+  //   if (quotientTimesTen % 10 >= 5) {
+  //     quotientTimesTen += 10;
+  //   }
 
-    return quotientTimesTen / 10;
-  }
+  //   return quotientTimesTen / 10;
+  // }
 
   function decimalMulRoundUp(int x, int y) internal pure returns (int) {
     int quotientTimesTen = x.mul(y) / (UNIT / 10);
@@ -54,24 +54,26 @@ library SignedSafeDecimalMath {
 
     if (resultTimesTen % 10 > 0) {
       resultTimesTen += 10;
+    } else if (resultTimesTen % 10 < 0) {
+      resultTimesTen -= 10;
     }
 
     return resultTimesTen / 10;
   }
 
-  function toDecimal(int i) internal pure returns (int) {
-    return i.mul(UNIT);
-  }
+  // function toDecimal(int i) internal pure returns (int) {
+  //   return i.mul(UNIT);
+  // }
 
-  function fromDecimal(int i) internal pure returns (int) {
-    int quotientTimesTen = i / (UNIT / 10);
+  // function fromDecimal(int i) internal pure returns (int) {
+  //   int quotientTimesTen = i / (UNIT / 10);
 
-    if (quotientTimesTen % 10 >= 5) {
-      quotientTimesTen += 10;
-    }
+  //   if (quotientTimesTen % 10 >= 5) {
+  //     quotientTimesTen += 10;
+  //   }
 
-    return quotientTimesTen / 10;
-  }
+  //   return quotientTimesTen / 10;
+  // }
 
   function abs(int x) internal pure returns (uint) {
     return uint(x < 0 ? -x : x);

@@ -6,7 +6,7 @@ describe('SpotPricer', () => {
   let spotPricer, chainlink, chainlinkProxy;
 
   before(async () => {
-    [Vault, SpotPricer, Chainlink, ChainlinkProxy] = await getContractFactories('TestVault', 'TestSpotPricer', 'TestChainlink', 'TestChainlinkProxy');
+    [Vault, SpotPricer, Chainlink, ChainlinkProxy] = await getContractFactories('TestVault', 'SpotPricer', 'TestChainlink', 'TestChainlinkProxy');
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
     chainlink = await Chainlink.deploy();
@@ -64,7 +64,7 @@ describe('SpotPricer', () => {
   });
 
   describe('#settle', () => {
-    let vault;
+    let spotPricer, vault;
 
     let initExpiry = 1674201600; // 2023-01-20T08:00:00Z
     const setupExpiry = async () => {
@@ -81,7 +81,10 @@ describe('SpotPricer', () => {
     };
 
     before(async () => {
+      const [TestSpotPricer] = await getContractFactories('TestSpotPricer');
       vault = await Vault.deploy();
+      spotPricer = await TestSpotPricer.deploy();
+      await spotPricer.initialize(chainlinkProxy.address);
       await spotPricer.setVault(vault.address);
     });
 

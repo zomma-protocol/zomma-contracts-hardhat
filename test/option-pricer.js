@@ -84,8 +84,8 @@ describe('OptionPricer', () => {
   });
 
   describe('#getPrice', () => {
-    function getPrice(isCall, spot, strike) {
-      return optionPricer.getPrice(isCall, expiry, expiry - now, toDecimalStr(0.8), spot, strike, toDecimalStr(0.06));
+    function getPrice(isCall, spot, strike, timeToExpirySec = expiry - now) {
+      return optionPricer.getPrice(isCall, expiry, timeToExpirySec, toDecimalStr(0.8), spot, strike, toDecimalStr(0.06));
     }
 
     before(async () => {

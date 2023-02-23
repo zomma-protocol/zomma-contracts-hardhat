@@ -3,7 +3,7 @@ const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, create
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
-  let teamAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount;
+  let teamAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -34,7 +34,7 @@ describe('Vault', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount] = accounts;
+    [teamAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     ({ vault, config, usdc } = await setup());
@@ -283,22 +283,46 @@ describe('Vault', () => {
         });
 
         context('when withdraw 1.0000001', () => {
-          let tvlChange, insuranceChange;
+          context('when insuranceProportion is 1', () => {
+            let tvlChange, insuranceChange;
 
-          before(async () => {
-            await mintAndDeposit(vault, usdc, trader2);
-            [insuranceChange] = await watchBalance(vault, [insuranceAccount.address], async () => {
-              [tvlChange] = await watchBalance(usdc, [vault.address], async () => {
-                await vault.connect(trader2).withdraw(toDecimalStr('1.0000001'));
+            before(async () => {
+              await mintAndDeposit(vault, usdc, trader2);
+              [insuranceChange] = await watchBalance(vault, [insuranceAccount.address], async () => {
+                [tvlChange] = await watchBalance(usdc, [vault.address], async () => {
+                  await vault.connect(trader2).withdraw(toDecimalStr('1.0000001'));
+                });
               });
+            });
+
+            it('should decrease tvl 1', async () => {
+              assert.equal(strFromDecimal(await vault.balanceOf(trader2.address)), '998.9999999');
+              assert.equal(strFromDecimal(insuranceChange), '0.0000001');
+              assert.equal(strFromDecimal(await usdc.balanceOf(trader2.address), 6), '1');
+              assert.equal(strFromDecimal(tvlChange, 6), '-1');
             });
           });
 
-          it('should decrease tvl 1', async () => {
-            assert.equal(strFromDecimal(await vault.balanceOf(trader2.address)), '998.9999999');
-            assert.equal(strFromDecimal(insuranceChange), '0.0000001');
-            assert.equal(strFromDecimal(await usdc.balanceOf(trader2.address), 6), '1');
-            assert.equal(strFromDecimal(tvlChange, 6), '-1');
+          context('when insuranceProportion is 0', () => {
+            let tvlChange, teamAccountChange;
+
+            before(async () => {
+              await config.setInsuranceProportion(toDecimalStr(0));
+              await mintAndDeposit(vault, usdc, otherAccount2);
+              [teamAccountChange] = await watchBalance(vault, [teamAccount.address], async () => {
+                [tvlChange] = await watchBalance(usdc, [vault.address], async () => {
+                  await vault.connect(otherAccount2).withdraw(toDecimalStr('1.0000001'));
+                });
+              });
+              await config.setInsuranceProportion(toDecimalStr(1));
+            });
+
+            it('should decrease tvl 1', async () => {
+              assert.equal(strFromDecimal(await vault.balanceOf(otherAccount2.address)), '998.9999999');
+              assert.equal(strFromDecimal(teamAccountChange), '0.0000001');
+              assert.equal(strFromDecimal(await usdc.balanceOf(otherAccount2.address), 6), '1');
+              assert.equal(strFromDecimal(tvlChange, 6), '-1');
+            });
           });
         });
 
@@ -349,7 +373,23 @@ describe('Vault', () => {
       });
     });
 
-    context('when available 0', () => {
+    context('when available < 0', () => {
+      let vault, config, usdc;
+
+      before(async () => {
+        ({ vault, config, usdc } = await setup());
+        await setupMarket(vault);
+        await addPool(config, pool);
+        await mintAndDeposit(vault, usdc, pool);
+        await mintAndDeposit(vault, usdc, accounts[5]);
+        await vault.connect(accounts[5]).trade(expiry, strike, true, toDecimalStr(-8), 0);
+        await spotPricer.setPrice(toDecimalStr(1300));
+      });
+
+      after(async () => {
+        await spotPricer.setPrice(toDecimalStr(1000));
+      })
+
       context('when withdraw 1', () => {
         it('should revert with "unavailable"', async () => {
           await expectRevert(vault.connect(accounts[5]).withdraw(1), 'unavailable');
@@ -626,6 +666,189 @@ describe('Vault', () => {
           assert.equal(strFromDecimal(insuranceAccountPosition.notional), '88.907557916359693035');
           assert.equal(strFromDecimal(insuranceAccountPosition2.notional), '0.000000000000000002');
           assert.equal(strFromDecimal(insuranceAccountPosition3.notional), '-113.125393959215895965');
+        });
+      });
+    });
+
+    context('when marginBalance < 0 and no positions', () => {
+      let vault, config, usdc;
+
+      before(async () => {
+        ({ vault, config, usdc } = await subSetup());
+        await vault.setTimestamp(expiry);
+        await spotPricer.setPrice(toDecimalStr(1250));
+        await spotPricer.setSettledPrice(expiry, toDecimalStr(1250));
+        await vault.settle(trader.address, expiry);
+        [insuranceAccountBalanceChange] = await watchBalance(vault, [insuranceAccount.address], async () => {
+          await vault.connect(liquidator).clear(trader.address);
+        });
+      });
+
+      // trader balance: -78.825665561611958872
+
+      it('should be trader balance 0', async () => {
+        assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), '0');
+      });
+
+      it('should change insurance account balance -78.825665561611958872', async () => {
+        assert.equal(strFromDecimal(insuranceAccountBalanceChange), '-78.825665561611958872');
+      });
+    });
+  });
+
+  describe('#getPremium', () => {
+    let vault, config, usdc;
+
+    before(async () => {
+      ({ vault, config, usdc } = await setup());
+      await setupMarket(vault);
+      await addPool(config, pool);
+      await mintAndDeposit(vault, usdc, pool);
+      await mintAndDeposit(vault, usdc, trader);
+    });
+
+    context('when expired', () => {
+      before(async () => {
+        await vault.setTimestamp(expiry);
+      });
+
+      after(async () => {
+        await vault.setTimestamp(now);
+      });
+
+      context('when price settled', () => {
+        context('when settled price 1101', () => {
+          let premium, fee;
+
+          before(async () => {
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(1101));
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(0));
+          });
+
+          it('should be premium -1', async () => {
+            assert.equal(strFromDecimal(premium), '-1');
+          });
+
+          it('should be fee -0.1', async () => {
+            assert.equal(strFromDecimal(fee), '-0.1');
+          });
+        });
+
+        context('when settled price 1100', () => {
+          let premium, fee;
+
+          before(async () => {
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(1100));
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(0));
+          });
+
+          it('should be premium 0', async () => {
+            assert.equal(strFromDecimal(premium), '0');
+          });
+
+          it('should be fee 0', async () => {
+            assert.equal(strFromDecimal(fee), '0');
+          });
+        });
+      });
+
+      context('when price not settled', () => {
+        context('when spot 1101', () => {
+          let premium, fee;
+
+          before(async () => {
+            await spotPricer.setPrice(toDecimalStr(1101));
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+            await spotPricer.setPrice(toDecimalStr(1000));
+          });
+
+          it('should be premium -1', async () => {
+            assert.equal(strFromDecimal(premium), '-1');
+          });
+
+          it('should be fee -0.1', async () => {
+            assert.equal(strFromDecimal(fee), '-0.1');
+          });
+        });
+
+        context('when spot 1100', () => {
+          let premium, fee;
+
+          before(async () => {
+            await spotPricer.setPrice(toDecimalStr(1100));
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+            await spotPricer.setPrice(toDecimalStr(1000));
+          });
+
+          it('should be premium 0', async () => {
+            assert.equal(strFromDecimal(premium), '0');
+          });
+
+          it('should be fee 0', async () => {
+            assert.equal(strFromDecimal(fee), '0');
+          });
+        });
+      });
+    });
+
+    context('when not expired', () => {
+      context('when no position can close', () => {
+        let premium, fee;
+
+        before(async () => {
+          [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+        });
+
+        it('should be premium -12.827953914221877123', async () => {
+          assert.equal(strFromDecimal(premium), '-12.827953914221877123');
+        });
+
+        it('should be fee -0.428279539142218771', async () => {
+          assert.equal(strFromDecimal(fee), '-0.428279539142218771');
+        });
+      });
+
+      context('when position can close', () => {
+        before(async () => {
+          await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+        });
+
+        context('when partial close', () => {
+          let premium, fee;
+
+          before(async () => {
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(2));
+          });
+
+          // new open part
+          // -12.827895956752105513
+          // -0.428278959567521055
+
+          it('should be premium -25.588687808595857627', async () => {
+            assert.equal(strFromDecimal(premium), '-25.588687808595857627');
+          });
+
+          it('should be fee -0.855886878085958576', async () => {
+            assert.equal(strFromDecimal(fee), '-0.855886878085958576');
+          });
+        });
+
+        context('when all close', () => {
+          let premium, fee;
+
+          before(async () => {
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(1));
+          });
+
+          it('should be premium -12.760791851843752114', async () => {
+            assert.equal(strFromDecimal(premium), '-12.760791851843752114');
+          });
+
+          it('should be fee -0.427607918518437521', async () => {
+            assert.equal(strFromDecimal(fee), '-0.427607918518437521');
+          });
         });
       });
     });

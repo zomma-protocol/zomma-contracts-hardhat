@@ -1,9 +1,9 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, addPool, mintAndDeposit, toBigNumber } = require('../support/helper');
+const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, addPool, mintAndDeposit, toBigNumber, INT_MAX } = require('../support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
-  let teamAccount, insuranceAccount, trader, pool;
+  let teamAccount, insuranceAccount, trader, pool, pool2;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -34,7 +34,7 @@ describe('Vault', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, trader, pool] = accounts;
+    [teamAccount, insuranceAccount, trader, pool, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer(artifacts);
   });
@@ -46,7 +46,9 @@ describe('Vault', () => {
       ({ vault, config, usdc } = await setup());
       await setupMarket(vault);
       await addPool(config, pool);
+      await addPool(config, pool2);
       await mintAndDeposit(vault, usdc, pool, { mint: 10000000 });
+      await mintAndDeposit(vault, usdc, pool2, { mint: 10000000 });
       await mintAndDeposit(vault, usdc, trader, { mint: 10000000 });
       return { vault, config, usdc };
     };
@@ -54,29 +56,32 @@ describe('Vault', () => {
     const reset = async () => {
       await vault.connect(pool).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(1));
       await vault.connect(pool).deposit(toDecimalStr(1000));
+      await vault.connect(pool2).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(1));
+      await vault.connect(pool2).deposit(toDecimalStr(1000));
     };
 
     before(async () => {
       ({ vault, config, usdc } = await subSetup());
 
       const ivs = [];
-      for (let i = 0; i < 51; ++i) {
+      for (let i = 0; i < 52; ++i) {
         ivs.push(buildIv(expiry, toDecimalStr(1100 + i), true, true, toDecimalStr(0.8), false));
         ivs.push(buildIv(expiry, toDecimalStr(1100 + i), true, false, toDecimalStr(0.8), false));
       }
       await vault.setIv(ivs);
     });
 
-    context('when 51 positions', () => {
-      const positionSize = 51;
+    context('when 52 positions', () => {
+      const positionCount = 52;
 
       before(async () => {
-        for (let i = 0; i < positionSize; ++i) {
-          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(-0.001), 0);
+        for (let i = 0; i < positionCount; ++i) {
+          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(0.002), INT_MAX);
         }
       });
 
       after(async () => {
+        await vault.connect(trader).withdraw(toDecimalStr(1000));
         await vault.connect(trader).withdrawPercent(toDecimalStr(0.5), 0, 0);
         await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
         await vault.connect(trader).deposit(toDecimalStr(1000));
@@ -87,7 +92,7 @@ describe('Vault', () => {
         const rate = toDecimalStr(1);
 
         it('should revert with "withdraw too much"', async () => {
-          await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, 0), 'withdraw too much');
+          await expectRevert(vault.connect(pool).withdrawPercent(rate, 0, 0), 'withdraw too much');
         });
       });
 
@@ -96,9 +101,9 @@ describe('Vault', () => {
         let accountInfoBefore, accountInfo;
 
         before(async () => {
-          accountInfoBefore = await vault.getAccountInfo(trader.address);
-          await vault.connect(trader).withdrawPercent(rate, 0, 0);
-          accountInfo = await vault.getAccountInfo(trader.address);
+          accountInfoBefore = await vault.getAccountInfo(pool.address);
+          await vault.connect(pool).withdrawPercent(rate, 0, 0);
+          accountInfo = await vault.getAccountInfo(pool.address);
         });
 
         it('should not decrease healthFactor', async () => {
@@ -108,17 +113,20 @@ describe('Vault', () => {
     });
 
     context('when 40 positions', () => {
-      const positionSize = 40;
+      const positionCount = 40;
 
       before(async () => {
-        for (let i = 0; i < positionSize; ++i) {
-          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(-0.001), 0);
+        for (let i = 0; i < positionCount; ++i) {
+          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(0.002), INT_MAX);
         }
       });
 
       after(async () => {
+        await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
         await vault.connect(trader).deposit(toDecimalStr(1000));
-        await reset();
+        await vault.connect(pool).deposit(toDecimalStr(1000));
+        await vault.connect(pool2).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(1));
+        await vault.connect(pool2).deposit(toDecimalStr(1000));
       });
 
       context('when rate 1', () => {
@@ -126,8 +134,8 @@ describe('Vault', () => {
         let accountInfo;
 
         before(async () => {
-          await vault.connect(trader).withdrawPercent(rate, 0, 0);
-          accountInfo = await vault.getAccountInfo(trader.address);
+          await vault.connect(pool).withdrawPercent(rate, 0, 0);
+          accountInfo = await vault.getAccountInfo(pool.address);
         });
 
         it('should clear', async () => {

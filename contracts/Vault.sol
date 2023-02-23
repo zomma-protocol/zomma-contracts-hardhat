@@ -94,7 +94,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
     uint sellLength;
     PositionParams[50] buyPositions;
     uint buyLength;
-    bool anyUntradablePosition;
+    bool morePositions;
   }
 
   struct ReducePositionParams {
@@ -304,16 +304,12 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
       }
       reducePositionParams.amountToRemove -= removedAmount;
     }
-    require(reducePositionParams.removeAll && !removePositions.anyUntradablePosition, "withdraw too much");
+    require(reducePositionParams.removeAll && !removePositions.morePositions, "withdraw too much");
   }
 
   function reduceTradeTypePosition(ReducePositionParams memory reducePositionParams, PositionParams memory position, TxCache memory txCache) private {
     reducePositionParams.sizeChange = 0;
     int size = position.size;
-    if (size == 0) {
-      reducePositionParams.amountChange = 0;
-      return;
-    }
     bool isBuy = size > 0;
     if (!reducePositionParams.removeAll && !isBuy) {
       uint ratedRisk = uint(-size).decimalMul(txCache.spotInitialMarginRiskRate);
@@ -403,13 +399,13 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
     if (checkDisable && (tradeDisabled || timestamp > lastUpdatedAt + OUTDATED_PERIOD)) {
-      removePositions.anyUntradablePosition = expiries.length != 0;
+      removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];
       if (checkDisable && (timestamp >= expiry || expiryDisabled[expiry])) {
-        removePositions.anyUntradablePosition = true;
+        removePositions.morePositions = true;
         continue;
       }
       uint[] memory strikes = listOfStrikes(account, expiry);
@@ -418,7 +414,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
         pushPosition(account, expiry, strike, true, spot, maxLength, removePositions, checkDisable);
         pushPosition(account, expiry, strike, false, spot, maxLength, removePositions, checkDisable);
         if (removePositions.buyLength == maxLength && removePositions.sellLength == maxLength) {
-          if (removePositions.anyUntradablePosition) {
+          if (removePositions.morePositions) {
             return removePositions;
           } else {
             continue;
@@ -432,17 +428,17 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
     int size = positionSizeOf(account, expiry, strike, isCall);
     if (size > 0) {
       if (checkDisable && isMarketDisabled(expiry, strike ,isCall, false)) {
-        removePositions.anyUntradablePosition = true;
+        removePositions.morePositions = true;
       } else if (removePositions.buyLength < maxLength) {
         removePositions.buyPositions[removePositions.buyLength++] = PositionParams(
           expiry, strike, isCall, size, size
         );
-      } else if (!removePositions.anyUntradablePosition) {
-        removePositions.anyUntradablePosition = true;
+      } else if (!removePositions.morePositions) {
+        removePositions.morePositions = true;
       }
     } else if (size < 0) {
       if (checkDisable && isMarketDisabled(expiry, strike ,isCall, true)) {
-        removePositions.anyUntradablePosition = true;
+        removePositions.morePositions = true;
       } else if (removePositions.sellLength < maxLength) {
         // priority: otm, expiry, S-K
         int weight = isCall ? int(strike) - int(spot) : int(spot) - int(strike);
@@ -453,8 +449,8 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
         removePositions.sellPositions[removePositions.sellLength++] = PositionParams(
           expiry, strike, isCall, size, weight
         );
-      } else if (!removePositions.anyUntradablePosition) {
-        removePositions.anyUntradablePosition = true;
+      } else if (!removePositions.morePositions) {
+        removePositions.morePositions = true;
       }
     }
   }
@@ -559,17 +555,18 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   }
 
   function getPositionInfoSub(TxCache memory txCache, address account, uint settledPrice, PositionParams memory positionParams, PositionInfo memory positionInfo, bool isCall) private view {
-    positionParams.size = positionSizeOf(account, positionParams.expiry, positionParams.strike, isCall);
-    if (positionParams.size == 0 ) {
+    int size = positionSizeOf(account, positionParams.expiry, positionParams.strike, isCall);
+    if (size == 0 ) {
       return;
     }
+    positionParams.size = size;
     positionParams.isCall = isCall;
-    (int size, int notional, int value, int fee) = getTradeTypeInfo(txCache, account, positionParams, settledPrice);
+    (int notional, int value, int fee) = getTradeTypeInfo(txCache, account, positionParams, settledPrice);
     positionInfo.fee += fee;
     if (size > 0) {
       positionInfo.buyNotional += notional;
       positionInfo.buyValue += value;
-    } else if (size < 0) {
+    } else {
       if (settledPrice == 0) {
         positionInfo.unsettledSellSize += size;
       } else {
@@ -580,14 +577,11 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
     }
   }
 
-  function getTradeTypeInfo(TxCache memory txCache, address account, PositionParams memory positionParams, uint settledPrice) private view returns (int size, int notional, int value, int fee) {
-    size = positionSizeOf(account, positionParams.expiry, positionParams.strike, positionParams.isCall);
-    if (size != 0) {
-      notional = accountPositions[account][positionParams.expiry][positionParams.strike][positionParams.isCall].notional;
-      (value, fee) = txCache.now >= positionParams.expiry ?
-        getTradeTypeSettledValue(txCache.exerciseFeeRate, txCache.profitFeeRate, positionParams.strike, settledPrice == 0 ? txCache.spot :
-        settledPrice, positionParams.isCall, size) : internalGetPremium(txCache, positionParams.expiry, positionParams.strike, positionParams.isCall, -size, INT256_MAX, 0);
-    }
+  function getTradeTypeInfo(TxCache memory txCache, address account, PositionParams memory positionParams, uint settledPrice) private view returns (int notional, int value, int fee) {
+    notional = accountPositions[account][positionParams.expiry][positionParams.strike][positionParams.isCall].notional;
+    (value, fee) = txCache.now >= positionParams.expiry ?
+      getTradeTypeSettledValue(txCache.exerciseFeeRate, txCache.profitFeeRate, positionParams.strike, settledPrice == 0 ? txCache.spot :
+      settledPrice, positionParams.isCall, positionParams.size) : internalGetPremium(txCache, positionParams.expiry, positionParams.strike, positionParams.isCall, -positionParams.size, INT256_MAX, 0);
   }
 
   function getTradeTypeSettledValue(uint exerciseFeeRate, uint profitFeeRate, uint strike, uint settledPrice, bool isCall, int size) private pure returns (int value, int fee) {
@@ -735,9 +729,9 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
 
   function getPremium(uint expiry, uint strike, bool isCall, int size) external view returns (int, int) {
     TxCache memory txCache = initTxCache();
-    if (txCache.now > expiry) {
-      uint settledPrice = txCache.now >= expiry ? spotPricer.settledPrices(expiry) : txCache.spot;
-      return getTradeTypeSettledValue(txCache.exerciseFeeRate, txCache.profitFeeRate, strike, settledPrice, isCall, -size);
+    if (txCache.now >= expiry) {
+      uint settledPrice = spotPricer.settledPrices(expiry);
+      return getTradeTypeSettledValue(txCache.exerciseFeeRate, txCache.profitFeeRate, strike, settledPrice == 0 ? txCache.spot : settledPrice, isCall, -size);
     } else {
       PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
       TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, address(0));
