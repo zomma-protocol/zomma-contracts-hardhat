@@ -3,7 +3,7 @@ const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, create
 
 let Vault, Config, TestERC20, SpotPricer, Settler, accounts;
 describe('Settler', () => {
-  let teamAccount, insuranceAccount, trader, trader2, pool, otherAccount;
+  let stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -19,7 +19,7 @@ describe('Settler', () => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
     const vault = await createVault(config.address);
-    await config.initialize(vault.address, teamAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc };
   };
@@ -34,7 +34,7 @@ describe('Settler', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer, Settler] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer', 'TestSettler');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
+    [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     ({ vault, config, usdc } = await setup());

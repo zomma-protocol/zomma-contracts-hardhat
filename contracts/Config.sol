@@ -24,7 +24,7 @@ contract Config is Ownable {
     poolProportion,
     insuranceProportion,
     insuranceAccount,
-    teamAccount
+    stakeholderAccount
   }
 
   address[] public pools;
@@ -51,7 +51,7 @@ contract Config is Ownable {
   Vault public vault;
   address public quote;
   address public insuranceAccount;
-  address public teamAccount;
+  address public stakeholderAccount;
   bool public initialized;
 
   uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
@@ -72,14 +72,14 @@ contract Config is Ownable {
   event RemovePool(address pool);
   event SetPoolReservedRate(address pool, uint reservedRate);
 
-  function initialize(address _vault, address _teamAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external {
+  function initialize(address _vault, address _stakeholderAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external {
     require(!initialized, "already initialized");
     initialized = true;
 
     vault = Vault(_vault);
     quote = _quote;
     quoteDecimal = _quoteDecimal;
-    teamAccount = _teamAccount;
+    stakeholderAccount = _stakeholderAccount;
     insuranceAccount = _insuranceAccount;
     initialMarginRiskRate = 100000000000000000; // 10 %
     liquidateRate = 500000000000000000; // 0.5
@@ -95,8 +95,8 @@ contract Config is Ownable {
     minPremium = 1000000000000000000; // 1 (usd)
     exerciseFeeRate = 150000000000000; // 0.015 %
     profitFeeRate = 100000000000000000; // 10 %
-    poolProportion = 1000000000000000000; // 100%
-    insuranceProportion = 1000000000000000000; // 100%
+    poolProportion = 700000000000000000; // 70%
+    insuranceProportion = 300000000000000000; // 30%
   }
 
   function setInitialMarginRiskRate(uint _initialMarginRiskRate) external onlyOwner {
@@ -194,10 +194,10 @@ contract Config is Ownable {
     emit Change(ChangeType.insuranceAccount, abi.encodePacked(_insuranceAccount));
   }
 
-  function setTeamAccount(address _teamAccount) external onlyOwner {
-    require(_teamAccount != address(0), "can't be zero address");
-    teamAccount = _teamAccount;
-    emit Change(ChangeType.teamAccount, abi.encodePacked(_teamAccount));
+  function setStakeholderAccount(address _stakeholderAccount) external onlyOwner {
+    require(_stakeholderAccount != address(0), "can't be zero address");
+    stakeholderAccount = _stakeholderAccount;
+    emit Change(ChangeType.stakeholderAccount, abi.encodePacked(_stakeholderAccount));
   }
 
   function addPool(address pool) external onlyOwner {

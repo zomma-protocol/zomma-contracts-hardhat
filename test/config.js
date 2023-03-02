@@ -3,7 +3,7 @@ const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, INT_MAX } = require('./support/helper');
 
 let PoolFactory, Config, Vault, TestERC20, SpotPricer;
-async function setup(teamAccount, insuranceAccount) {
+async function setup(stakeholderAccount, insuranceAccount) {
   const usdc = await TestERC20.deploy('USDC', 'USDC', 6);
   const spotPricer = await SpotPricer.deploy();
   const poolFactory = await PoolFactory.deploy();
@@ -11,7 +11,7 @@ async function setup(teamAccount, insuranceAccount) {
   const config = await Config.deploy();
   const vault = await Vault.deploy();
   await vault.initialize(config.address, spotPricer.address, optionPricer.address);
-  await config.initialize(vault.address, teamAccount.address, insuranceAccount.address, usdc.address, 6);
+  await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, 6);
   await optionPricer.reinitialize(config.address, vault.address);
   return { poolFactory, config, vault, usdc, spotPricer, optionPricer };
 };
@@ -39,14 +39,14 @@ async function trade(vault, usdc, spotPricer, optionPricer, trader) {
 }
 
 describe('Config', () => {
-  let teamAccount, insuranceAccount, account1, account2;
+  let stakeholderAccount, insuranceAccount, account1, account2;
   let poolFactory, config, vault, pool, usdc;
 
   before(async () => {
     [PoolFactory, Config, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Config', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, account1, account2] = accounts;
-    ({ poolFactory, config, vault, usdc } = await setup(teamAccount, insuranceAccount));
+    [stakeholderAccount, insuranceAccount, account1, account2] = accounts;
+    ({ poolFactory, config, vault, usdc } = await setup(stakeholderAccount, insuranceAccount));
   });
 
   describe('#initialize', () => {
@@ -56,7 +56,7 @@ describe('Config', () => {
         assert.equal(await config.vault(), vault.address);
         assert.equal(await config.quote(), usdc.address);
         assert.equal(await config.quoteDecimal(), 6);
-        assert.equal(await config.teamAccount(), teamAccount.address);
+        assert.equal(await config.stakeholderAccount(), stakeholderAccount.address);
         assert.equal(await config.insuranceAccount(), insuranceAccount.address);
       });
     });
@@ -691,28 +691,28 @@ describe('Config', () => {
     });
   });
 
-  describe('#setTeamAccount', () => {
+  describe('#setStakeholderAccount', () => {
     context('when owner', () => {
       context('when set not zero address', () => {
         before(async () => {
-          await config.setTeamAccount(account1.address);
+          await config.setStakeholderAccount(account1.address);
         });
 
         it('should pass', async () => {
-          assert.equal(await config.teamAccount(), account1.address);
+          assert.equal(await config.stakeholderAccount(), account1.address);
         });
       });
 
       context('when set zero address', () => {
         it('should revert with "can\'t be zero address"', async () => {
-          await expectRevert(config.setTeamAccount(ZERO_ADDRESS), 'can\'t be zero address');
+          await expectRevert(config.setStakeholderAccount(ZERO_ADDRESS), 'can\'t be zero address');
         });
       });
     });
 
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(config.connect(account1).setTeamAccount(account1.address), 'Ownable: caller is not the owner');
+        await expectRevert(config.connect(account1).setStakeholderAccount(account1.address), 'Ownable: caller is not the owner');
       });
     });
   });
@@ -721,7 +721,7 @@ describe('Config', () => {
     context('when owner', () => {
       context('when pool does not enable', () => {
         it('should revert with "need to enable pool"', async () => {
-          await expectRevert(config.addPool(teamAccount.address), 'need to enable pool');
+          await expectRevert(config.addPool(stakeholderAccount.address), 'need to enable pool');
         });
       });
 
@@ -750,7 +750,7 @@ describe('Config', () => {
           let config, vault, usdc, spotPricer, optionPricer;
 
           before(async () => {
-            ({ config, vault, usdc, spotPricer, optionPricer } = await setup(teamAccount, insuranceAccount));
+            ({ config, vault, usdc, spotPricer, optionPricer } = await setup(stakeholderAccount, insuranceAccount));
             await config.connect(account1).enablePool();
             await config.addPool(account1.address);
           });
@@ -796,7 +796,7 @@ describe('Config', () => {
 
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(config.connect(account1).addPool(teamAccount.address), 'Ownable: caller is not the owner');
+        await expectRevert(config.connect(account1).addPool(stakeholderAccount.address), 'Ownable: caller is not the owner');
       });
     });
   });
@@ -805,7 +805,7 @@ describe('Config', () => {
     let poolFactory, config, vault, usdc, spotPricer, optionPricer, pool;
 
     before(async () => {
-      ({ poolFactory, config, vault, usdc, spotPricer, optionPricer } = await setup(teamAccount, insuranceAccount));
+      ({ poolFactory, config, vault, usdc, spotPricer, optionPricer } = await setup(stakeholderAccount, insuranceAccount));
       pool = await createDefaultPool(poolFactory, vault);
       await config.addPool(pool.address);
     });
@@ -859,7 +859,7 @@ describe('Config', () => {
           await usdc.mint(account1.address, toDecimalStr(1000, 6));
           await usdc.connect(account1).approve(pool.address, toDecimalStr(100000000000, 6));
           await pool.connect(account1).deposit(toDecimalStr(1000));
-          await trade(vault, usdc, spotPricer, optionPricer, teamAccount);
+          await trade(vault, usdc, spotPricer, optionPricer, stakeholderAccount);
         });
 
         it('should revert with "position not empty"', async () => {
@@ -870,7 +870,7 @@ describe('Config', () => {
 
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(config.connect(account1).removePool(teamAccount.address), 'Ownable: caller is not the owner');
+        await expectRevert(config.connect(account1).removePool(stakeholderAccount.address), 'Ownable: caller is not the owner');
       });
     });
   });

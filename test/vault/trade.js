@@ -3,7 +3,7 @@ const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, create
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
-  let teamAccount, insuranceAccount, trader, trader2, pool, pool2, pool3;
+  let stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -19,7 +19,7 @@ describe('Vault', () => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
     const vault = await createVault(config.address);
-    await config.initialize(vault.address, teamAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc };
   };
@@ -34,7 +34,7 @@ describe('Vault', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, trader, trader2, pool, pool2, pool3] = accounts;
+    [stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer(artifacts);
   });
@@ -216,11 +216,11 @@ describe('Vault', () => {
 
               context('when poolProportion is 0.3', () => {
                 context('when insuranceProportion is 1', () => {
-                  let poolChange, insuranceAccountChange, teamAccountChange;
+                  let poolChange, insuranceAccountChange, stakeholderAccountChange;
 
                   before(async () => {
                     await config.setPoolProportion(toDecimalStr(0.3));
-                    [poolChange, insuranceAccountChange, teamAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, teamAccount.address], async () => {
+                    [poolChange, insuranceAccountChange, stakeholderAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, stakeholderAccount.address], async () => {
                       await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), acceptableTotal);
                     });
                     await config.setPoolProportion(toDecimalStr(1));
@@ -237,17 +237,17 @@ describe('Vault', () => {
                   });
 
                   it('should change insurance Account balance 0', async () => {
-                    assert.equal(strFromDecimal(teamAccountChange), '0');
+                    assert.equal(strFromDecimal(stakeholderAccountChange), '0');
                   });
                 });
 
                 context('when insuranceProportion is 0.33', () => {
-                  let poolChange, insuranceAccountChange, teamAccountChange;
+                  let poolChange, insuranceAccountChange, stakeholderAccountChange;
 
                   before(async () => {
                     await config.setPoolProportion(toDecimalStr(0.3));
                     await config.setInsuranceProportion(toDecimalStr(0.33));
-                    [poolChange, insuranceAccountChange, teamAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, teamAccount.address], async () => {
+                    [poolChange, insuranceAccountChange, stakeholderAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, stakeholderAccount.address], async () => {
                       await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), acceptableTotal);
                     });
                     await config.setPoolProportion(toDecimalStr(1));
@@ -266,7 +266,7 @@ describe('Vault', () => {
                   });
 
                   it('should change insurance Account balance 0.200863103857700604', async () => {
-                    assert.equal(strFromDecimal(teamAccountChange), '0.200863103857700604');
+                    assert.equal(strFromDecimal(stakeholderAccountChange), '0.200863103857700604');
                   });
                 });
               });

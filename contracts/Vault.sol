@@ -885,7 +885,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
       }
       fee -= insuranceFee;
       if (fee != 0) {
-        updateBalance(config.teamAccount(), fee, fundType);
+        updateBalance(config.stakeholderAccount(), fee, fundType);
       }
     }
   }

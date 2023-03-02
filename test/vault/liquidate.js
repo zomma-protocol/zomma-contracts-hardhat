@@ -3,7 +3,7 @@ const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, create
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
-  let teamAccount, insuranceAccount, trader, pool, liquidator, otherAccount;
+  let stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -19,7 +19,7 @@ describe('Vault', () => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
     const vault = await createVault(config.address);
-    await config.initialize(vault.address, teamAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc };
   };
@@ -34,7 +34,7 @@ describe('Vault', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [teamAccount, insuranceAccount, trader, pool, liquidator, otherAccount] = accounts;
+    [stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer(artifacts);
   });
@@ -462,7 +462,7 @@ describe('Vault', () => {
 
                   context('when insuranceProportion is 0.3', () => {
                     let vault, config, usdc;
-                    let insuranceAccountBalanceChange, teamAccountBalanceChange;
+                    let insuranceAccountBalanceChange, stakeholderAccountBalanceChange;
 
                     before(async () => {
                       await spotPricer.setPrice(toDecimalStr(1000));
@@ -470,7 +470,7 @@ describe('Vault', () => {
                       await spotPricer.setPrice(spot);
                       await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
                       await config.setInsuranceProportion(toDecimalStr(0.33));
-                      [insuranceAccountBalanceChange, teamAccountBalanceChange] = await watchBalance(vault, [insuranceAccount.address, teamAccount.address], async () => {
+                      [insuranceAccountBalanceChange, stakeholderAccountBalanceChange] = await watchBalance(vault, [insuranceAccount.address, stakeholderAccount.address], async () => {
                         await vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(1));
                       });
                     });
@@ -481,7 +481,7 @@ describe('Vault', () => {
                     });
 
                     it('should change team account balance 0.550736940207736745', async () => {
-                      assert.equal(strFromDecimal(teamAccountBalanceChange), '0.550736940207736745');
+                      assert.equal(strFromDecimal(stakeholderAccountBalanceChange), '0.550736940207736745');
                     });
                   });
                 });
