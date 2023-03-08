@@ -157,11 +157,9 @@ async function main() {
   await createPools(vault, config, poolFactory);
   await setupIvs(vault, optionPricer);
 
-
+  console.log('=== api ===');
   console.log(`START_BLOCK=${block.number}`);
   console.log(`START_BLOCK_HASH=${block.hash}`);
-
-  console.log('=== api ===');
   console.log(`VAULT=${vault.address.toLowerCase()}`);
   console.log(`CONFIG=${config.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
