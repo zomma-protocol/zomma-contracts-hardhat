@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX } = require('./support/helper');
 
 let PoolFactory, Config, Vault, TestERC20, SpotPricer;
 async function setup(stakeholderAccount, insuranceAccount) {
@@ -30,10 +30,10 @@ async function trade(vault, usdc, spotPricer, optionPricer, trader) {
   await vault.connect(trader).deposit(toDecimalStr(1000));
   await vault.setTimestamp(now);
   await spotPricer.setPrice(toDecimalStr(1000));
-  await vault.setIv([
+  await vault.setIv(mergeIv([
     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
-  ]);
+  ]));
   await optionPricer.updateLookup([expiry]);
   await vault.connect(trader).trade(expiry, toDecimalStr(1100), true, toDecimalStr(10), INT_MAX);
 }

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -27,7 +27,7 @@ describe('Vault', () => {
   const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(ivs.map((iv) => buildIv(...iv)));
+    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
@@ -59,39 +59,47 @@ describe('Vault', () => {
 
   describe('#setIv', () => {
     context('when owner', () => {
-      beforeEach(async () => {
-        await vault.setIv([
-          buildIv(expiry, strike, true, true, toDecimalStr(0.8), true),
-          buildIv(expiry, strike, true, false, toDecimalStr(0.7), false),
-          buildIv(expiry, strike, false, true, toDecimalStr(0.6), false),
-          buildIv(expiry, strike, false, false, toDecimalStr(0.5), true)
-        ]);
+      context('when invalid data', () => {
+        it('should revert with "invalid length"', async () => {
+          await expectRevert(vault.setIv([1]), 'invalid length');
+        });
       });
 
-      afterEach(async () => {
-        await vault.setIv([
-          buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
-          buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
-          buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
-          buildIv(expiry, strike, false, false, toDecimalStr(0.8), false)
-        ]);
-      });
+      context('when valid data', () => {
+        beforeEach(async () => {
+          await vault.setIv(mergeIv([
+            buildIv(expiry, strike, true, true, toDecimalStr(0.8), true),
+            buildIv(expiry, strike, true, false, toDecimalStr('0.700000019'), false),
+            buildIv(expiry, strike, false, true, toDecimalStr(0.6), false),
+            buildIv(expiry, strike, false, false, toDecimalStr(0.5), true)
+          ]));
+        });
 
-      it('should set ivs', async () => {
-        assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, true)), '0.8');
-        assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, false)), '0.7');
-        assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, true)), '0.6');
-        assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, false)), '0.5');
-        assert.equal(await vault.isMarketDisabled(expiry, strike, true, true), true);
-        assert.equal(await vault.isMarketDisabled(expiry, strike, true, false), false);
-        assert.equal(await vault.isMarketDisabled(expiry, strike, false, true), false);
-        assert.equal(await vault.isMarketDisabled(expiry, strike, false, false), true);
+        afterEach(async () => {
+          await vault.setIv(mergeIv([
+            buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
+            buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
+            buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
+            buildIv(expiry, strike, false, false, toDecimalStr(0.8), false)
+          ]));
+        });
+
+        it('should set ivs', async () => {
+          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, true)), '0.8');
+          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, false)), '0.70000001');
+          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, true)), '0.6');
+          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, false)), '0.5');
+          assert.equal(await vault.isMarketDisabled(expiry, strike, true, true), true);
+          assert.equal(await vault.isMarketDisabled(expiry, strike, true, false), false);
+          assert.equal(await vault.isMarketDisabled(expiry, strike, false, true), false);
+          assert.equal(await vault.isMarketDisabled(expiry, strike, false, false), true);
+        });
       });
     });
 
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(vault.connect(trader).setIv([buildIv(expiry, strike, true, true, toDecimalStr(0.8), false)]), 'Ownable: caller is not the owner');
+        await expectRevert(vault.connect(trader).setIv(mergeIv([buildIv(expiry, strike, true, true, toDecimalStr(0.8), false)])), 'Ownable: caller is not the owner');
       });
     });
   });
@@ -283,7 +291,7 @@ describe('Vault', () => {
         });
 
         context('when withdraw 1.0000001', () => {
-          context('when insuranceProportion is 1', () => {
+          context('when insuranceProportion is 0.3', () => {
             let tvlChange, insuranceChange;
 
             before(async () => {
@@ -297,7 +305,7 @@ describe('Vault', () => {
 
             it('should decrease tvl 1', async () => {
               assert.equal(strFromDecimal(await vault.balanceOf(trader2.address)), '998.9999999');
-              assert.equal(strFromDecimal(insuranceChange), '0.0000001');
+              assert.equal(strFromDecimal(insuranceChange), '0.00000003');
               assert.equal(strFromDecimal(await usdc.balanceOf(trader2.address), 6), '1');
               assert.equal(strFromDecimal(tvlChange, 6), '-1');
             });
@@ -365,7 +373,7 @@ describe('Vault', () => {
           });
 
           it('should decrease tvl 1', async () => {
-            assert.equal(strFromDecimal(await vault.balanceOf(insuranceAccount.address)), '999');
+            assert.equal(strFromDecimal(await vault.balanceOf(insuranceAccount.address)), '998.99999993');
             assert.equal(strFromDecimal(await usdc.balanceOf(insuranceAccount.address), 6), '1');
             assert.equal(strFromDecimal(tvlChange, 6), '-1');
           });
@@ -497,11 +505,11 @@ describe('Vault', () => {
         });
 
         context('when size -1', () => {
-          context('when insuranceProportion is 1', () => {
-            let position, balanceChange, insuranceAccountBalanceChange;
+          context('when insuranceProportion is 0.3', () => {
+            let position, balanceChange, insuranceAccountBalanceChange, stakeholderAccountBalanceCHange;
 
             before(async () => {
-              [balanceChange, insuranceAccountBalanceChange] = await watchBalance(vault, [trader.address, insuranceAccount.address], async () => {
+              [balanceChange, insuranceAccountBalanceChange, stakeholderAccountBalanceCHange] = await watchBalance(vault, [trader.address, insuranceAccount.address, stakeholderAccount.address], async () => {
                 await vault.connect(settler).settle(trader.address, expiry);
               });
               position = await vault.positionOf(trader.address, expiry, strike, true);
@@ -519,12 +527,17 @@ describe('Vault', () => {
               assert.equal(strFromDecimal(position.notional), '0');
             });
 
-            it('should increase insurance account balance 0.1665', async () => {
-              assert.equal(strFromDecimal(insuranceAccountBalanceChange), '0.1665');
+            // 0.1665 * 0.3
+            it('should increase insurance account balance 0.04995', async () => {
+              assert.equal(strFromDecimal(insuranceAccountBalanceChange), '0.04995');
+            });
+
+            it('should increase team account balance 0.11655', async () => {
+              assert.equal(strFromDecimal(stakeholderAccountBalanceCHange), '0.11655');
             });
           });
 
-          context('when insuranceProportion is 0.33', () => {
+          context('when insuranceProportion is 1', () => {
             let insuranceAccountBalanceChange, stakeholderAccountBalanceCHange;
 
             before(async () => {
@@ -532,19 +545,18 @@ describe('Vault', () => {
               ({ vault, config, usdc } = await subSetup());
               await vault.setTimestamp(expiry);
               await spotPricer.setSettledPrice(expiry, toDecimalStr(1110));
-              await config.setInsuranceProportion(toDecimalStr(0.33));
+              await config.setInsuranceProportion(toDecimalStr(1));
               [insuranceAccountBalanceChange, stakeholderAccountBalanceCHange] = await watchBalance(vault, [insuranceAccount.address, stakeholderAccount.address], async () => {
                 await vault.connect(settler).settle(trader.address, expiry);
               });
             });
 
-            // 0.1665 * 0.33
-            it('should increase insurance account balance 0.054945', async () => {
-              assert.equal(strFromDecimal(insuranceAccountBalanceChange), '0.054945');
+            it('should increase insurance account balance 0.1665', async () => {
+              assert.equal(strFromDecimal(insuranceAccountBalanceChange), '0.1665');
             });
 
-            it('should increase team account balance 0.111555', async () => {
-              assert.equal(strFromDecimal(stakeholderAccountBalanceCHange), '0.111555');
+            it('should increase team account balance 0', async () => {
+              assert.equal(strFromDecimal(stakeholderAccountBalanceCHange), '0');
             });
           });
         });
@@ -558,12 +570,14 @@ describe('Vault', () => {
 
     const subSetup = async () => {
       ({ vault, config, usdc } = await setup());
-      await setupMarket(vault);
-      await vault.setIv([
-        buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
-        buildIv(expiry, strike, false, false, toDecimalStr(0.8), false),
-        buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false),
-        buildIv(expiry, strike2, true, false, toDecimalStr(0.8), false)
+      await config.setPoolProportion(toDecimalStr(1));
+      await setupMarket(vault, [
+        [expiry, strike, true, true, toDecimalStr(0.8), false],
+        [expiry, strike, true, false, toDecimalStr(0.8), false],
+        [expiry, strike, false, true, toDecimalStr(0.8), false],
+        [expiry, strike, false, false, toDecimalStr(0.8), false],
+        [expiry, strike2, true, true, toDecimalStr(0.8), false],
+        [expiry, strike2, true, false, toDecimalStr(0.8), false]
       ]);
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
@@ -701,6 +715,7 @@ describe('Vault', () => {
 
     before(async () => {
       ({ vault, config, usdc } = await setup());
+      await config.setPoolProportion(toDecimalStr(1));
       await setupMarket(vault);
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);

@@ -6,6 +6,7 @@ const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
 
 const INT_MAX = '57896044618658097711785492504343953926634992332820282019728792003956564819967';
+const MAX_IV = new BigNumber('0xffffffffffffff');
 
 async function expectRevert(actual, expected) {
   await expect(actual).to.be.revertedWith(expected);
@@ -20,15 +21,92 @@ async function getContractFactories(...contracts) {
 }
 
 function buildIv(expiry, strike, isCall, isBuy, iv, disabled) {
+  return { expiry, strike, isCall, isBuy, iv, disabled };
+}
+
+function mergeIv(ivs) {
+  const marketMap = {};
+  ivs.forEach((iv) => {
+    let market = marketMap[iv.expiry];
+    if (!market) {
+      market = marketMap[iv.expiry] = {};
+    }
+    const sk = new BigNumber(iv.strike).toString(10);
+    let sMarket = market[sk];
+    if (!sMarket) {
+      sMarket = market[sk] = {};
+    }
+    let csMarket = sMarket[iv.isCall];
+    if (!csMarket) {
+      csMarket = sMarket[iv.isCall] = {};
+    }
+    csMarket[iv.isBuy] = { iv: iv.iv, disabled: iv.disabled };
+  });
+  const markets = [];
+  Object.keys(marketMap).forEach((expiry) => {
+    const market = marketMap[expiry];
+    Object.keys(market).forEach((sk) => {
+      const strike = new BigNumber(sk);
+      const sMarket = market[sk];
+      const data = {
+        expiry, strike,
+        buyCallIv: new BigNumber(0),
+        sellCallIv: new BigNumber(0),
+        buyPutIv: new BigNumber(0),
+        sellPutIv: new BigNumber(0),
+        buyCallDisabled: false,
+        sellCallDisabled: false,
+        buyPutDisabled: false,
+        sellPutDisabled: false
+      };
+      if (sMarket[true]) {
+        if (sMarket[true][true]) {
+          data.buyCallIv = sMarket[true][true].iv;
+          data.buyCallDisabled = sMarket[true][true].disabled;
+        }
+        if (sMarket[true][false]) {
+          data.sellCallIv = sMarket[true][false].iv;
+          data.sellCallDisabled = sMarket[true][false].disabled;
+        }
+      }
+      if (sMarket[false]) {
+        if (sMarket[false][true]) {
+          data.buyPutIv = sMarket[false][true].iv;
+          data.buyPutDisabled = sMarket[false][true].disabled;
+        }
+        if (sMarket[false][false]) {
+          data.sellPutIv = sMarket[false][false].iv;
+          data.sellPutDisabled = sMarket[false][false].disabled;
+        }
+      }
+      markets.push(...buildMarket(data));
+    });
+  });
+  return markets;
+}
+
+function buildMarket({ expiry, strike, buyCallIv, sellCallIv, buyPutIv, sellPutIv, buyCallDisabled, sellCallDisabled, buyPutDisabled, sellPutDisabled }) {
   let temp = '0x';
-  temp += disabled ? '1' : '0';
-  temp += isCall ? '1' : '0';
-  temp += isBuy ? '1': '0';
-  temp += '000';
-  temp += _.padStart(new BigNumber(iv).toString(16), 24, '0');
-  temp += _.padStart(new BigNumber(strike).toString(16), 24, '0');
+  temp += _.padStart(new BigNumber(strike).toString(16), 54, '0');
   temp += _.padStart(new BigNumber(expiry).toString(16), 10, '0');
-  return temp;
+
+  let temp2 = '0x';
+  temp2 += sellPutDisabled ? '1': '0';
+  temp2 += buyPutDisabled ? '1': '0';
+  temp2 += sellCallDisabled ? '1' : '0';
+  temp2 += buyCallDisabled ? '1' : '0';
+  temp2 += '0000';
+  temp2 += formetIv(sellPutIv);
+  temp2 += formetIv(buyPutIv);
+  temp2 += formetIv(sellCallIv);
+  temp2 += formetIv(buyCallIv);
+  return [temp, temp2];
+}
+
+function formetIv(iv) {
+  iv = new BigNumber(new BigNumber(iv).div(10**10).toFixed(0, BigNumber.ROUND_DOWN));
+  iv = iv.gt(MAX_IV) ? MAX_IV : iv;
+  return _.padStart(iv.toString(16), 14, '0');
 }
 
 function toBigNumber(value) {
@@ -105,6 +183,6 @@ async function mintAndDeposit(vault, usdc, account, { decimals = 6, amount = 100
 
 module.exports = {
   expectRevert, getContractFactories, createPool,
-  INT_MAX, buildIv, watchBalance, addPool, removePool, mintAndDeposit,
+  INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer
 };

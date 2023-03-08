@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, addPool, mintAndDeposit, toBigNumber, INT_MAX } = require('../support/helper');
+const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, toBigNumber, INT_MAX } = require('../support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -27,7 +27,7 @@ describe('Vault', () => {
   const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(ivs.map((iv) => buildIv(...iv)));
+    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
@@ -68,7 +68,7 @@ describe('Vault', () => {
         ivs.push(buildIv(expiry, toDecimalStr(1100 + i), true, true, toDecimalStr(0.8), false));
         ivs.push(buildIv(expiry, toDecimalStr(1100 + i), true, false, toDecimalStr(0.8), false));
       }
-      await vault.setIv(ivs);
+      await vault.setIv(mergeIv(ivs));
     });
 
     context('when 52 positions', () => {

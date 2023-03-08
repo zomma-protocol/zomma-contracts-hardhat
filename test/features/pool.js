@@ -1,6 +1,6 @@
 const assert = require('assert');
 const BigNumber = require("bignumber.js");
-const { getContractFactories, createPool, buildIv, toDecimal, toDecimalStr, strFromDecimal, createOptionPricer, toBigNumber, INT_MAX } = require('../support/helper');
+const { getContractFactories, createPool, buildIv, mergeIv, toDecimal, toDecimalStr, strFromDecimal, createOptionPricer, toBigNumber, INT_MAX } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer;
 const initPool = async (owner) => {
@@ -158,6 +158,7 @@ describe('Pool', () => {
 
     before(async() => {
       ({usdc, spotPricer, poolFactory, optionPricer, config, vault} = await initPool(owner));
+      await config.setPoolProportion(toDecimalStr(1));
 
       const pools = await config.getPools();
       await usdc.mint(owner.address, toDecimalStr(90000, 6));
@@ -193,7 +194,7 @@ describe('Pool', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
 
       error = null;

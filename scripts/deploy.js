@@ -6,7 +6,7 @@
 // global scope, and execute the script.
 require('dotenv').config();
 const { ethers } = require('hardhat');
-const { toDecimalStr, nextFriday, buildIv } = require('./helper');
+const { toDecimalStr, nextFriday, buildIv, mergeIv } = require('./helper');
 const ln = require('./ln');
 const cdf = require('./cdf');
 
@@ -50,7 +50,7 @@ async function setupIvs(vault, optionPricer) {
     expiry += 86400 * 7;
   }
   console.log('setIv...');
-  await vault.setIv(data);
+  await vault.setIv(mergeIv(data));
   console.log('updateLookup...');
   await optionPricer.updateLookup(expiries);
 }

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer } = require('../support/helper');
+const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer } = require('../support/helper');
 
 let PoolFactory, Config, Vault, TestERC20, SpotPricer, accounts;
 const initVault = async (owner) => {
@@ -95,13 +95,13 @@ describe('Vault', () => {
       const strike = toDecimalStr(800);
       data.push(buildIv(expiry, strike, true, true, toDecimalStr(0.9), false));
 
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
       await optionPricer.updateLookup([expiry]);
       assert.equal(strFromDecimal((await vault.getMarketIv(1669968000, strike, true, true))), '0.9');
 
       data = [];
       data.push(buildIv(expiry, strike, true, true, toDecimalStr(0.95), false));
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
       await optionPricer.updateLookup([expiry]);
       assert.equal(strFromDecimal((await vault.getMarketIv(1669968000, strike, true, true))), '0.95');
     });
@@ -119,7 +119,7 @@ describe('Vault', () => {
       data.push(buildIv(expiry2, toDecimalStr(1000), true, true, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1000), true, false, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1100), true, true, toDecimalStr(0.8), false));
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
 
       await optionPricer.updateLookup([expiry]);
       await optionPricer.updateLookup([expiry2]);
@@ -160,7 +160,7 @@ describe('Vault', () => {
       data.push(buildIv(expiry2, toDecimalStr(1000), true, false, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1100), true, true, toDecimalStr(0.8), false));
 
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
 
       await optionPricer.updateLookup([expiry]);
       await optionPricer.updateLookup([expiry2]);
@@ -238,7 +238,7 @@ describe('Vault', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
     });
 
@@ -336,7 +336,7 @@ describe('Vault', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(data);
+      await vault.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
 
       error = null;

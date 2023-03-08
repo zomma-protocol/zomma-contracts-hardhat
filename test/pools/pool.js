@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, INT_MAX, toBigNumber } = require('../support/helper');
+const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
@@ -21,6 +21,8 @@ describe('Pool', () => {
     const vault = await Vault.deploy();
     await vault.initialize(config.address, spotPricer.address, optionPricer.address);
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
+    await config.setPoolProportion(toDecimalStr(1));
+    await config.setInsuranceProportion(toDecimalStr(1));
     await optionPricer.reinitialize(config.address, vault.address);
     const { pool, poolToken } = (await createDefaultPool(vault, config));
     return { vault, config, pool, poolToken, usdc };
@@ -38,10 +40,10 @@ describe('Pool', () => {
     await usdc.mint(accounts[0].address, toDecimalStr(1000, decimals));
     await usdc.approve(vault.address, toDecimalStr(100000000000, decimals));
     await vault.deposit(toDecimalStr(1000));
-    await vault.setIv([
+    await vault.setIv(mergeIv([
       buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
       buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
-    ]);
+    ]));
     await optionPricer.updateLookup([expiry]);
     await vault.trade(expiry, toDecimalStr(1100), true, toDecimalStr(10), INT_MAX);
   };
