@@ -1,12 +1,16 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "../tokenomics/StakingPool.sol";
+import "../tokenomics/TimeDistributedPool.sol";
 
-contract TestStakingPool is StakingPool {
+contract TestTimeDistributedPool is TimeDistributedPool {
   uint public timestamp;
 
-  constructor(address _rewardPool, address _rewardToken, address _stakingToken) StakingPool(_rewardPool, _rewardToken, _stakingToken) {
+  constructor(
+    string memory _name, string memory _symbol, uint8 _decimals, address _rewardsProvider, address _stakingToken
+  ) TimeDistributedPool(
+    _name, _symbol, _decimals, _rewardsProvider, _stakingToken
+    ) {
   }
 
   function setTimestamp(uint _timestamp) external {
