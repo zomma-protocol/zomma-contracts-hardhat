@@ -9,7 +9,7 @@ contract EscrowedZMA is TimeDistributedPool {
 
   mapping(address => bool) isRewardCollector;
 
-  constructor(address _rewardsProvider, address _stakingToken, address _zma) TimeDistributedPool('Escrowed ZOMMA Token', 'esZMA', 18, _rewardsProvider, _stakingToken) {
+  constructor(address _rewardsProvider, address _stakingToken) TimeDistributedPool('Escrowed ZOMMA Token', 'esZMA', 18, _rewardsProvider, _stakingToken) {
   }
 
   function stakeFor(uint amount, address beneficiary) external {

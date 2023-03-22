@@ -13,6 +13,7 @@ contract EscrowedZMARewarder is ERC20 {
   constructor(address _zma, address _escrowedZma) ERC20('Escrowed ZOMMA Rewarder', 'esZMARewarder') {
     zma = _zma;
     escrowedZma = _escrowedZma;
+    IERC20(zma).approve(_escrowedZma, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
   }
 
   function decimals() public view override returns (uint8) {

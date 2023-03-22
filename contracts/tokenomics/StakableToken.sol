@@ -11,8 +11,8 @@ import "hardhat/console.sol";
 abstract contract StakableToken is ERC20, Ownable, Timestamp {
   using SafeERC20 for IERC20;
 
-  // uint constant internal OFFSET = 2 ** 64;
-  uint constant internal OFFSET = 10 ** 18;
+  uint constant internal OFFSET = 2 ** 64;
+  // uint constant internal OFFSET = 10 ** 18;
 
   mapping(address => mapping(address => uint)) public payout;
   mapping(address => uint) public unstakedAt;
@@ -72,17 +72,12 @@ abstract contract StakableToken is ERC20, Ownable, Timestamp {
     require(balanceOf(msg.sender) >= amount, "balanceOf not enough");
     for (uint i = 0; i < rewardItems.length; ++i) {
       address rewardItem = rewardItems[i];
-      // console.log(rewardPerShareWithPending(rewardItem));
       internalClaimRewards(rewardItem, payable(msg.sender));
-      // console.log(rewardPerShareWithPending(rewardItem));
-
-      // console.log(amount * rewardPerShareWithPending(rewardItem));
-      // console.log(payout[rewardItem][msg.sender]);
       payout[rewardItem][msg.sender] -= amount * rewardPerShareWithPending(rewardItem);
     }
-    _burn(msg.sender, amount);
     unstakedAt[msg.sender] = getTimestamp();
     unstaking[msg.sender] += amount;
+    _burn(msg.sender, amount);
   }
 
   function claimUnstake() external {
@@ -154,9 +149,9 @@ abstract contract StakableToken is ERC20, Ownable, Timestamp {
   function internalClaimRewards(address rewardItem, address payable user) internal {
     distribute(rewardItem);
     uint rewards = rewardsOf(rewardItem, user);
-      // console.log(rewards * OFFSET);
     if (rewards > 0) {
-      payout[rewardItem][user] += rewards * OFFSET;
+      // payout[rewardItem][user] += rewards * OFFSET;
+      payout[rewardItem][user] += rewardPerShareWithPending(rewardItem) * balanceOf(user) - payout[rewardItem][user];
       sendRewards(rewardItem, user, rewards);
       emit ClaimRewards(user, rewardItem, rewards);
     }
