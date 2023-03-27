@@ -227,8 +227,8 @@ describe('OptionPricer', () => {
             const available = toDecimalStr(1001);
             const equity = toDecimalStr(1000);
 
-            it('should revert with "equity < available"', async () => {
-              await expectRevert(getPremium({ ...subParams, available, equity }), 'equity < available');
+            it('should get premium -12.827953914221877123 and fee 0', async () => {
+              await assertGetPremium({ ...subParams, available, equity }, '-12.827953914221877123', '0');
             });
           });
         });

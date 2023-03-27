@@ -72,8 +72,10 @@ contract OptionPricer is BlackScholesLookup, Timestamp {
   }
 
   function adjustPriceByUtilization(GetPremiumParams memory params, uint price, bool isBuy) internal pure returns (uint) {
+    if (params.available > params.equity) {
+      params.available = params.equity;
+    }
     require(params.available > 0, "available must be greater than 0");
-    require(params.equity >= params.available, "equity < available");
 
     uint utilization = SafeDecimalMath.UNIT - uint(params.available.decimalDiv(params.equity));
     uint utilizationAfter;

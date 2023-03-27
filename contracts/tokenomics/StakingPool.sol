@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "../utils/Timestamp.sol";
 import "hardhat/console.sol";
 
-abstract contract StakableToken is ERC20, Ownable, Timestamp {
+abstract contract StakingPool is ERC20, Ownable, Timestamp {
   using SafeERC20 for IERC20;
 
   uint constant internal OFFSET = 2 ** 64;

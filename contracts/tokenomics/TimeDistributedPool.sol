@@ -1,15 +1,15 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "./StakableToken.sol";
+import "./StakingPool.sol";
 
-contract TimeDistributedPool is StakableToken {
+contract TimeDistributedPool is StakingPool {
   mapping(address => uint) public distributionPerDay;
   mapping(address => uint) public lastDistributedAt;
 
   constructor(
     string memory _name, string memory _symbol, uint8 _decimals, address _rewardsProvider, address _stakingToken
-  ) StakableToken(
+  ) StakingPool(
     _name, _symbol, _decimals, _rewardsProvider, _stakingToken
   ) {
   }

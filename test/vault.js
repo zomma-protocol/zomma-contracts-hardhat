@@ -3,7 +3,7 @@ const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, create
 
 let Vault, Config, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
-  let stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2;
+  let stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -34,7 +34,7 @@ describe('Vault', () => {
   before(async () => {
     [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
-    [stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2] = accounts;
+    [stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     ({ vault, config, usdc } = await setup());
@@ -863,6 +863,30 @@ describe('Vault', () => {
 
           it('should be fee -0.427607918518437521', async () => {
             assert.equal(strFromDecimal(fee), '-0.427607918518437521');
+          });
+        });
+
+        context('when close and open, multi-pools', () => {
+          let premium, fee;
+
+          before(async () => {
+            await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+            await addPool(config, pool2);
+            await mintAndDeposit(vault, usdc, pool2);
+            await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+            [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(2));
+          });
+
+          // close: -12.760791851843752114
+          // open:  -12.794343975365589297
+          it('should be premium -25.555135827209341411', async () => {
+            assert.equal(strFromDecimal(premium), '-25.555135827209341411');
+          });
+
+          // close: -0.427607918518437521
+          // open: -0.427943439753655892
+          it('should be fee -0.855551358272093413', async () => {
+            assert.equal(strFromDecimal(fee), '-0.855551358272093413');
           });
         });
       });
