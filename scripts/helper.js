@@ -1,4 +1,4 @@
-const { buildIv, toDecimalStr, strFromDecimal } = require('../test/support/helper');
+const { buildIv, toDecimalStr, strFromDecimal, mergeIv } = require('../test/support/helper');
 
 function nextFriday(date = new Date()) {
   let expiry = Math.floor(date.getTime() / 1000);
@@ -11,5 +11,6 @@ module.exports = {
   buildIv,
   nextFriday,
   toDecimalStr,
-  strFromDecimal
+  strFromDecimal,
+  mergeIv
 };

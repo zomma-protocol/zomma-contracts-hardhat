@@ -20,7 +20,7 @@ contract OptionMarket {
 
   event SetIv(uint expiry, uint strike, uint market);
 
-  function internalSetIv(uint[] memory data) internal {
+  function internalSetIv(uint[] calldata data) internal {
     uint length = data.length;
     require(length % 2 == 0, 'invalid length');
     for (uint i = 0; i < length; i += 2) {

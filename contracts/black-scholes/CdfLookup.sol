@@ -10,7 +10,7 @@ contract CdfLookup {
     frozenCdf = true;
   }
 
-  function setCdf(uint[] memory keys, uint[] memory values) external {
+  function setCdf(uint[] calldata keys, uint[] calldata values) external {
     require(!frozenCdf, "frozen");
     require(keys.length == values.length, "incorrect length");
     uint length = keys.length;

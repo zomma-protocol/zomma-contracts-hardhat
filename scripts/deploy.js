@@ -10,6 +10,23 @@ const { toDecimalStr, nextFriday, buildIv, mergeIv } = require('./helper');
 const ln = require('./ln');
 const cdf = require('./cdf');
 
+const isZksync = process.env.ZKSYNC === '1';
+const isProduction = process.env.PRODUCTION === '1';
+const useDummyChainlink = !isProduction && !isZksync && process.env.TEST_CHAINLINK === '1';
+
+let spotPricerContract, settlerContract, optionPricerContract, vaultContract;
+if (isProduction) {
+  spotPricerContract = isZksync ? 'ZksyncSpotPricer' : 'SpotPricer';
+  settlerContract = 'Settler';
+  optionPricerContract = 'OptionPricer';
+  vaultContract = 'Vault';
+} else {
+  spotPricerContract = isZksync ? 'TestZksyncSpotPricer' : 'TestSpotPricer';
+  settlerContract = 'TestSettler';
+  optionPricerContract = 'TestOptionPricer';
+  vaultContract = 'TestVault';
+}
+
 async function deploy({ contract, deployed, args = [] }) {
   const Contract = await ethers.getContractFactory(contract);
   console.log(`deploy ${contract}...`);
@@ -96,6 +113,27 @@ async function setupCdf(optionPricer) {
   }
 }
 
+async function createChainlink(chainlinkContract, chainlinkProxyContract) {
+  const chainlink = await deploy({ contract: chainlinkContract, args: [8] });
+  const chainlinkProxy = await deploy({
+    contract: chainlinkProxyContract,
+    deployed: async (c) => {
+      console.log(`${chainlinkProxyContract}.setChainlink...`);
+      await c.setChainlink(chainlink.address);
+
+      if (isZksync) {
+        if (process.env.FEEDER) {
+          await c.transferOwnership(process.env.FEEDER);
+          await chainlink.transferOwnership(process.env.FEEDER);
+        } else {
+          console.log('should change owner');
+        }
+      }
+    }
+  });
+  return chainlinkProxy.address;
+}
+
 async function main() {
   const block = await ethers.provider.getBlock('latest');
   const usdc = await getOrDeploy(process.env.USDC, {
@@ -106,37 +144,38 @@ async function main() {
       await c.mint(process.env.DEPLOYER, '100000000000000000000000000000');
     }
   });
-  const faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
+  let faucet;
+  if (!isProduction) {
+    faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
+  }
+  let chainlinkProxyAddress;
+  if (isZksync) {
+    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('ZksyncChainlink', 'ZksyncChainlinkProxy');
+  }
   const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
-    contract: 'TestSpotPricer',
+    contract: spotPricerContract,
     deployed: async(c) => {
-      if (process.env.CHAINLINK_PROXY) {
+      if (chainlinkProxyAddress) {
         console.log('spotPricer.initialize...');
-        await c.initialize(process.env.CHAINLINK_PROXY);
-      } else {
+        await c.initialize(chainlinkProxyAddress);
+      } else if (!isProduction) {
         console.log('spotPricer.setPrice...');
         await c.setPrice('1000000000000000000000'); // 1000
+      } else {
+        console.warn('should set CHAINLINK');
       }
     }
   });
-  let chainlinkProxy;
-  if (process.env.TEST_CHAINLINK === '1') {
-    const chainlink = await deploy({ contract: 'TestChainlink' });
-    chainlinkProxy = await deploy({
-      contract: 'TestChainlinkProxy',
-      deployed: async (c) => {
-        console.log('chainlinkProxy.setChainlink...');
-        await c.setChainlink(chainlink.address);
-      }
-    });
+  if (useDummyChainlink) {
+    chainlinkProxyAddress = await createChainlink('TestChainlink', 'TestChainlinkProxy');
     console.log('spotPricer.reinitialize...');
-    await spotPricer.reinitialize(chainlinkProxy.address);
+    await spotPricer.reinitialize(chainlinkProxyAddress);
   }
   const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
-  const settler = await getOrDeploy(process.env.SETTLER, { contract: 'TestSettler' });
-  const optionPricer = await getOrDeploy(process.env.OPTION_PRICER, { contract: 'TestOptionPricer' });
+  const settler = await getOrDeploy(process.env.SETTLER, { contract: settlerContract });
+  const optionPricer = await getOrDeploy(process.env.OPTION_PRICER, { contract: optionPricerContract });
   const config = await deploy({ contract: 'Config' });
-  const vault = await deploy({ contract: 'TestVault' });
+  const vault = await deploy({ contract: vaultContract });
 
   console.log('vault.initialize...');
   await vault.initialize(config.address, spotPricer.address, optionPricer.address);
@@ -144,18 +183,28 @@ async function main() {
   console.log('config.initialize...');
   await config.initialize(vault.address, process.env.DEPLOYER, process.env.DEPLOYER, usdc.address, 6);
 
-  console.log('optionPricer.reinitialize...');
-  await optionPricer.reinitialize(config.address, vault.address);
+  if (isProduction) {
+    console.log('optionPricer.initialize...');
+    await optionPricer.initialize(config.address);
 
-  console.log('settler.reinitialize...');
-  await settler.reinitialize(vault.address);
+    console.log('settler.initialize...');
+    await settler.initialize(vault.address);
+  } else {
+    console.log('optionPricer.reinitialize...');
+    await optionPricer.reinitialize(config.address, vault.address);
 
-  console.log('spotPricer.setVault...');
-  await spotPricer.setVault(vault.address);
+    console.log('settler.reinitialize...');
+    await settler.reinitialize(vault.address);
+
+    console.log('spotPricer.setVault...');
+    await spotPricer.setVault(vault.address);
+  }
 
   await setupCdf(optionPricer);
   await createPools(vault, config, poolFactory);
-  await setupIvs(vault, optionPricer);
+  if (!isProduction) {
+    await setupIvs(vault, optionPricer);
+  }
 
   console.log('=== api ===');
   console.log(`START_BLOCK=${block.number}`);
@@ -164,10 +213,12 @@ async function main() {
   console.log(`CONFIG=${config.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
-  console.log(`FAUCET=${faucet.address.toLowerCase()}`);
+  if (!isProduction) {
+    console.log(`FAUCET=${faucet.address.toLowerCase()}`);
+  }
   console.log(`SETTLER=${settler.address.toLowerCase()}`);
-  if (process.env.TEST_CHAINLINK === '1') {
-    console.log(`CHAINLINK_PROXY=${chainlinkProxy.address.toLowerCase()}`);
+  if (chainlinkProxyAddress) {
+    console.log(`CHAINLINK_PROXY=${chainlinkProxyAddress.toLowerCase()}`);
   }
 
   console.log('=== fe ===');
@@ -177,23 +228,32 @@ async function main() {
   console.log(`vault: '${vault.address.toLowerCase()}',`);
   console.log(`config: '${config.address.toLowerCase()}'`);
 
-  console.log('=== contracts ===');
-  console.log(`faucet: '${faucet.address.toLowerCase()}'`);
+  if (!isProduction) {
+    console.log('=== contracts ===');
+    console.log(`faucet: '${faucet.address.toLowerCase()}'`);
+  }
 
   console.log('=== contract ===');
   console.log(`USDC=${usdc.address.toLowerCase()}`);
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`FACTORY=${poolFactory.address.toLowerCase()}`);
-  console.log(`FAUCET=${faucet.address.toLowerCase()}`);
+  if (!isProduction) {
+    console.log(`FAUCET=${faucet.address.toLowerCase()}`);
+  }
   console.log(`SETTLER=${settler.address.toLowerCase()}`);
+  if (chainlinkProxyAddress) {
+    console.log(`CHAINLINK_PROXY=${chainlinkProxyAddress.toLowerCase()}`);
+  }
 
   console.log('=== develop ===');
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);
   console.log(`process.env.SPOT_PRICER='${spotPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_PRICER='${optionPricer.address.toLowerCase()}'`);
   console.log(`process.env.FACTORY='${poolFactory.address.toLowerCase()}'`);
-  console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);
+  if (!isProduction) {
+    console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);
+  }
   console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
 }
 

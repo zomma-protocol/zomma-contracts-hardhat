@@ -13,7 +13,7 @@ contract Settler {
     vault = Vault(_vault);
   }
 
-  function settle(uint expiry, address[] memory accounts) external {
+  function settle(uint expiry, address[] calldata accounts) external {
     for (uint i = 0; i < accounts.length; ++i) {
       vault.settle(accounts[i], expiry);
     }

@@ -42,7 +42,7 @@ contract OptionPricer is BlackScholesLookup, Timestamp {
     config = Config(_config);
   }
 
-  function updateLookup(uint[] memory expiries) external {
+  function updateLookup(uint[] calldata expiries) external {
     int riskFreeRate = config.riskFreeRate();
     uint time = getTimestamp();
     for (uint i = 0; i < expiries.length; ++i) {

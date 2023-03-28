@@ -5,13 +5,17 @@ import "../interfaces/IChainlink.sol";
 
 contract TestChainlink is IChainlink {
   int public latestAnswer;
-  uint8 public decimals = 8;
+  uint8 public decimals;
   uint public roundId;
   mapping(uint256 => int256) private answers;
   mapping(uint256 => uint256) private timestamps;
   uint private timestamp;
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
+
+  constructor(uint8 _decimals) {
+    decimals = _decimals;
+  }
 
   function submit(int256 _submission) external {
     uint _roundId = ++roundId;

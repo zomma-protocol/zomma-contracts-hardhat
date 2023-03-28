@@ -9,7 +9,7 @@ describe('SpotPricer', () => {
     [Vault, SpotPricer, Chainlink, ChainlinkProxy] = await getContractFactories('TestVault', 'SpotPricer', 'TestChainlink', 'TestChainlinkProxy');
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
-    chainlink = await Chainlink.deploy();
+    chainlink = await Chainlink.deploy(8);
     chainlinkProxy = await ChainlinkProxy.deploy();
 
     await chainlink.setDecimals(8);

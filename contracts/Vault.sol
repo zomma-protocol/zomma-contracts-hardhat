@@ -148,7 +148,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
 
   // owner methods
 
-  function setIv(uint[] memory data) external onlyOwner {
+  function setIv(uint[] calldata data) external onlyOwner {
     internalSetIv(data);
     lastUpdatedAt = getTimestamp();
   }

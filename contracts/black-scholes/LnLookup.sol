@@ -10,7 +10,7 @@ contract LnLookup {
     frozenLn = true;
   }
 
-  function setLn(uint[] memory keys, int[] memory values) external {
+  function setLn(uint[] calldata keys, int[] calldata values) external {
     require(!frozenLn, "frozen");
     require(keys.length == values.length, "incorrect length");
     uint length = keys.length;
