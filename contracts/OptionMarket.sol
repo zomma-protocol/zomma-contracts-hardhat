@@ -1,11 +1,15 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-contract OptionMarket {
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./utils/Timestamp.sol";
+
+contract OptionMarket is Ownable, Timestamp {
   // [expiry][strike]
   mapping(uint => mapping(uint => uint)) internal markets;
   mapping(uint => bool) public expiryDisabled;
   bool public tradeDisabled;
+  uint public lastUpdatedAt;
 
   uint private constant EXPIRY_MASK =        0x000000000000000000000000000000000000000000000000000000ffffffffff;
   uint private constant STRIKE_MASK =        0xffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000;
@@ -19,6 +23,27 @@ contract OptionMarket {
   uint private constant SELL_PUT_DISABLED =  0x1000000000000000000000000000000000000000000000000000000000000000;
 
   event SetIv(uint expiry, uint strike, uint market);
+  event TradeDisabled(bool disabled);
+  event ExpiryDisabled(uint expiry, bool disabled);
+
+  // owner methods
+
+  function setIv(uint[] calldata data) external onlyOwner {
+    internalSetIv(data);
+    lastUpdatedAt = getTimestamp();
+  }
+
+  function setTradeDisabled(bool _tradeDisabled) external onlyOwner {
+    tradeDisabled = _tradeDisabled;
+    emit TradeDisabled(_tradeDisabled);
+  }
+
+  function setExpiryDisabled(uint expiry, bool _disabled) external onlyOwner {
+    expiryDisabled[expiry] = _disabled;
+    emit ExpiryDisabled(expiry, _disabled);
+  }
+
+  // end of owner
 
   function internalSetIv(uint[] calldata data) internal {
     uint length = data.length;

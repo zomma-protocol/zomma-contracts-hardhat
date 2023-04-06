@@ -14,16 +14,18 @@ const isInterim = process.env.INTERIM === '1';
 const isProduction = process.env.PRODUCTION === '1';
 const useDummyChainlink = !isProduction && !isInterim && process.env.TEST_CHAINLINK === '1';
 
-let spotPricerContract, settlerContract, optionPricerContract, vaultContract;
+let spotPricerContract, settlerContract, optionPricerContract, optionMarketContract, vaultContract;
 if (isProduction) {
   spotPricerContract = isInterim ? 'InterimSpotPricer' : 'SpotPricer';
   settlerContract = 'Settler';
   optionPricerContract = 'OptionPricer';
+  optionMarketContract = 'OptionMarket';
   vaultContract = 'Vault';
 } else {
   spotPricerContract = isInterim ? 'TestInterimSpotPricer' : 'TestSpotPricer';
   settlerContract = 'TestSettler';
   optionPricerContract = 'TestOptionPricer';
+  optionMarketContract = 'TestOptionMarket';
   vaultContract = 'TestVault';
 }
 
@@ -47,7 +49,7 @@ async function getOrDeploy(address, { contract, deployed, args = [] }) {
   }
 }
 
-async function setupIvs(vault, optionPricer) {
+async function setupIvs(optionMarket, optionPricer) {
   let expiry = nextFriday();
   const data = [];
   const expiries = [];
@@ -67,7 +69,7 @@ async function setupIvs(vault, optionPricer) {
     expiry += 86400 * 7;
   }
   console.log('setIv...');
-  await vault.setIv(mergeIv(data));
+  await optionMarket.setIv(mergeIv(data));
   console.log('updateLookup...');
   await optionPricer.updateLookup(expiries);
 }
@@ -174,11 +176,12 @@ async function main() {
   const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
   const settler = await getOrDeploy(process.env.SETTLER, { contract: settlerContract });
   const optionPricer = await getOrDeploy(process.env.OPTION_PRICER, { contract: optionPricerContract });
+  const optionMarket = await getOrDeploy(process.env.OPTION_MARKET, { contract: optionMarketContract });
   const config = await deploy({ contract: 'Config' });
   const vault = await deploy({ contract: vaultContract });
 
   console.log('vault.initialize...');
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
 
   console.log('config.initialize...');
   await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
@@ -193,6 +196,9 @@ async function main() {
     console.log('optionPricer.reinitialize...');
     await optionPricer.reinitialize(config.address, vault.address);
 
+    console.log('optionMarket.setVault...');
+    await optionMarket.setVault(vault.address);
+
     console.log('settler.reinitialize...');
     await settler.reinitialize(vault.address);
 
@@ -203,7 +209,7 @@ async function main() {
   await setupCdf(optionPricer);
   await createPools(vault, config, poolFactory);
   if (!isProduction) {
-    await setupIvs(vault, optionPricer);
+    await setupIvs(optionMarket, optionPricer);
   }
 
   console.log('=== api ===');
@@ -212,6 +218,7 @@ async function main() {
   console.log(`VAULT=${vault.address.toLowerCase()}`);
   console.log(`CONFIG=${config.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
+  console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   if (!isProduction) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
@@ -237,6 +244,7 @@ async function main() {
   console.log(`USDC=${usdc.address.toLowerCase()}`);
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
+  console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
   console.log(`FACTORY=${poolFactory.address.toLowerCase()}`);
   if (!isProduction) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
@@ -250,6 +258,7 @@ async function main() {
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);
   console.log(`process.env.SPOT_PRICER='${spotPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_PRICER='${optionPricer.address.toLowerCase()}'`);
+  console.log(`process.env.OPTION_MARKET='${optionMarket.address.toLowerCase()}'`);
   console.log(`process.env.FACTORY='${poolFactory.address.toLowerCase()}'`);
   if (!isProduction) {
     console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);

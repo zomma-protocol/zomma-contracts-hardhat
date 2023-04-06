@@ -13,7 +13,7 @@ import "./OptionPricer.sol";
 import "./SpotPricer.sol";
 import "./Config.sol";
 
-contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
+contract Vault is Ledger, Timestamp {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
   using SafeERC20 for IERC20;
@@ -124,7 +124,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   Config public config;
   SpotPricer public spotPricer;
   OptionPricer public optionPricer;
-  uint public lastUpdatedAt;
+  OptionMarket public optionMarket;
   bool public initialized = false;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
@@ -135,35 +135,15 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   uint internal constant MAX_REMOVE_POSITION = 50;
 
   event Fund(address account, int amount, FundType fundType);
-  event TradeDisabled(bool disabled);
-  event ExpiryDisabled(uint expiry, bool disabled);
 
-  function initialize(address _config, address _spotPricer, address _optionPricer) external {
+  function initialize(address _config, address _spotPricer, address _optionPricer, address _optionMarket) external {
     require(!initialized, "already initialized");
     initialized = true;
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
     optionPricer = OptionPricer(_optionPricer);
+    optionMarket = OptionMarket(_optionMarket);
   }
-
-  // owner methods
-
-  function setIv(uint[] calldata data) external onlyOwner {
-    internalSetIv(data);
-    lastUpdatedAt = getTimestamp();
-  }
-
-  function setTradeDisabled(bool _tradeDisabled) external onlyOwner {
-    tradeDisabled = _tradeDisabled;
-    emit TradeDisabled(_tradeDisabled);
-  }
-
-  function setExpiryDisabled(uint expiry, bool _disabled) external onlyOwner {
-    expiryDisabled[expiry] = _disabled;
-    emit ExpiryDisabled(expiry, _disabled);
-  }
-
-  // end of owner
 
   function deposit(uint amount) external {
     amount = amount.truncate(config.quoteDecimal());
@@ -398,13 +378,13 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
 
   function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
-    if (checkDisable && (tradeDisabled || timestamp > lastUpdatedAt + OUTDATED_PERIOD)) {
+    if (checkDisable && (optionMarket.tradeDisabled() || timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD)) {
       removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];
-      if (checkDisable && (timestamp >= expiry || expiryDisabled[expiry])) {
+      if (checkDisable && (timestamp >= expiry || optionMarket.expiryDisabled(expiry))) {
         removePositions.morePositions = true;
         continue;
       }
@@ -427,7 +407,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   function pushPosition(address account, uint expiry, uint strike, bool isCall, uint spot, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
     int size = positionSizeOf(account, expiry, strike, isCall);
     if (size > 0) {
-      if (checkDisable && isMarketDisabled(expiry, strike ,isCall, false)) {
+      if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, false)) {
         removePositions.morePositions = true;
       } else if (removePositions.buyLength < maxLength) {
         removePositions.buyPositions[removePositions.buyLength++] = PositionParams(
@@ -437,7 +417,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
         removePositions.morePositions = true;
       }
     } else if (size < 0) {
-      if (checkDisable && isMarketDisabled(expiry, strike ,isCall, true)) {
+      if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, true)) {
         removePositions.morePositions = true;
       } else if (removePositions.sellLength < maxLength) {
         // priority: otm, expiry, S-K
@@ -680,10 +660,10 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
   function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) external {
     require(size != 0, "size is 0");
     require(getTimestamp() < expiry, "expired");
-    require(!tradeDisabled && !expiryDisabled[expiry] && !isMarketDisabled(expiry, strike ,isCall, size > 0), "trade disabled");
+    require(!optionMarket.tradeDisabled() && !optionMarket.expiryDisabled(expiry) && !optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0), "trade disabled");
 
     TxCache memory txCache = initTxCache();
-    require(txCache.now <= lastUpdatedAt + OUTDATED_PERIOD, "iv outdated");
+    require(txCache.now <= optionMarket.lastUpdatedAt() + OUTDATED_PERIOD, "iv outdated");
 
     int premium;
     int fee;
@@ -763,7 +743,7 @@ contract Vault is Ledger, OptionMarket, Ownable, Timestamp {
       txCache.minPremium,
       expiry,
       strike,
-      getMarketIv(expiry, strike, isCall, size > 0),
+      optionMarket.getMarketIv(expiry, strike, isCall, size > 0),
       size,
       available,
       equity,
