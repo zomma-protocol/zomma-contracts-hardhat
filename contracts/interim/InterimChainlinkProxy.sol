@@ -2,16 +2,16 @@
 pragma solidity ^0.8.11;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./ZksyncChainlink.sol";
+import "./InterimChainlink.sol";
 
-contract ZksyncChainlinkProxy is Ownable {
+contract InterimChainlinkProxy is Ownable {
   uint16 public phaseId = 1;
-  ZksyncChainlink public aggregator;
+  InterimChainlink public aggregator;
 
   uint256 constant private PHASE_OFFSET = 64;
 
   function setChainlink(address _aggregator) external onlyOwner {
-    aggregator = ZksyncChainlink(_aggregator);
+    aggregator = InterimChainlink(_aggregator);
   }
 
   function setPhaseId(uint16 _phaseId) external onlyOwner {

@@ -16,18 +16,18 @@ if (!PRIVATE_KEY) {
   throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
 }
 
-const isZksync = true;
+const isInterim = true;
 const isProduction = process.env.PRODUCTION === '1';
-const useDummyChainlink = !isProduction && !isZksync && process.env.TEST_CHAINLINK === '1';
+const useDummyChainlink = !isProduction && !isInterim && process.env.TEST_CHAINLINK === '1';
 
 let spotPricerContract, settlerContract, optionPricerContract, vaultContract;
 if (isProduction) {
-  spotPricerContract = 'ZksyncSpotPricer';
+  spotPricerContract = 'InterimSpotPricer';
   settlerContract = 'Settler';
   optionPricerContract = 'OptionPricer';
   vaultContract = 'Vault';
 } else {
-  spotPricerContract = 'TestZksyncSpotPricer';
+  spotPricerContract = 'TestInterimSpotPricer';
   settlerContract = 'TestSettler';
   optionPricerContract = 'TestOptionPricer';
   vaultContract = 'TestVault';
@@ -96,7 +96,7 @@ async function createPools(vault, config) {
 
 async function setupCdf(optionPricer) {
   if ((await optionPricer.cdf(cdf.keys[cdf.keys.length - 1])).toString(10) !== cdf.values[cdf.values.length - 1]) {
-    const chunkSize = 100;
+    const chunkSize = 50;
     console.log('setLn...');
     for (let i = 0; i < ln.keys.length; i += chunkSize) {
       await optionPricer.setLn(ln.keys.slice(i, i + chunkSize), ln.values.slice(i, i + chunkSize));
@@ -150,8 +150,8 @@ module.exports = async function (hre) {
     faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
   }
   let chainlinkProxyAddress;
-  if (isZksync) {
-    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('ZksyncChainlink', 'ZksyncChainlinkProxy');
+  if (isInterim) {
+    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('InterimChainlink', 'InterimChainlinkProxy');
   }
   const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,

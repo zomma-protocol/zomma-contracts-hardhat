@@ -10,18 +10,18 @@ const { toDecimalStr, nextFriday, buildIv, mergeIv } = require('./helper');
 const ln = require('./ln');
 const cdf = require('./cdf');
 
-const isZksync = process.env.ZKSYNC === '1';
+const isInterim = process.env.INTERIM === '1';
 const isProduction = process.env.PRODUCTION === '1';
-const useDummyChainlink = !isProduction && !isZksync && process.env.TEST_CHAINLINK === '1';
+const useDummyChainlink = !isProduction && !isInterim && process.env.TEST_CHAINLINK === '1';
 
 let spotPricerContract, settlerContract, optionPricerContract, vaultContract;
 if (isProduction) {
-  spotPricerContract = isZksync ? 'ZksyncSpotPricer' : 'SpotPricer';
+  spotPricerContract = isInterim ? 'InterimSpotPricer' : 'SpotPricer';
   settlerContract = 'Settler';
   optionPricerContract = 'OptionPricer';
   vaultContract = 'Vault';
 } else {
-  spotPricerContract = isZksync ? 'TestZksyncSpotPricer' : 'TestSpotPricer';
+  spotPricerContract = isInterim ? 'TestInterimSpotPricer' : 'TestSpotPricer';
   settlerContract = 'TestSettler';
   optionPricerContract = 'TestOptionPricer';
   vaultContract = 'TestVault';
@@ -121,7 +121,7 @@ async function createChainlink(chainlinkContract, chainlinkProxyContract) {
       console.log(`${chainlinkProxyContract}.setChainlink...`);
       await c.setChainlink(chainlink.address);
 
-      if (isZksync) {
+      if (isInterim) {
         if (process.env.FEEDER) {
           await c.transferOwnership(process.env.FEEDER);
           await chainlink.transferOwnership(process.env.FEEDER);
@@ -149,8 +149,8 @@ async function main() {
     faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
   }
   let chainlinkProxyAddress;
-  if (isZksync) {
-    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('ZksyncChainlink', 'ZksyncChainlinkProxy');
+  if (isInterim) {
+    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('InterimChainlink', 'InterimChainlinkProxy');
   }
   const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,

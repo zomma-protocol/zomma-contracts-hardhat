@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "../../zksync/ZksyncSpotPricer.sol";
-import "../TestVault.sol";
+import "../interim/InterimSpotPricer.sol";
+import "./TestVault.sol";
 
-contract TestZksyncSpotPricer is ZksyncSpotPricer {
+contract TestInterimSpotPricer is InterimSpotPricer {
   uint internal price;
   TestVault internal vault;
 
