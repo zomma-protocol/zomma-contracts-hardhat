@@ -152,7 +152,7 @@ contract Vault is Ledger, Timestamp {
     updateBalance(msg.sender, int(amount), FundType.Deposit);
   }
 
-  function withdraw(uint amount) external {
+  function withdraw(uint amount) public {
     require(amount > 0, "amount is 0");
     int available = internalGetAvailable(initTxCache(), msg.sender);
     if (int(amount) > available) {
@@ -164,7 +164,7 @@ contract Vault is Ledger, Timestamp {
     transfer(msg.sender, amount);
   }
 
-  function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) external returns (uint) {
+  function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) public returns (uint) {
     require(rate > 0 && rate <= SafeDecimalMath.UNIT, "invalid rate");
     require(freeWithdrawableRate <= SafeDecimalMath.UNIT, "invalid freeWithdrawableRate");
     int amount = internalWithdrawPercent(msg.sender, rate, freeWithdrawableRate);
@@ -657,7 +657,7 @@ contract Vault is Ledger, Timestamp {
     }
   }
 
-  function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) external {
+  function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) public {
     require(size != 0, "size is 0");
     require(getTimestamp() < expiry, "expired");
     require(!optionMarket.tradeDisabled() && !optionMarket.expiryDisabled(expiry) && !optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0), "trade disabled");
@@ -798,7 +798,7 @@ contract Vault is Ledger, Timestamp {
     uint strike,
     bool isCall,
     int size
-  ) external returns (int) {
+  ) public returns (int) {
     require(size > 0, "invalid size");
     require(getTimestamp() < expiry, "expired");
 
@@ -875,7 +875,7 @@ contract Vault is Ledger, Timestamp {
     emit Fund(account, change, fundType);
   }
 
-  function clear(address account) external {
+  function clear(address account) public {
     address insuranceAccount = config.insuranceAccount();
     require(account != insuranceAccount, "can't be insurance account");
 

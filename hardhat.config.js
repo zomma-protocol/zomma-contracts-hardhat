@@ -29,7 +29,15 @@ module.exports = {
       url: "http://localhost:3050",
       ethNetwork: "http://localhost:8545",
       zksync: true,
-    }
+    },
+    linea: {
+      url: 'https://rpc.goerli.linea.build/',
+      accounts: [process.env.PK],
+    },
+    scrollAlpha: {
+      url: 'https://alpha-rpc.scroll.io/l2',
+      accounts: [process.env.PK],
+    },
   },
   zksolc: {
     version: "1.3.8",
