@@ -12,4 +12,10 @@ contract InterimSpotPricer is SpotPricer, Ownable {
     migrated = true;
     chainlink = IChainlink(_chainlink);
   }
+
+  function checkRoundId(uint expiry, uint _roundId) internal view override {
+    uint timestamp = chainlink.getTimestamp(_roundId);
+    uint timestamp2 = chainlink.getTimestamp(_roundId + 1);
+    require(timestamp > 0 && expiry >= timestamp && expiry < timestamp2, "invalid roundId");
+  }
 }

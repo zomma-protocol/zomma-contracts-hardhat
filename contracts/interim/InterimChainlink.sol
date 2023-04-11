@@ -25,15 +25,19 @@ contract InterimChainlink is IChainlink, Ownable {
     outdatedPeriod = _outdatedPeriod;
   }
 
-  function submit(int256 _submission, uint _roundId, uint _updatedAt, bool onlyLatest) external onlyOwner {
-    require(histories[_roundId] == 0, 'submitted');
+  function submit(int256 _submission, uint _roundId, uint _updatedAt, bool addToHistory) external onlyOwner {
     if (_roundId > roundId()) {
       latest = (_updatedAt << 216) | (_roundId << 128) | uint(_submission);
     }
-    if (!onlyLatest) {
-      histories[_roundId] = (_updatedAt << 216) | uint(_submission);
+    if (addToHistory) {
+      setHistory(_submission, _roundId, _updatedAt);
     }
     emit AnswerUpdated(_submission, _roundId, _updatedAt);
+  }
+
+  function setHistory(int256 _submission, uint _roundId, uint _updatedAt) public onlyOwner {
+    require(histories[_roundId] == 0, 'submitted');
+    histories[_roundId] = (_updatedAt << 216) | uint(_submission);
   }
 
   function latestAnswer() external view returns (int) {

@@ -105,7 +105,7 @@ describe('SpotPricer', () => {
       });
 
       context('when expired ', () => {
-        context('when next round id does not exist ', () => {
+        context('when next round id does not exist', () => {
           let expiry, now;
 
           before(async () => {
@@ -121,7 +121,7 @@ describe('SpotPricer', () => {
           });
         });
 
-        context('when next round id over expiry ', () => {
+        context('when next round id over expiry', () => {
           let expiry, now, roundId2;
 
           before(async () => {
@@ -138,7 +138,7 @@ describe('SpotPricer', () => {
           });
         });
 
-        context('when next round id not over expiry ', () => {
+        context('when next round id not over expiry', () => {
         let expiry, now, roundId;
 
           before(async () => {
@@ -153,7 +153,7 @@ describe('SpotPricer', () => {
           });
         });
 
-        context('when round id expired ', () => {
+        context('when round id expired', () => {
           let expiry, now, roundId3;
 
           before(async () => {
@@ -169,6 +169,24 @@ describe('SpotPricer', () => {
             await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId3), 'invalid roundId');
           });
         });
+
+        context('when round id does not exist', () => {
+          let expiry, now, roundId;
+
+          before(async () => {
+            ({ expiry, roundId } = await setupExpiry());
+            await chainlink.setNow(0);
+            await chainlink.submit(toDecimalStr('0', 8));
+            now = expiry + 1;
+            await chainlink.setNow(now);
+            await vault.setTimestamp(now);
+            // await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
+          });
+
+          it('should revert with "invalid roundId"', async () => {
+            await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId + 1), 'invalid roundId');
+          });
+        });
       });
     });
 
@@ -180,6 +198,7 @@ describe('SpotPricer', () => {
         now = expiry + 1;
         await chainlink.setNow(now);
         await vault.setTimestamp(now);
+        await chainlink.submit(toDecimalStr('1300', 8));
         await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
       });
 
