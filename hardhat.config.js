@@ -15,6 +15,11 @@ module.exports = {
       url: 'http://127.0.0.1:7545',
       accounts: [process.env.PK]
     },
+    zkSync: {
+      url: "https://mainnet.era.zksync.io",
+      ethNetwork: "https://eth-rpc.gateway.pokt.network", // Can also be the RPC URL of the network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)
+      zksync: true,
+    },
     zkSyncTestnet: {
       url: "https://zksync2-testnet.zksync.dev",
       ethNetwork: "goerli", // Can also be the RPC URL of the network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)

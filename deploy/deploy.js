@@ -82,7 +82,9 @@ async function createPools(vault, config) {
       contract: 'Pool'
     });
 
+    console.log('poolToken.initialize...');
     await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
+    console.log('pool.initialize...');
     await (await pool.initialize(vault.address, poolToken.address, process.env.DEPLOYER)).wait();
     // await pool.initialize(vault.address, poolToken.address, process.env.DEPLOYER);
     console.log('addPool...')
