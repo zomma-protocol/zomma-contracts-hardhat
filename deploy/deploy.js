@@ -184,7 +184,7 @@ module.exports = async function (hre) {
   await vault.initialize(config.address, spotPricer.address, optionPricer.address);
 
   console.log('config.initialize...');
-  await config.initialize(vault.address, process.env.DEPLOYER, process.env.DEPLOYER, usdc.address, 6);
+  await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
 
   if (isProduction) {
     console.log('optionPricer.initialize...');
