@@ -7,11 +7,10 @@ import "../interfaces/IChainlink.sol";
 contract InterimChainlink is IChainlink, Ownable {
   uint private constant ANSWER_MASK =    0x00000000000000000000000000000000ffffffffffffffffffffffffffffffff;
   uint private constant ROUND_ID_MASK =  0x0000000000ffffffffffffffffffffff00000000000000000000000000000000;
-  // uint private constant TIMESTAMP_MASK = 0xffffffffff000000000000000000000000000000000000000000000000000000;
 
   uint8 public decimals;
-  uint private latest;
   uint public outdatedPeriod = 3600;
+  uint private latest;
 
   mapping(uint => uint) private histories;
 
