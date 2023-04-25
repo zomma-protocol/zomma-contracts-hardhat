@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
 
-let Vault, Config, TestERC20, SpotPricer, accounts;
+let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
   let stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3;
   const now = 1673596800; // 2023-01-13T08:00:00Z
@@ -9,31 +9,33 @@ describe('Vault', () => {
   const strike = toDecimalStr(1100);
   let spotPricer, optionPricer;
 
-  const createVault = async (configAddress) => {
+  const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
     return vault;
   }
 
   const setup = async (decimals = 6) => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
-    const vault = await createVault(config.address);
+    const optionMarket = await OptionMarket.deploy();
+    const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
+    await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
-    return { vault, config, usdc };
+    return { vault, config, usdc, optionMarket };
   };
 
-  const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
+  const setupMarket = async (vault, optionMarket, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
+    await optionMarket.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
   before(async () => {
-    [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
+    [Vault, Config, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3] = accounts;
     spotPricer = await SpotPricer.deploy();
@@ -41,12 +43,12 @@ describe('Vault', () => {
   });
 
   describe('#trade', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
 
     const subSetup = async () => {
-      ({ vault, config, usdc } = await setup());
-      await setupMarket(vault);
-      return { vault, config, usdc };
+      ({ vault, config, usdc, optionMarket } = await setup());
+      await setupMarket(vault, optionMarket);
+      return { vault, config, usdc, optionMarket };
     };
 
     const reset = async () => {
@@ -66,11 +68,11 @@ describe('Vault', () => {
 
     context('when tradeDisabled is true', () => {
       beforeEach(async () => {
-        await vault.setTradeDisabled(true);
+        await optionMarket.setTradeDisabled(true);
       });
 
       afterEach(async () => {
-        await vault.setTradeDisabled(false);
+        await optionMarket.setTradeDisabled(false);
       });
 
       it('should revert with "trade disabled"', async () => {
@@ -80,11 +82,11 @@ describe('Vault', () => {
 
     context('when expiryDisabled is true', () => {
       beforeEach(async () => {
-        await vault.setExpiryDisabled(expiry, true);
+        await optionMarket.setExpiryDisabled(expiry, true);
       });
 
       afterEach(async () => {
-        await vault.setExpiryDisabled(expiry, false);
+        await optionMarket.setExpiryDisabled(expiry, false);
       });
 
       it('should revert with "trade disabled"', async () => {
@@ -95,11 +97,11 @@ describe('Vault', () => {
     context('when marketDisabled is true', () => {
       context('when disable buy', () => {
         beforeEach(async () => {
-          await vault.setIv(mergeIv([buildIv(expiry, strike, true, true, toDecimalStr(0.8), true)]));
+          await optionMarket.setIv(mergeIv([buildIv(expiry, strike, true, true, toDecimalStr(0.8), true)]));
         });
 
         afterEach(async () => {
-          await vault.setIv(mergeIv([
+          await optionMarket.setIv(mergeIv([
             buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
             buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
           ]));
@@ -112,11 +114,11 @@ describe('Vault', () => {
 
       context('when disable sell', () => {
         beforeEach(async () => {
-          await vault.setIv(mergeIv([buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)]));
+          await optionMarket.setIv(mergeIv([buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)]));
         });
 
         afterEach(async () => {
-          await vault.setIv(mergeIv([
+          await optionMarket.setIv(mergeIv([
             buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
             buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
           ]));
@@ -185,7 +187,7 @@ describe('Vault', () => {
                 let traderChange, poolChange, traderPosition, poolPosition;
 
                 before(async () => {
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)
                   ]));
@@ -194,7 +196,7 @@ describe('Vault', () => {
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
                   ]));
@@ -316,7 +318,7 @@ describe('Vault', () => {
                 let traderChange, poolChange, traderPosition, poolPosition;
 
                 before(async () => {
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), true),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
                   ]));
@@ -325,7 +327,7 @@ describe('Vault', () => {
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
                   ]));

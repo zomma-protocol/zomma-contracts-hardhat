@@ -2,7 +2,7 @@ const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
 
-let PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer, accounts;
+let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
@@ -18,14 +18,16 @@ describe('Pool', () => {
   const setup = async (decimals = 6) => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
+    const optionMarket = await OptionMarket.deploy();
     const vault = await Vault.deploy();
-    await vault.initialize(config.address, spotPricer.address, optionPricer.address);
+    await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
     await config.setInsuranceProportion(toDecimalStr(1));
+    await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
     const { pool, poolToken } = (await createDefaultPool(vault, config));
-    return { vault, config, pool, poolToken, usdc };
+    return { vault, config, pool, poolToken, usdc, optionMarket };
   };
 
   const setupDeposit = async (pool, usdc, from, decimals = 6) => {
@@ -34,13 +36,13 @@ describe('Pool', () => {
     await pool.connect(from).deposit(toDecimalStr(1000));
   };
 
-  const setupPosition = async (vault, usdc, decimals = 6) => {
+  const setupPosition = async (vault, optionMarket, usdc, decimals = 6) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
     await usdc.mint(accounts[0].address, toDecimalStr(1000, decimals));
     await usdc.approve(vault.address, toDecimalStr(100000000000, decimals));
     await vault.deposit(toDecimalStr(1000));
-    await vault.setIv(mergeIv([
+    await optionMarket.setIv(mergeIv([
       buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
       buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
     ]));
@@ -49,7 +51,7 @@ describe('Pool', () => {
   };
 
   before(async () => {
-    [PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
     poolFactory = await PoolFactory.deploy();
@@ -333,19 +335,19 @@ describe('Pool', () => {
 
     context('when totalSupply 1000', () => {
       const subSetup = async (decimals) => {
-        const { vault, config, pool, poolToken, usdc } = (await setup(decimals));
+        const { vault, config, pool, poolToken, usdc, optionMarket } = (await setup(decimals));
         await setupDeposit(pool, usdc, accounts[1], decimals);
         await usdc.mint(accounts[2].address, toDecimalStr(10000, decimals));
         await usdc.connect(accounts[2]).approve(pool.address, toDecimalStr(100000000000, decimals));
-        return { vault, config, pool, poolToken, usdc };
+        return { vault, config, pool, poolToken, usdc, optionMarket };
       };
 
       context('when decimals 6', () => {
-        let vault, config, pool, poolToken, usdc;
+        let vault, config, pool, poolToken, usdc, optionMarket;
         decimals = 6;
 
         beforeEach(async () => {
-          ({ vault, config, pool, poolToken, usdc } = await subSetup(decimals));
+          ({ vault, config, pool, poolToken, usdc, optionMarket } = await subSetup(decimals));
         });
 
         context('when share price 1', () => {
@@ -363,7 +365,7 @@ describe('Pool', () => {
         // equity: 1013.942379012956017300
         context('when share price 1.013942379012956017', () => {
           beforeEach(async () => {
-            await setupPosition(vault, usdc, decimals);
+            await setupPosition(vault, optionMarket, usdc, decimals);
             await pool.connect(accounts[2]).deposit(toDecimalStr(200));
           });
 
@@ -379,7 +381,7 @@ describe('Pool', () => {
         // max bonus part: 277.41693976514103105
         context('when share price 0.792583060234858968', () => {
           beforeEach(async () => {
-            await setupPosition(vault, usdc, decimals);
+            await setupPosition(vault, optionMarket, usdc, decimals);
             await spotPricer.setPrice(toDecimalStr(1070));
           });
 
@@ -426,16 +428,16 @@ describe('Pool', () => {
       });
 
       context('when decimals 19', () => {
-        let vault, pool, poolToken, usdc;
+        let vault, pool, poolToken, usdc, optionMarket;
         const decimals = 19;
 
         before(async () => {
-          ({ vault, pool, poolToken, usdc } = await subSetup(decimals));
+          ({ vault, pool, poolToken, usdc, optionMarket } = await subSetup(decimals));
         });
 
         context('when share price 1.00966629982777164', () => {
           before(async () => {
-            await setupPosition(vault, usdc, decimals);
+            await setupPosition(vault, optionMarket, usdc, decimals);
           });
 
           context('when deposit 0.000000000000000002', () => {
@@ -458,12 +460,12 @@ describe('Pool', () => {
     });
 
     context('when bankruptcy ', () => {
-      let vault, pool, usdc;
+      let vault, pool, usdc, optionMarket;
 
       before(async () => {
-        ({ vault, pool, usdc } = await setup());
+        ({ vault, pool, usdc, optionMarket } = await setup());
         await setupDeposit(pool, usdc, accounts[1]);
-        await setupPosition(vault, usdc);
+        await setupPosition(vault, optionMarket, usdc);
         await spotPricer.setPrice(toDecimalStr(1200));
       });
 
@@ -522,12 +524,12 @@ describe('Pool', () => {
 
     context('when position', () => {
       const subSetup = async () => {
-        const { vault, config, pool, poolToken, usdc } = (await setup());
+        const { vault, config, pool, poolToken, usdc, optionMarket } = (await setup());
         await setupDeposit(pool, usdc, accounts[1]);
-        await setupPosition(vault, usdc);
+        await setupPosition(vault, optionMarket, usdc);
         const accountInfo = await vault.getAccountInfo(pool.address);
         const sharePrice = toBigNumber(accountInfo.equity).div(1000);
-        return { vault, config, pool, poolToken, usdc, sharePrice }
+        return { vault, config, pool, poolToken, usdc, sharePrice, optionMarket }
       };
 
       context('when withdraw under freeWithdrawableRate', () => {

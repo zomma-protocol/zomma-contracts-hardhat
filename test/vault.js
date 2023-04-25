@@ -1,43 +1,45 @@
 const assert = require('assert');
 const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
 
-let Vault, Config, TestERC20, SpotPricer, accounts;
+let Vault, Config, TestERC20, SpotPricer, OptionMarket, accounts;
 describe('Vault', () => {
   let stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, vault, config, usdc;
+  let spotPricer, optionPricer, vault, config, usdc, optionMarket;
 
-  const createVault = async (configAddress) => {
+  const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
     return vault;
   }
 
   const setup = async (decimals = 6) => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
-    const vault = await createVault(config.address);
+    const optionMarket = await OptionMarket.deploy();
+    const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
-    return { vault, config, usdc };
+    return { vault, config, usdc, optionMarket };
   };
 
-  const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
+  const setupMarket = async (vault, optionMarket, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
+    await optionMarket.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
   before(async () => {
-    [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
+    [Vault, Config, TestERC20, SpotPricer, OptionMarket] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer', 'TestOptionMarket');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
-    ({ vault, config, usdc } = await setup());
+    ({ vault, config, usdc, optionMarket } = await setup());
   });
 
   describe('#initialize', () => {
@@ -52,122 +54,7 @@ describe('Vault', () => {
 
     context('when initialize twice', () => {
       it('should revert with "already initialized"', async () => {
-        await expectRevert(vault.initialize(trader.address, spotPricer.address, optionPricer.address), 'already initialized');
-      });
-    });
-  });
-
-  describe('#setIv', () => {
-    context('when owner', () => {
-      context('when invalid data', () => {
-        it('should revert with "invalid length"', async () => {
-          await expectRevert(vault.setIv([1]), 'invalid length');
-        });
-      });
-
-      context('when valid data', () => {
-        beforeEach(async () => {
-          await vault.setIv(mergeIv([
-            buildIv(expiry, strike, true, true, toDecimalStr(0.8), true),
-            buildIv(expiry, strike, true, false, toDecimalStr('0.700000019'), false),
-            buildIv(expiry, strike, false, true, toDecimalStr(0.6), false),
-            buildIv(expiry, strike, false, false, toDecimalStr(0.5), true)
-          ]));
-        });
-
-        afterEach(async () => {
-          await vault.setIv(mergeIv([
-            buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
-            buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
-            buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
-            buildIv(expiry, strike, false, false, toDecimalStr(0.8), false)
-          ]));
-        });
-
-        it('should set ivs', async () => {
-          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, true)), '0.8');
-          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, true, false)), '0.70000001');
-          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, true)), '0.6');
-          assert.equal(strFromDecimal(await vault.getMarketIv(expiry, strike, false, false)), '0.5');
-          assert.equal(await vault.isMarketDisabled(expiry, strike, true, true), true);
-          assert.equal(await vault.isMarketDisabled(expiry, strike, true, false), false);
-          assert.equal(await vault.isMarketDisabled(expiry, strike, false, true), false);
-          assert.equal(await vault.isMarketDisabled(expiry, strike, false, false), true);
-        });
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(vault.connect(trader).setIv(mergeIv([buildIv(expiry, strike, true, true, toDecimalStr(0.8), false)])), 'Ownable: caller is not the owner');
-      });
-    });
-  });
-
-  describe('#setTradeDisabled', () => {
-    context('when owner', () => {
-      context('when set false', () => {
-        beforeEach(async () => {
-          await vault.setTradeDisabled(false);
-        });
-
-        it('should be false', async () => {
-          assert.equal(await vault.tradeDisabled(), false);
-        });
-      });
-
-      context('when set true', () => {
-        beforeEach(async () => {
-          await vault.setTradeDisabled(true);
-        });
-
-        afterEach(async () => {
-          await vault.setTradeDisabled(false);
-        });
-
-        it('should be true', async () => {
-          assert.equal(await vault.tradeDisabled(), true);
-        });
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(vault.connect(trader).setTradeDisabled(true), 'Ownable: caller is not the owner');
-      });
-    });
-  });
-
-  describe('#setExpiryDisabled', () => {
-    context('when owner', () => {
-      context('when set false', () => {
-        beforeEach(async () => {
-          await vault.setExpiryDisabled(expiry, false);
-        });
-
-        it('should be false', async () => {
-          assert.equal(await vault.expiryDisabled(expiry), false);
-        });
-      });
-
-      context('when set true', () => {
-        beforeEach(async () => {
-          await vault.setExpiryDisabled(expiry, true);
-        });
-
-        afterEach(async () => {
-          await vault.setExpiryDisabled(expiry, false);
-        });
-
-        it('should be true', async () => {
-          assert.equal(await vault.expiryDisabled(expiry), true);
-        });
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(vault.connect(trader).setExpiryDisabled(expiry, true), 'Ownable: caller is not the owner');
+        await expectRevert(vault.initialize(trader.address, spotPricer.address, optionPricer.address, optionMarket.address), 'already initialized');
       });
     });
   });
@@ -382,11 +269,11 @@ describe('Vault', () => {
     });
 
     context('when available < 0', () => {
-      let vault, config, usdc;
+      let vault, config, usdc, optionMarket;
 
       before(async () => {
-        ({ vault, config, usdc } = await setup());
-        await setupMarket(vault);
+        ({ vault, config, usdc, optionMarket } = await setup());
+        await setupMarket(vault, optionMarket);
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, accounts[5]);
@@ -407,11 +294,11 @@ describe('Vault', () => {
   });
 
   describe('#settle', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
 
     const subSetup = async () => {
-      ({ vault, config, usdc } = await setup());
-      await setupMarket(vault);
+      ({ vault, config, usdc, optionMarket } = await setup());
+      await setupMarket(vault, optionMarket);
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
@@ -565,13 +452,13 @@ describe('Vault', () => {
   });
 
   describe('#clear', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
     const strike2 = toDecimalStr(1200);
 
     const subSetup = async () => {
-      ({ vault, config, usdc } = await setup());
+      ({ vault, config, usdc, optionMarket } = await setup());
       await config.setPoolProportion(toDecimalStr(1));
-      await setupMarket(vault, [
+      await setupMarket(vault, optionMarket, [
         [expiry, strike, true, true, toDecimalStr(0.8), false],
         [expiry, strike, true, false, toDecimalStr(0.8), false],
         [expiry, strike, false, true, toDecimalStr(0.8), false],
@@ -711,12 +598,12 @@ describe('Vault', () => {
   });
 
   describe('#getPremium', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
 
     before(async () => {
-      ({ vault, config, usdc } = await setup());
+      ({ vault, config, usdc, optionMarket } = await setup());
       await config.setPoolProportion(toDecimalStr(1));
-      await setupMarket(vault);
+      await setupMarket(vault, optionMarket);
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);

@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
 
-let Vault, Config, TestERC20, SpotPricer, accounts;
+let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
   let stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
@@ -9,31 +9,33 @@ describe('Vault', () => {
   const strike = toDecimalStr(1100);
   let spotPricer, optionPricer;
 
-  const createVault = async (configAddress) => {
+  const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
     return vault;
   }
 
   const setup = async (decimals = 6) => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
-    const vault = await createVault(config.address);
+    const optionMarket = await OptionMarket.deploy();
+    const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
+    await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
-    return { vault, config, usdc };
+    return { vault, config, usdc, optionMarket };
   };
 
-  const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
+  const setupMarket = async (vault, optionMarket, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
+    await optionMarket.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
   before(async () => {
-    [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
+    [Vault, Config, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
@@ -41,12 +43,12 @@ describe('Vault', () => {
   });
 
   describe('#liquidate', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
     const strike2 = toDecimalStr(1200);
 
     const subSetup = async () => {
-      ({ vault, config, usdc } = await setup());
-      await setupMarket(vault, [
+      ({ vault, config, usdc, optionMarket } = await setup());
+      await setupMarket(vault, optionMarket, [
         [expiry, strike, true, true, toDecimalStr(0.8), false],
         [expiry, strike, true, false, toDecimalStr(0.8), false],
         [expiry, strike, false, true, toDecimalStr(0.8), false],
@@ -61,11 +63,11 @@ describe('Vault', () => {
       await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-7), 0);
       await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr('-0.000000000000000001'), 0);
       await vault.connect(trader).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
-      return { vault, config, usdc };
+      return { vault, config, usdc, optionMarket };
     }
 
     before(async () => {
-      ({ vault, config, usdc } = await subSetup());
+      ({ vault, config, usdc, optionMarket } = await subSetup());
     });
 
     context('when expired', () => {
@@ -143,15 +145,15 @@ describe('Vault', () => {
             context('when liquidate buy position', () => {
               context('when sell position exists', () => {
                 beforeEach(async () => {
-                  await vault.setTradeDisabled(true);
-                  await vault.setExpiryDisabled(expiry, true);
-                  await vault.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), true)]));
+                  await optionMarket.setTradeDisabled(true);
+                  await optionMarket.setExpiryDisabled(expiry, true);
+                  await optionMarket.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), true)]));
                 });
 
                 afterEach(async () => {
-                  await vault.setTradeDisabled(false);
-                  await vault.setExpiryDisabled(expiry, false);
-                  await vault.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false)]));
+                  await optionMarket.setTradeDisabled(false);
+                  await optionMarket.setExpiryDisabled(expiry, false);
+                  await optionMarket.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false)]));
                 });
 
                 it('should revert with "sell position first"', async () => {
@@ -160,14 +162,14 @@ describe('Vault', () => {
               });
 
               context('when no sell position', () => {
-                let vault, config, usdc;
+                let vault, config, usdc, optionMarket;
                 let traderBalanceChange, liquidatorBalanceChange, insuranceAccountBalanceChange, traderPosition, liquidatorPosition;
                 let traderBalanceChange2, liquidatorBalanceChange2, insuranceAccountBalanceChange2, traderPosition2, liquidatorPosition2;
 
                 before(async () => {
                   await spotPricer.setPrice(toDecimalStr(1000));
-                  ({ vault, config, usdc } = await setup());
-                  await setupMarket(vault, [
+                  ({ vault, config, usdc, optionMarket } = await setup());
+                  await setupMarket(vault, optionMarket, [
                     [expiry, strike, true, true, toDecimalStr(0.8), false],
                     [expiry, strike, true, false, toDecimalStr(0.8), false],
                     [expiry, strike, false, true, toDecimalStr(0.8), false],
@@ -184,9 +186,9 @@ describe('Vault', () => {
                   await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr('6.000000000000000001'), INT_MAX);
                   await spotPricer.setPrice(toDecimalStr(1200));
                   await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
-                  await vault.setTradeDisabled(true);
-                  await vault.setExpiryDisabled(expiry, true);
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setTradeDisabled(true);
+                  await optionMarket.setExpiryDisabled(expiry, true);
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, false, true, toDecimalStr(0.8), true),
@@ -212,9 +214,9 @@ describe('Vault', () => {
                   liquidatorPosition2 = await vault.positionOf(liquidator.address, expiry, strike2, true);
 
                   await spotPricer.setPrice(spot);
-                  await vault.setTradeDisabled(false);
-                  await vault.setExpiryDisabled(expiry, false);
-                  await vault.setIv(mergeIv([
+                  await optionMarket.setTradeDisabled(false);
+                  await optionMarket.setExpiryDisabled(expiry, false);
+                  await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
@@ -314,13 +316,13 @@ describe('Vault', () => {
               });
 
               context('when liquidate partial buy position', () => {
-                let vault, config, usdc;
+                let vault, config, usdc, optionMarket;
                 let traderPosition;
 
                 before(async () => {
                   await spotPricer.setPrice(toDecimalStr(1000));
-                  ({ vault, config, usdc } = await setup());
-                  await setupMarket(vault, [
+                  ({ vault, config, usdc, optionMarket } = await setup());
+                  await setupMarket(vault, optionMarket, [
                     [expiry, strike, true, true, toDecimalStr(0.8), false],
                     [expiry, strike, true, false, toDecimalStr(0.8), false],
                     [expiry, strike, false, true, toDecimalStr(0.8), false],
@@ -507,13 +509,13 @@ describe('Vault', () => {
         });
 
         context('when position size small', () => {
-          let vault, config, usdc;
+          let vault, config, usdc, optionMarket;
           let traderBalanceChange, liquidatorBalanceChange, insuranceAccountBalanceChange, traderPosition, liquidatorPosition;
 
           before(async () => {
             await spotPricer.setPrice(toDecimalStr(1000));
-            ({ vault, config, usdc } = await setup());
-            await setupMarket(vault);
+            ({ vault, config, usdc, optionMarket } = await setup());
+            await setupMarket(vault, optionMarket);
             await addPool(config, pool);
             await mintAndDeposit(vault, usdc, pool);
             await mintAndDeposit(vault, usdc, trader, { amount: 100 });

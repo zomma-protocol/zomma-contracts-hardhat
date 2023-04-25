@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
 
-let Vault, Config, TestERC20, SpotPricer, accounts;
+let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
   let stakeholderAccount, insuranceAccount, trader, trader2, pool;
   const now = 1673596800; // 2023-01-13T08:00:00Z
@@ -9,30 +9,32 @@ describe('Vault', () => {
   const strike = toDecimalStr(1100);
   let spotPricer, optionPricer;
 
-  const createVault = async (configAddress) => {
+  const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
     return vault;
   }
 
   const setup = async (decimals = 6) => {
     const usdc = await TestERC20.deploy('USDC', 'USDC', decimals);
     const config = await Config.deploy();
-    const vault = await createVault(config.address);
+    const optionMarket = await OptionMarket.deploy();
+    const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
-    return { vault, config, usdc };
+    return { vault, config, usdc, optionMarket };
   };
 
-  const setupMarket = async (vault, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
+  const setupMarket = async (vault, optionMarket, ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]]) => {
     await vault.setTimestamp(now);
     await spotPricer.setPrice(toDecimalStr(1000));
-    await vault.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
+    await optionMarket.setIv(mergeIv(ivs.map((iv) => buildIv(...iv))));
     await optionPricer.updateLookup(ivs.map((iv) => iv[0]));
   };
 
   before(async () => {
-    [Vault, Config, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestERC20', 'TestSpotPricer');
+    [Vault, Config, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool] = accounts;
     spotPricer = await SpotPricer.deploy();
@@ -40,7 +42,7 @@ describe('Vault', () => {
   });
 
   describe('#getAccountInfo', () => {
-    let vault, config, usdc;
+    let vault, config, usdc, optionMarket;
 
     const getAccountInfoWithSettledPrice = async (vault, expiry, settledPrice) => {
       await vault.setTimestamp(expiry);
@@ -52,8 +54,8 @@ describe('Vault', () => {
     }
 
     before(async () => {
-      ({ vault, config, usdc } = await setup());
-      await setupMarket(vault);
+      ({ vault, config, usdc, optionMarket } = await setup());
+      await setupMarket(vault, optionMarket);
     });
 
     context('when empty', () => {
@@ -319,11 +321,11 @@ describe('Vault', () => {
       });
 
       context('when size is -1', () => {
-        let vault, config, usdc, accountInfo;
+        let vault, config, usdc, optionMarket, accountInfo;
 
         before(async () => {
-          ({ vault, config, usdc } = await setup());
-          await setupMarket(vault);
+          ({ vault, config, usdc, optionMarket } = await setup());
+          await setupMarket(vault, optionMarket);
 
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
@@ -524,11 +526,11 @@ describe('Vault', () => {
 
     context('when put', () => {
       const strike = toDecimalStr(900);
-      let vault, config, usdc, accountInfo;
+      let vault, config, usdc, optionMarket, accountInfo;
 
       before(async () => {
-        ({ vault, config, usdc } = await setup());
-        await setupMarket(vault, [[expiry, strike, false, true, toDecimalStr(0.8), false], [expiry, strike, false, false, toDecimalStr(0.8), false]]);
+        ({ vault, config, usdc, optionMarket } = await setup());
+        await setupMarket(vault, optionMarket, [[expiry, strike, false, true, toDecimalStr(0.8), false], [expiry, strike, false, false, toDecimalStr(0.8), false]]);
 
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);

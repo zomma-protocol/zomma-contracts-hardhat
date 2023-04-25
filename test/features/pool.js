@@ -1,8 +1,8 @@
 const assert = require('assert');
-const BigNumber = require("bignumber.js");
+const BigNumber = require('bigNumber.js');
 const { getContractFactories, createPool, buildIv, mergeIv, toDecimal, toDecimalStr, strFromDecimal, createOptionPricer, toBigNumber, INT_MAX } = require('../support/helper');
 
-let PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer;
+let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer;
 const initPool = async (owner) => {
   // USDC
   const usdc = await TestERC20.connect(owner).deploy('USDC', 'USDC', 6);
@@ -21,10 +21,14 @@ const initPool = async (owner) => {
   // Config
   const config = await Config.connect(owner).deploy();
 
+  // OptionMarket
+  const optionMarket = await OptionMarket.connect(owner).deploy();
+
   const vault = await Vault.connect(owner).deploy();
 
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
   await config.initialize(vault.address, owner.address, owner.address, usdc.address, 6);
+  await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
 
   const reservedRates = [
@@ -41,24 +45,24 @@ const initPool = async (owner) => {
     await pool.setReservedRate(reservedRate);
   }
 
-  return { usdc, spotPricer, poolFactory, optionPricer, config, vault };
+  return { usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket };
 };
 
 describe('Pool', () => {
   let owner, trader;
 
   before(async () => {
-    [PoolFactory, Pool, PoolToken, Config, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [owner, trader] = accounts;
   });
 
   describe('#Admin', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault;
+    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket;
     let err;
 
     before(async () => {
-      ({usdc, spotPricer, poolFactory, optionPricer, config, vault} = await initPool(owner))
+      ({usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket} = await initPool(owner))
 
       const pools = await config.getPools();
       await usdc.mint(owner.address, toDecimalStr(90000, 6));
@@ -153,11 +157,11 @@ describe('Pool', () => {
   });
 
   describe('#ZLM', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault;
+    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket;
     let error;
 
     before(async() => {
-      ({usdc, spotPricer, poolFactory, optionPricer, config, vault} = await initPool(owner));
+      ({usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket} = await initPool(owner));
       await config.setPoolProportion(toDecimalStr(1));
 
       const pools = await config.getPools();
@@ -194,7 +198,7 @@ describe('Pool', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
 
       error = null;

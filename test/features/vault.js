@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer } = require('../support/helper');
 
-let PoolFactory, Config, Vault, TestERC20, SpotPricer, accounts;
+let PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 const initVault = async (owner) => {
   // USDC
   const usdc = await TestERC20.connect(owner).deploy('USDC', 'USDC', 6);
@@ -20,29 +20,33 @@ const initVault = async (owner) => {
   // Config
   const config = await Config.connect(owner).deploy();
 
+  // OptionMarket
+  const optionMarket = await OptionMarket.connect(owner).deploy();
+
   const vault = await Vault.connect(owner).deploy();
 
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
   await config.initialize(vault.address, owner.address, owner.address, usdc.address, 6);
+  await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
 
-  return { usdc, spotPricer, poolFactory, optionPricer, config, vault };
+  return { usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket };
 };
 
 describe('Vault', () => {
   let owner, trader, liquidator;
 
   before(async () => {
-    [PoolFactory, Config, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Config', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [owner, trader, liquidator] = accounts;
   });
 
   describe('#Admin', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault;
+    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket;
 
     before(async () => {
-      ({usdc, spotPricer, poolFactory, optionPricer, config, vault} = await initVault(owner));
+      ({usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket} = await initVault(owner));
 
       const reservedRates = [
         toDecimalStr(0.3),
@@ -85,7 +89,7 @@ describe('Vault', () => {
 
     it('should not be allowed to init second time', async () => {
       await expectRevert(
-        vault.initialize(config.address, spotPricer.address, optionPricer.address), 'already initialized'
+        vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address), 'already initialized'
       );
     });
 
@@ -95,15 +99,15 @@ describe('Vault', () => {
       const strike = toDecimalStr(800);
       data.push(buildIv(expiry, strike, true, true, toDecimalStr(0.9), false));
 
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
       await optionPricer.updateLookup([expiry]);
-      assert.equal(strFromDecimal((await vault.getMarketIv(1669968000, strike, true, true))), '0.9');
+      assert.equal(strFromDecimal((await optionMarket.getMarketIv(1669968000, strike, true, true))), '0.9');
 
       data = [];
       data.push(buildIv(expiry, strike, true, true, toDecimalStr(0.95), false));
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
       await optionPricer.updateLookup([expiry]);
-      assert.equal(strFromDecimal((await vault.getMarketIv(1669968000, strike, true, true))), '0.95');
+      assert.equal(strFromDecimal((await optionMarket.getMarketIv(1669968000, strike, true, true))), '0.95');
     });
 
     it('should be able to disable trade', async () => {
@@ -119,12 +123,12 @@ describe('Vault', () => {
       data.push(buildIv(expiry2, toDecimalStr(1000), true, true, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1000), true, false, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1100), true, true, toDecimalStr(0.8), false));
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
 
       await optionPricer.updateLookup([expiry]);
       await optionPricer.updateLookup([expiry2]);
 
-      await vault.setTradeDisabled(true);
+      await optionMarket.setTradeDisabled(true);
 
       await vault.connect(trader).deposit(toDecimalStr(10000));
       assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), "10000");
@@ -134,7 +138,7 @@ describe('Vault', () => {
       await expectRevert(vault.connect(trader).trade(expiry2, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), 'trade disabled')
 
 
-      await vault.setTradeDisabled(false);
+      await optionMarket.setTradeDisabled(false);
 
       result = await (await vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX)).wait();
 
@@ -160,7 +164,7 @@ describe('Vault', () => {
       data.push(buildIv(expiry2, toDecimalStr(1000), true, false, toDecimalStr(0.8), false));
       data.push(buildIv(expiry2, toDecimalStr(1100), true, true, toDecimalStr(0.8), false));
 
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
 
       await optionPricer.updateLookup([expiry]);
       await optionPricer.updateLookup([expiry2]);
@@ -173,7 +177,7 @@ describe('Vault', () => {
 
       assert.equal(result.status, true)
 
-      await vault.setExpiryDisabled(expiry2, true);
+      await optionMarket.setExpiryDisabled(expiry2, true);
 
       result = await (await vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX)).wait();
 
@@ -184,10 +188,10 @@ describe('Vault', () => {
   });
 
   describe('#Trader', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault;
+    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket;
 
     before(async () => {
-      ({ usdc, spotPricer, poolFactory, optionPricer, config, vault } =
+      ({ usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket } =
         await initVault(owner));
 
       const reservedRates = [
@@ -238,7 +242,7 @@ describe('Vault', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
     });
 
@@ -279,10 +283,10 @@ describe('Vault', () => {
 
   describe('#Liquidator', () => {
     let error;
-    let usdc, spotPricer, poolFactory, settler, optionPricer, config, vault;
+    let usdc, spotPricer, poolFactory, settler, optionPricer, config, vault, optionMarket;
 
     before(async () => {
-      ({usdc, spotPricer, poolFactory, settler, optionPricer, config, vault} = await initVault(owner));
+      ({usdc, spotPricer, poolFactory, settler, optionPricer, config, vault, optionMarket} = await initVault(owner));
 
       const reservedRates = [
         toDecimalStr(0.3),
@@ -336,7 +340,7 @@ describe('Vault', () => {
         expiries.push(expiry);
         expiry += 86400 * 7;
       }
-      await vault.setIv(mergeIv(data));
+      await optionMarket.setIv(mergeIv(data));
       await optionPricer.updateLookup(expiries);
 
       error = null;

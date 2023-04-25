@@ -13,7 +13,7 @@ describe('PoolFactory', () => {
     const config = await Config.deploy();
     vault = await Vault.deploy();
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, quote.address, 6);
-    await vault.initialize(config.address, ZERO_ADDRESS, ZERO_ADDRESS);
+    await vault.initialize(config.address, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS);
 
     poolFactory = await PoolFactory.deploy();
     const result = await (await poolFactory.create(vault.address, 'NAME', 'SYMBOL')).wait();
