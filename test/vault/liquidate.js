@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -79,15 +79,15 @@ describe('Vault', () => {
         await vault.setTimestamp(now);
       });
 
-      it('should revert with "expired"', async () => {
-        await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), 'expired');
+      it('should revert with InvalidTime(2)', async () => {
+        await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InvalidTime').withArgs(2);
       });
     });
 
     context('when not expired', () => {
       context('when position size 0', () => {
-        it('should revert with "position size is 0"', async () => {
-          await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike2, false, toDecimalStr(7)), 'position size is 0');
+        it('should revert with ZeroPosition', async () => {
+          await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike2, false, toDecimalStr(7)), Vault, 'ZeroPosition');
         });
       });
 
@@ -102,8 +102,8 @@ describe('Vault', () => {
           });
 
           context('when liquidator has no balance', () => {
-            it('should revert with "insufficient account equity"', async () => {
-              await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), 'insufficient account equity');
+            it('should revert with InsufficientEquity(1)', async () => {
+              await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InsufficientEquity').withArgs(1);
             });
           });
         });
@@ -128,8 +128,8 @@ describe('Vault', () => {
               await config.setLiquidateRate(toDecimalStr('0.5'));
             });
 
-            it('should revert with "can\'t liquidate"', async () => {
-              await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(1)), 'can\'t liquidate');
+            it('should revert with CannotLiquidate', async () => {
+              await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(1)), Vault, 'CannotLiquidate');
             });
           });
 
@@ -156,8 +156,8 @@ describe('Vault', () => {
                   await optionMarket.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false)]));
                 });
 
-                it('should revert with "sell position first"', async () => {
-                  await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, false, toDecimalStr(1)), 'sell position first');
+                it('should revert with SellPositionFirst', async () => {
+                  await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, false, toDecimalStr(1)), Vault, 'SellPositionFirst');
                 });
               });
 
@@ -359,21 +359,21 @@ describe('Vault', () => {
 
             context('when liquidate sell position', () => {
               context('when size 0', () => {
-                it('should revert with "invalid size"', async () => {
-                  await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, 0), 'invalid size');
+                it('should revert with InvalidSize(1)', async () => {
+                  await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, 0), Vault, 'InvalidSize').withArgs(1);
                 });
               });
 
               context('when size -1', () => {
-                it('should revert with "invalid size"', async () => {
-                  await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(-1)), 'invalid size');
+                it('should revert with InvalidSize(1)', async () => {
+                  await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(-1)), Vault, 'InvalidSize').withArgs(1);
                 });
               });
 
               context('when size 1', () => {
                 context('when liquidator has no balance', () => {
-                  it('should revert with "liquidator unavailable"', async () => {
-                    await expectRevert(vault.connect(otherAccount).liquidate(trader.address, expiry, strike, true, toDecimalStr(1)), 'liquidator unavailable');
+                  it('should revert with Unavailable(3)', async () => {
+                    await expectRevertCustom(vault.connect(otherAccount).liquidate(trader.address, expiry, strike, true, toDecimalStr(1)), Vault, 'Unavailable').withArgs(3);
                   });
                 });
 

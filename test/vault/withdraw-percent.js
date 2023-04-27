@@ -1,6 +1,6 @@
 const assert = require('assert');
 const _ = require('lodash');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -113,8 +113,8 @@ describe('Vault', () => {
     });
 
     context('when no balance', () => {
-      it('should revert with "insufficient equity"', async () => {
-        await expectRevert(vault.connect(otherAccount).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), 'insufficient equity');
+      it('should revert with InsufficientEquity(0)', async () => {
+        await expectRevertCustom(vault.connect(otherAccount).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), Vault, 'InsufficientEquity').withArgs(0);
       });
     });
 
@@ -240,16 +240,16 @@ describe('Vault', () => {
           context('when rate is 0', () => {
             const rate = toDecimalStr('0');
 
-            it('should revert with "invalid rate"', async () => {
-              await expectRevert(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), 'invalid rate');
+            it('should revert with InvalidRate', async () => {
+              await expectRevertCustom(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'InvalidRate');
             });
           });
 
           context('when rate is 1.000000000000000001', () => {
             const rate = toDecimalStr('1.000000000000000001');
 
-            it('should revert with "invalid rate"', async () => {
-              await expectRevert(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), 'invalid rate');
+            it('should revert with InvalidRate', async () => {
+              await expectRevertCustom(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'InvalidRate');
             });
           });
 
@@ -274,8 +274,8 @@ describe('Vault', () => {
             const rate = toDecimalStr('0.000000001000000001');
 
             context('when acceptableAmount is 0.000001000000001001', () => {
-              it('should revert with "unacceptable amount"', async () => {
-                await expectRevert(vault.connect(trader2).withdrawPercent(rate, toDecimalStr('0.000001000000001001'), freeWithdrawableRate), 'unacceptable amount');
+              it('should revert with UnacceptableAmount', async () => {
+                await expectRevertCustom(vault.connect(trader2).withdrawPercent(rate, toDecimalStr('0.000001000000001001'), freeWithdrawableRate), Vault, 'UnacceptableAmount');
               });
             });
 
@@ -308,8 +308,8 @@ describe('Vault', () => {
           const freeWithdrawableRate = toDecimalStr('1.000000000000000001');
           const rate = toDecimalStr('1');
 
-          it('should revert with "invalid freeWithdrawableRate"', async () => {
-            await expectRevert(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), 'invalid freeWithdrawableRate');
+          it('should revert with InvalidFreeWithdrawableRate', async () => {
+            await expectRevertCustom(vault.connect(trader2).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'InvalidFreeWithdrawableRate');
           });
         });
       });
@@ -340,8 +340,8 @@ describe('Vault', () => {
                   await reset();
                 });
 
-                it('should revert with "amount is 0"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'amount is 0');
+                it('should revert with ZeroAmount(3)', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'ZeroAmount').withArgs(3);
                 });
               });
 
@@ -356,8 +356,8 @@ describe('Vault', () => {
                   await reset();
                 });
 
-                it('should revert with "unacceptable amount"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(rate, toDecimalStr('997.358143677255407654'), freeWithdrawableRate), 'unacceptable amount');
+                it('should revert with UnacceptableAmount', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, toDecimalStr('997.358143677255407654'), freeWithdrawableRate), Vault, 'UnacceptableAmount');
                 });
               });
 
@@ -1238,14 +1238,14 @@ describe('Vault', () => {
               });
 
               context('when rate 1', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
 
               context('when rate 0.0001', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(0.0001), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(0.0001), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
             });
@@ -1260,8 +1260,8 @@ describe('Vault', () => {
               });
 
               context('when rate 1', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
 
@@ -1291,8 +1291,8 @@ describe('Vault', () => {
                 });
 
                 context('when rate 1', () => {
-                  it('should revert with "withdraw too much"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                  it('should revert with WithdrawTooMuch', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                   });
                 });
 
@@ -1318,8 +1318,8 @@ describe('Vault', () => {
                 });
 
                 context('when rate 1', () => {
-                  it('should revert with "withdraw too much"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                  it('should revert with WithdrawTooMuch', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                   });
                 });
 
@@ -1343,14 +1343,14 @@ describe('Vault', () => {
               });
 
               context('when rate 1', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
 
               context('when rate 0.0001', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(0.0001), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(0.0001), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
             });
@@ -1367,8 +1367,8 @@ describe('Vault', () => {
               });
 
               context('when rate 1', () => {
-                it('should revert with "withdraw too much"', async () => {
-                  await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                it('should revert with WithdrawTooMuch', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                 });
               });
 
@@ -2119,8 +2119,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with "pool unavailable"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  it('should revert with Unavailable(0)', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
                   });
                 });
 
@@ -2186,8 +2186,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with "pool unavailable"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  it('should revert with Unavailable(0)', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
                   });
                 });
 
@@ -2253,8 +2253,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with "pool unavailable"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), 'pool unavailable');
+                  it('should revert with Unavailable(0)', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
                   });
                 });
 
@@ -2549,8 +2549,8 @@ describe('Vault', () => {
                 });
 
                 context('when rate 1', () => {
-                  it('should revert with "withdraw too much"', async () => {
-                    await expectRevert(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), 'withdraw too much');
+                  it('should revert with WithdrawTooMuch', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, freeWithdrawableRate), Vault, 'WithdrawTooMuch');
                   });
                 });
 

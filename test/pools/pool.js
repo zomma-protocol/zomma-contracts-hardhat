@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
+const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber, expectRevertCustom } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
@@ -574,7 +574,7 @@ describe('Pool', () => {
 
           context('when unacceptable', () => {
             it('should revert with "unacceptable amount"', async () => {
-              await expectRevert(pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596914')), 'unacceptable amount');
+              await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596914')), Vault, 'UnacceptableAmount');
             });
           });
 

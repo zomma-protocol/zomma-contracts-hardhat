@@ -12,6 +12,10 @@ async function expectRevert(actual, expected) {
   await expect(actual).to.be.revertedWith(expected);
 }
 
+function expectRevertCustom(actual, contract, customErrorName) {
+  return expect(actual).to.be.revertedWithCustomError(contract, customErrorName);
+}
+
 async function getContractFactories(...contracts) {
   const contractFactories = [];
   for (let contract of contracts) {
@@ -182,7 +186,7 @@ async function mintAndDeposit(vault, usdc, account, { decimals = 6, amount = 100
 }
 
 module.exports = {
-  expectRevert, getContractFactories, createPool,
+  expectRevert, expectRevertCustom, getContractFactories, createPool,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer
 };

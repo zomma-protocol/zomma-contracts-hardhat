@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -75,8 +75,8 @@ describe('Vault', () => {
         await optionMarket.setTradeDisabled(false);
       });
 
-      it('should revert with "trade disabled"', async () => {
-        await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'trade disabled');
+      it('should revert with TradeDisabled', async () => {
+        await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled');
       });
     });
 
@@ -89,8 +89,8 @@ describe('Vault', () => {
         await optionMarket.setExpiryDisabled(expiry, false);
       });
 
-      it('should revert with "trade disabled"', async () => {
-        await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'trade disabled');
+      it('should revert with TradeDisabled', async () => {
+        await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled');
       });
     });
 
@@ -107,8 +107,8 @@ describe('Vault', () => {
           ]));
         });
 
-        it('should revert with "trade disabled"', async () => {
-          await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'trade disabled');
+        it('should revert with TradeDisabled', async () => {
+        await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled');
         });
       });
 
@@ -124,8 +124,8 @@ describe('Vault', () => {
           ]));
         });
 
-        it('should revert with "trade disabled"', async () => {
-          await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0), 'trade disabled');
+        it('should revert with TradeDisabled', async () => {
+          await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0), Vault, 'TradeDisabled');
         });
       });
     });
@@ -140,8 +140,8 @@ describe('Vault', () => {
           await vault.setTimestamp(now);
         });
 
-        it('should revert with "expired"', async () => {
-          await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'expired');
+        it('should revert with InvalidTime(0)', async () => {
+          await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'InvalidTime').withArgs(0);
         });
       });
 
@@ -154,29 +154,29 @@ describe('Vault', () => {
           await vault.setTimestamp(now);
         });
 
-        it('should revert with "iv outdated"', async () => {
-          await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'iv outdated');
+        it('should revert with IvOutdated', async () => {
+          await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'IvOutdated');
         });
       });
 
       context('when 7 days to expire', () => {
         context('when pool available 1000', () => {
           context('when size is 0', () => {
-            it('should revert with "size is 0"', async () => {
-              await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(0), INT_MAX), 'size is 0');
+            it('should revert with InvalidSize(0)', async () => {
+              await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(0), INT_MAX), Vault, 'InvalidSize').withArgs(0);
             });
           });
 
           context('when size is 1', () => {
             context('when trader not available', () => {
-              it('should revert with "unavailable"', async () => {
-                await expectRevert(vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'unavailable');
+              it('should revert with Unavailable(2)', async () => {
+                await expectRevertCustom(vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'Unavailable').withArgs(2);
               });
             });
 
             context('when acceptableTotal is 13.256233453364095893', () => {
-              it('should revert with "unacceptable price"', async () => {
-                await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), toDecimalStr('13.256233453364095893')), 'unacceptable price');
+              it('should revert with UnacceptablePrice', async () => {
+                await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), toDecimalStr('13.256233453364095893')), Vault, 'UnacceptablePrice');
               });
             });
 
@@ -300,8 +300,8 @@ describe('Vault', () => {
                 await config.setSpotFee(toDecimalStr(0.0003));
               });
 
-              it('should revert with "price is 0"', async () => {
-                await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), 'price is 0');
+              it('should revert with ZeroPrice', async () => {
+                await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'ZeroPrice');
               });
             });
           });
@@ -309,8 +309,8 @@ describe('Vault', () => {
           context('when size is -1', () => {
             context('when open only', () => {
               context('when acceptableTotal is 12.324704921131130288', () => {
-                it('should revert with "unacceptable price"', async () => {
-                  await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), toDecimalStr('12.324704921131130288')), 'unacceptable price');
+                it('should revert with UnacceptablePrice', async () => {
+                  await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), toDecimalStr('12.324704921131130288')), Vault, 'UnacceptablePrice');
                 });
               });
 
@@ -369,8 +369,8 @@ describe('Vault', () => {
                   await spotPricer.setPrice(toDecimalStr(1000));
                 });
 
-                it('should revert with "price is 0"', async () => {
-                  await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0), 'price is 0');
+                it('should revert with ZeroPrice', async () => {
+                  await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0), Vault, 'ZeroPrice');
                 });
               });
             });
@@ -435,8 +435,8 @@ describe('Vault', () => {
           });
 
           context('when size is 20', () => {
-            it('should revert with "pool unavailable"', async () => {
-              await expectRevert(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(20), INT_MAX), 'pool unavailable');
+            it('should revert with Unavailable(1)', async () => {
+              await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(20), INT_MAX), Vault, 'Unavailable').withArgs(1);
             });
           });
         });

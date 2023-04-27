@@ -12,55 +12,35 @@ import "./OptionMarket.sol";
 import "./OptionPricer.sol";
 import "./SpotPricer.sol";
 import "./Config.sol";
+import "./interfaces/IVault.sol";
 
-contract Vault is Ledger, Timestamp {
+contract Vault is IVault, Ledger, Timestamp {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
   using SafeERC20 for IERC20;
 
   enum FundType { Trade, Deposit, Withdraw, Settle, Liquidate, Clear, Dust }
 
-  struct PositionParams {
-    uint expiry;
-    uint strike;
-    bool isCall;
-    int size;
-    int notional;
-  }
-
-  struct TxCache {
-    uint now;
-    uint spot;
-    int riskFreeRate;
-    uint initialMarginRiskRate;
-    uint spotInitialMarginRiskRate;
-    uint priceRatio;
-    uint priceRatio2;
-    uint priceRatioUtilization;
-    uint spotFee;
-    uint optionFee;
-    uint minPremium;
-    uint exerciseFeeRate;
-    uint profitFeeRate;
-    uint poolProportion;
-    uint poolLength;
-    address[10] pools;
-    bool[10] loaded;
-    int[10] available;
-    int[10] adjustedAvailable;
-    int[10] equity;
-  }
-
-  struct TradingPoolsInfo {
-    int totalEquity;
-    int totalAvailable;
-    int totalAdjustedAvailable;
-    int totalSize;
-    int[10] rates;
-    uint[10] indexes;
-    uint length;
-    bool isClose;
-  }
+  error AlreadyInitialized();
+  error ZeroAmount(uint index);
+  error InvalidRate();
+  error InvalidFreeWithdrawableRate();
+  error UnacceptableAmount();
+  error InsufficientEquity(uint index);
+  error WithdrawTooMuch();
+  error Unavailable(uint index);
+  error InvalidSize(uint index);
+  error InvalidTime(uint index);
+  error TradeDisabled();
+  error IvOutdated();
+  error ZeroPrice();
+  error UnacceptablePrice();
+  error Unsettled();
+  error ZeroPosition();
+  error CannotLiquidate();
+  error SellPositionFirst();
+  error InvalidAccount();
+  error CannotClear();
 
   struct PositionInfo {
     int buyNotional;
@@ -70,16 +50,6 @@ contract Vault is Ledger, Timestamp {
     int sellValue;
     uint settledRisk;
     int fee;
-  }
-
-  struct AccountInfo {
-    uint initialMargin;
-    int marginBalance;
-    int equity;
-    int equityWithFee;
-    int upnl;
-    int available;
-    int healthFactor;
   }
 
   struct UpdatePositionInfo {
@@ -137,7 +107,9 @@ contract Vault is Ledger, Timestamp {
   event Fund(address account, int amount, FundType fundType);
 
   function initialize(address _config, address _spotPricer, address _optionPricer, address _optionMarket) external {
-    require(!initialized, "already initialized");
+    if (initialized) {
+      revert AlreadyInitialized();
+    }
     initialized = true;
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
@@ -147,29 +119,43 @@ contract Vault is Ledger, Timestamp {
 
   function deposit(uint amount) external {
     amount = amount.truncate(config.quoteDecimal());
-    require(amount > 0, 'amount is 0');
+    if (amount == 0) {
+      revert ZeroAmount(0);
+    }
     transferFrom(msg.sender, address(this), amount);
     updateBalance(msg.sender, int(amount), FundType.Deposit);
   }
 
   function withdraw(uint amount) public {
-    require(amount > 0, "amount is 0");
+    if (amount == 0) {
+      revert ZeroAmount(1);
+    }
     int available = internalGetAvailable(initTxCache(), msg.sender);
     if (int(amount) > available) {
       amount = available < 0 ? 0 : uint(available);
     }
-    require(amount > 0, "unavailable");
+    if (amount == 0) {
+      revert ZeroAmount(2);
+    }
     updateBalance(msg.sender, -int(amount), FundType.Withdraw);
     collectDust(amount);
     transfer(msg.sender, amount);
   }
 
   function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) public returns (uint) {
-    require(rate > 0 && rate <= SafeDecimalMath.UNIT, "invalid rate");
-    require(freeWithdrawableRate <= SafeDecimalMath.UNIT, "invalid freeWithdrawableRate");
+    if (rate == 0 || rate > SafeDecimalMath.UNIT) {
+      revert InvalidRate();
+    }
+    if (freeWithdrawableRate > SafeDecimalMath.UNIT) {
+      revert InvalidFreeWithdrawableRate();
+    }
     int amount = internalWithdrawPercent(msg.sender, rate, freeWithdrawableRate);
-    require(amount > 0, "amount is 0");
-    require(uint(amount) >= acceptableAmount, "unacceptable amount");
+    if (amount <= 0) {
+      revert ZeroAmount(3);
+    }
+    if (uint(amount) < acceptableAmount) {
+      revert UnacceptableAmount();
+    }
     updateBalance(msg.sender, -amount, FundType.Withdraw);
     collectDust(uint(amount));
     transfer(msg.sender, uint(amount));
@@ -195,7 +181,9 @@ contract Vault is Ledger, Timestamp {
     TxCache memory txCache = initTxCache();
     PositionInfo memory positionInfo = getPositionInfo(txCache, account);
     AccountInfo memory accountInfo = internalGetAccountInfoWithPositionInfo(positionInfo, txCache, account);
-    require(accountInfo.equity > 0, "insufficient equity");
+    if (accountInfo.equity <= 0) {
+      revert InsufficientEquity(0);
+    }
 
     int expectToWithdrawAmount = accountInfo.equity.decimalMul(int(rate));
     int freeWithdrawableAmount;
@@ -284,7 +272,9 @@ contract Vault is Ledger, Timestamp {
       }
       reducePositionParams.amountToRemove -= removedAmount;
     }
-    require(reducePositionParams.removeAll && !removePositions.morePositions, "withdraw too much");
+    if (!reducePositionParams.removeAll || removePositions.morePositions) {
+      revert WithdrawTooMuch();
+    }
   }
 
   function reduceTradeTypePosition(ReducePositionParams memory reducePositionParams, PositionParams memory position, TxCache memory txCache) private {
@@ -323,7 +313,9 @@ contract Vault is Ledger, Timestamp {
     if (size != 0) {
       (premium, fee, ) = reduceTradeTypePositionSub(reducePositionParams, position, txCache, isBuy ? uint(closePremium + closeFee) : 0, isBuy, -size, tradingPoolsInfo);
       if (!tradingPoolsInfo.isClose) {
-        require(tradingPoolsInfo.totalAdjustedAvailable >= 0, 'pool unavailable');
+        if (tradingPoolsInfo.totalAdjustedAvailable < 0) {
+          revert Unavailable(0);
+        }
       }
     }
     reducePositionParams.amountChange = premium + closePremium;
@@ -658,12 +650,20 @@ contract Vault is Ledger, Timestamp {
   }
 
   function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) public {
-    require(size != 0, "size is 0");
-    require(getTimestamp() < expiry, "expired");
-    require(!optionMarket.tradeDisabled() && !optionMarket.expiryDisabled(expiry) && !optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0), "trade disabled");
+    if (size == 0) {
+      revert InvalidSize(0);
+    }
+    if (getTimestamp() >= expiry) {
+      revert InvalidTime(0);
+    }
+    if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0)) {
+      revert TradeDisabled();
+    }
 
     TxCache memory txCache = initTxCache();
-    require(txCache.now <= optionMarket.lastUpdatedAt() + OUTDATED_PERIOD, "iv outdated");
+    if (txCache.now > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD) {
+      revert IvOutdated();
+    }
 
     int premium;
     int fee;
@@ -694,16 +694,24 @@ contract Vault is Ledger, Timestamp {
       {
         int total = premium + closePremium + fee + closeFee;
         if (!tradingPoolsInfo.isClose) {
-          require(tradingPoolsInfo.totalAdjustedAvailable >= 0, "pool unavailable");
-          require(size > 0 ? total < 0 : total > 0, "price is 0");
+          if (tradingPoolsInfo.totalAdjustedAvailable < 0) {
+            revert Unavailable(1);
+          }
+          if (size > 0 ? total >= 0 : total <= 0) {
+            revert ZeroPrice();
+          }
         }
-        require(total >= (size > 0 ? -int(acceptableTotal) : int(acceptableTotal)), "unacceptable price");
+        if (total < (size > 0 ? -int(acceptableTotal) : int(acceptableTotal))) {
+          revert UnacceptablePrice();
+        }
       }
     }
     internalUpdatePosition(
       msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
     );
-    require(internalGetAvailable(txCache, msg.sender) >= 0, "unavailable");
+    if (internalGetAvailable(txCache, msg.sender) < 0) {
+      revert Unavailable(2);
+    }
     chargeFee(platformFee, FundType.Trade);
   }
 
@@ -755,10 +763,14 @@ contract Vault is Ledger, Timestamp {
   }
 
   function settle(address account, uint expiry) public {
-    require(getTimestamp() >= expiry, "unexpired");
+    if (getTimestamp() < expiry) {
+      revert InvalidTime(1);
+    }
 
     uint settledPrice = spotPricer.settledPrices(expiry);
-    require(settledPrice != 0, "unsettled price");
+    if (settledPrice == 0) {
+      revert Unsettled();
+    }
 
     SettleInfo memory settleInfo = settleExpiry(settledPrice, account, expiry);
     if (settleInfo.realized + settleInfo.fee != 0) {
@@ -799,15 +811,23 @@ contract Vault is Ledger, Timestamp {
     bool isCall,
     int size
   ) public returns (int) {
-    require(size > 0, "invalid size");
-    require(getTimestamp() < expiry, "expired");
+    if (size <= 0) {
+      revert InvalidSize(1);
+    }
+    if (getTimestamp() >= expiry) {
+      revert InvalidTime(2);
+    }
 
     int availableSize = positionSizeOf(account, expiry, strike, isCall);
-    require(availableSize != 0, "position size is 0");
+    if (availableSize == 0) {
+      revert ZeroPosition();
+    }
 
     TxCache memory txCache = initTxCache();
     LiquidateInfo memory liquidateInfo = getLiquidateInfo(txCache, account);
-    require(liquidateInfo.healthFactor < int(liquidateInfo.liquidateRate), "can't liquidate");
+    if (liquidateInfo.healthFactor >= int(liquidateInfo.liquidateRate)) {
+      revert CannotLiquidate();
+    }
 
     if (availableSize < 0) {
       size = -size;
@@ -818,7 +838,9 @@ contract Vault is Ledger, Timestamp {
         size = availableSize;
       }
     } else {
-      require(getPositions(account, txCache.now, txCache.spot, 1, false).sellLength == 0, "sell position first");
+      if (getPositions(account, txCache.now, txCache.spot, 1, false).sellLength > 0) {
+        revert SellPositionFirst();
+      }
       if (size > availableSize) {
         size = availableSize;
       }
@@ -835,8 +857,12 @@ contract Vault is Ledger, Timestamp {
     internalUpdatePosition(
       msg.sender, expiry, strike, isCall, size, -premium, reward, ChangeType.Liquidate
     );
-    require(internalGetAccountInfo(txCache, account).equity >= 0, "insufficient account equity");
-    require(internalGetAvailable(txCache, msg.sender) >= 0, "liquidator unavailable");
+    if (internalGetAccountInfo(txCache, account).equity < 0) {
+      revert InsufficientEquity(1);
+    }
+    if (internalGetAvailable(txCache, msg.sender) < 0) {
+      revert Unavailable(3);
+    }
     chargeFee(-fee, FundType.Liquidate);
     return int(size.abs());
   }
@@ -877,12 +903,16 @@ contract Vault is Ledger, Timestamp {
 
   function clear(address account) public {
     address insuranceAccount = config.insuranceAccount();
-    require(account != insuranceAccount, "can't be insurance account");
+    if (account == insuranceAccount) {
+      revert InvalidAccount();
+    }
 
     TxCache memory txCache = initTxCache();
     LiquidateInfo memory liquidateInfo = getLiquidateInfo(txCache, account);
     uint[] memory expiries = listOfExpiries(account);
-    require(liquidateInfo.healthFactor < int(liquidateInfo.clearRate) || expiries.length == 0 && liquidateInfo.marginBalance < 0, "can't clear");
+    if (!(liquidateInfo.healthFactor < int(liquidateInfo.clearRate) || expiries.length == 0 && liquidateInfo.marginBalance < 0)) {
+      revert CannotClear();
+    }
 
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];

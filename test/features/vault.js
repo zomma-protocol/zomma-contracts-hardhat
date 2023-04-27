@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer } = require('../support/helper');
+const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, expectRevertCustom } = require('../support/helper');
 
 let PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 const initVault = async (owner) => {
@@ -88,8 +88,8 @@ describe('Vault', () => {
     });
 
     it('should not be allowed to init second time', async () => {
-      await expectRevert(
-        vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address), 'already initialized'
+      await expectRevertCustom(
+        vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address), Vault, 'AlreadyInitialized'
       );
     });
 
@@ -133,9 +133,9 @@ describe('Vault', () => {
       await vault.connect(trader).deposit(toDecimalStr(10000));
       assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), "10000");
 
-      await expectRevert(vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), 'trade disabled')
+      await expectRevertCustom(vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled')
 
-      await expectRevert(vault.connect(trader).trade(expiry2, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), 'trade disabled')
+      await expectRevertCustom(vault.connect(trader).trade(expiry2, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled')
 
 
       await optionMarket.setTradeDisabled(false);
@@ -183,7 +183,7 @@ describe('Vault', () => {
 
       assert.equal(result.status, true)
 
-      await expectRevert(vault.connect(trader).trade(expiry2, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), 'trade disabled')
+      await expectRevertCustom(vault.connect(trader).trade(expiry2, toDecimalStr(1000), true, toDecimalStr(1), INT_MAX), Vault, 'TradeDisabled')
     });
   });
 
@@ -263,7 +263,7 @@ describe('Vault', () => {
 
     it('should not be trade if trader has no enough money', async () => {
       let expiry = 1668153600;
-      await expectRevert(vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(10), INT_MAX), 'unavailable')
+      await expectRevertCustom(vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(10), INT_MAX), Vault, 'Unavailable').withArgs(2);
     });
 
     it('should be able to make a buy call', async () => {
@@ -406,7 +406,7 @@ describe('Vault', () => {
       accountInfo = await vault.getAccountInfo(trader.address);
       assert.equal(fromDecimal(accountInfo.healthFactor).gte(toBigNumber(0.5)), true);
 
-      await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1100), true, toDecimalStr(1)), "can't liquidate")
+      await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1100), true, toDecimalStr(1)), Vault, 'CannotLiquidate');
     })
 
     it('should be able to liquidate trader if health factor <= 0.5', async () => {
@@ -452,7 +452,7 @@ describe('Vault', () => {
       accountInfo = await vault.getAccountInfo(trader.address);
       assert.equal(fromDecimal(accountInfo.healthFactor).lt(toBigNumber(0.5)), true);
 
-      await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1100), true, toDecimalStr(1)), 'sell position first');
+      await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1100), true, toDecimalStr(1)), Vault, 'SellPositionFirst');
     });
 
     it("should not be able to liquidate trader once remaing health factor greater than 0.5", async () => {
@@ -467,7 +467,7 @@ describe('Vault', () => {
       accountInfo = await vault.getAccountInfo(trader.address);
       assert.equal(fromDecimal(accountInfo.healthFactor).gte(toBigNumber(0.5)), true);
 
-      await expectRevert(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1200), true, toDecimalStr(1)), "can't liquidate");
+      await expectRevertCustom(vault.connect(liquidator).liquidate(trader.address, expiry, toDecimalStr(1200), true, toDecimalStr(1)), Vault, 'CannotLiquidate');
     })
   });
 });

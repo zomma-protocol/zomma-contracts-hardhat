@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, toBigNumber, INT_MAX } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, toBigNumber, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -93,8 +93,8 @@ describe('Vault', () => {
       context('when rate 1', () => {
         const rate = toDecimalStr(1);
 
-        it('should revert with "withdraw too much"', async () => {
-          await expectRevert(vault.connect(pool).withdrawPercent(rate, 0, 0), 'withdraw too much');
+        it('should revert with WithdrawTooMuch', async () => {
+          await expectRevertCustom(vault.connect(pool).withdrawPercent(rate, 0, 0), Vault, 'WithdrawTooMuch');
         });
       });
 
