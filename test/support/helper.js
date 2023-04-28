@@ -4,9 +4,11 @@ const BigNumber = require('bigNumber.js');
 const _ = require('lodash');
 const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
+const { getContractFactories: zkSyncGetContractFactories, createPool: zkSyncCreatePool, wallets } = require('./zksync');
 
 const INT_MAX = '57896044618658097711785492504343953926634992332820282019728792003956564819967';
 const MAX_IV = new BigNumber('0xffffffffffffff');
+const ZKSYNC = process.env.ZKSYNC == '1';
 
 async function expectRevert(actual, expected) {
   await expect(actual).to.be.revertedWith(expected);
@@ -17,6 +19,9 @@ function expectRevertCustom(actual, contract, customErrorName) {
 }
 
 async function getContractFactories(...contracts) {
+  if (ZKSYNC) {
+    return await zkSyncGetContractFactories(...contracts);
+  }
   const contractFactories = [];
   for (let contract of contracts) {
     contractFactories.push(await ethers.getContractFactory(contract));
@@ -133,8 +138,8 @@ function strFromDecimal(value, decimal = 18) {
   return fromDecimal(value, decimal).toString(10);
 }
 
-async function createOptionPricer() {
-  const [OptionPricer] = await getContractFactories('TestOptionPricer');
+async function createOptionPricer(contract = 'TestCacheOptionPricer') {
+  const [OptionPricer] = await getContractFactories(contract);
   const optionPricer = await OptionPricer.deploy();
   await optionPricer.setLn(ln.keys, ln.values);
   const chunkSize = 200;
@@ -159,6 +164,9 @@ async function watchBalance(contract, addresses, func) {
 }
 
 async function createPool(poolFactory, ...args) {
+  if (ZKSYNC) {
+    return await zkSyncCreatePool(poolFactory, ...args);
+  }
   const result = await (await poolFactory.create(...args)).wait();
   const create = result.events.find((e) => e.event === 'Create').args;
   const pool = await ethers.getContractAt('Pool', create.pool);
@@ -167,7 +175,7 @@ async function createPool(poolFactory, ...args) {
 }
 
 async function addPool(config, account) {
-  await config.connect(account).enablePool();
+  await (await config.connect(account).enablePool()).wait();
   await config.addPool(account.address);
 }
 
@@ -181,11 +189,19 @@ async function mintAndDeposit(vault, usdc, account, { decimals = 6, amount = 100
     mint = amount;
   }
   await usdc.mint(account.address, toDecimalStr(mint, decimals));
-  await usdc.connect(account).approve(vault.address, toDecimalStr(100000000000, decimals));
+  await (await usdc.connect(account).approve(vault.address, toDecimalStr(100000000000, decimals))).wait();
   await vault.connect(account).deposit(toDecimalStr(amount));
 }
 
+async function getSigners() {
+  if (ZKSYNC) {
+    return wallets;
+  }
+  return await ethers.getSigners();
+}
+
 module.exports = {
+  getSigners,
   expectRevert, expectRevertCustom, getContractFactories, createPool,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer

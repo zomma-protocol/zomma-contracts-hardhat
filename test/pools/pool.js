@@ -55,7 +55,7 @@ describe('Pool', () => {
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
     poolFactory = await PoolFactory.deploy();
-    optionPricer = await createOptionPricer(artifacts);
+    optionPricer = await createOptionPricer();
     ({ pool, config } = await setup());
   });
 

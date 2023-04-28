@@ -15,7 +15,7 @@ const initVault = async (owner) => {
   const poolFactory = await PoolFactory.deploy();
 
   // Option Pricer
-  const optionPricer = await createOptionPricer(artifacts);
+  const optionPricer = await createOptionPricer();
 
   // Config
   const config = await Config.connect(owner).deploy();

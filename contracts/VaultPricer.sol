@@ -6,10 +6,10 @@ import "./libraries/SafeDecimalMath.sol";
 import "./libraries/SignedSafeDecimalMath.sol";
 import "./utils/Timestamp.sol";
 import "./OptionMarket.sol";
-import "./OptionPricer.sol";
 import "./SpotPricer.sol";
 import "./Config.sol";
 import "./Vault.sol";
+import "./interfaces/IOptionPricer.sol";
 import "./interfaces/IVault.sol";
 
 contract VaultPricer is IVault, Timestamp, Ownable {
@@ -22,14 +22,14 @@ contract VaultPricer is IVault, Timestamp, Ownable {
   Vault public vault;
   Config public config;
   SpotPricer public spotPricer;
-  OptionPricer public optionPricer;
+  IOptionPricer public optionPricer;
   OptionMarket public optionMarket;
 
   function initialize(address _vault, address _config, address _spotPricer, address _optionPricer, address _optionMarket) external onlyOwner {
     vault = Vault(_vault);
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
-    optionPricer = OptionPricer(_optionPricer);
+    optionPricer = IOptionPricer(_optionPricer);
     optionMarket = OptionMarket(_optionMarket);
   }
 
@@ -152,7 +152,7 @@ contract VaultPricer is IVault, Timestamp, Ownable {
   }
 
   function internalGetPremium(TxCache memory txCache, uint expiry, uint strike, bool isCall, int size, int available, int equity) private view returns (int, int) {
-    return optionPricer.getPremium(OptionPricer.GetPremiumParams(
+    return optionPricer.getPremium(IOptionPricer.GetPremiumParams(
       txCache.now,
       txCache.spot,
       txCache.riskFreeRate,

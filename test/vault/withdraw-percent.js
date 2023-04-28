@@ -41,7 +41,7 @@ describe('Vault', () => {
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
-    optionPricer = await createOptionPricer(artifacts);
+    optionPricer = await createOptionPricer();
   });
 
   describe('#withdrawPercent', () => {

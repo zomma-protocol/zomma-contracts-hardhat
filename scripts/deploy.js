@@ -18,13 +18,13 @@ let spotPricerContract, settlerContract, optionPricerContract, optionMarketContr
 if (isProduction) {
   spotPricerContract = isInterim ? 'InterimSpotPricer' : 'SpotPricer';
   settlerContract = 'Settler';
-  optionPricerContract = 'OptionPricer';
+  optionPricerContract = 'CacheOptionPricer';
   optionMarketContract = 'OptionMarket';
   vaultContract = 'Vault';
 } else {
   spotPricerContract = isInterim ? 'TestInterimSpotPricer' : 'TestSpotPricer';
   settlerContract = 'TestSettler';
-  optionPricerContract = 'TestOptionPricer';
+  optionPricerContract = 'TestCacheOptionPricer';
   optionMarketContract = 'TestOptionMarket';
   vaultContract = 'TestVault';
 }

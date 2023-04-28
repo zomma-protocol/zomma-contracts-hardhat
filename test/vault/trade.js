@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
+const { getSigners, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -36,10 +36,10 @@ describe('Vault', () => {
 
   before(async () => {
     [Vault, Config, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
-    accounts = await ethers.getSigners();
+    accounts = await getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3] = accounts;
     spotPricer = await SpotPricer.deploy();
-    optionPricer = await createOptionPricer(artifacts);
+    optionPricer = await createOptionPricer();
   });
 
   describe('#trade', () => {

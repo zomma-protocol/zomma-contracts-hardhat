@@ -7,7 +7,7 @@ async function setup(stakeholderAccount, insuranceAccount) {
   const usdc = await TestERC20.deploy('USDC', 'USDC', 6);
   const spotPricer = await SpotPricer.deploy();
   const poolFactory = await PoolFactory.deploy();
-  const optionPricer = await createOptionPricer(artifacts);
+  const optionPricer = await createOptionPricer();
   const config = await Config.deploy();
   const optionMarket = await OptionMarket.deploy();
   const vault = await Vault.deploy();

@@ -4,19 +4,14 @@ pragma solidity ^0.8.11;
 import "../libraries/SafeDecimalMath.sol";
 import "../libraries/SignedSafeDecimalMath.sol";
 
-contract LookupUpdater {
+contract SqrtTsAndPvs {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
 
-  mapping(uint => uint) public sqrtTs;
-  mapping(uint => uint) public pvs;
-
-  uint private constant SECONDS_PER_YEAR = 31536000;
+  uint internal constant SECONDS_PER_YEAR = 31536000;
   uint private constant LN_2 = 693147180559945309; // 0.693147180559945309
   int private constant MIN_EXP = -42 * int(SafeDecimalMath.UNIT);
   uint private constant MAX_EXP = 100 * SafeDecimalMath.UNIT;
-
-  event UpdateLookup(uint expiry, uint sqrtTs, uint pvs);
 
   function exp(uint x) public pure returns (uint) {
     if (x == 0) {
@@ -59,14 +54,7 @@ contract LookupUpdater {
     }
   }
 
-  function internalUpdateLookup(uint timestamp, uint expiry, int rate) internal {
-    (uint s, uint p) = getSqrtTsAndPvs(timestamp, expiry, rate);
-    sqrtTs[expiry] = s;
-    pvs[expiry] = p;
-    emit UpdateLookup(expiry, s, p);
-  }
-
-  function getSqrtTsAndPvs(uint timestamp, uint expiry, int rate) internal pure returns(uint s, uint p) {
+  function getSqrtTsAndPvs(uint timestamp, uint expiry, int rate) internal view virtual returns(uint s, uint p) {
     uint tAnnualised = expiry > timestamp ? (expiry - timestamp).decimalDiv(SECONDS_PER_YEAR) : 0;
     s = sqrt(tAnnualised * SafeDecimalMath.UNIT);
     p = exp(-rate.decimalMul(int(tAnnualised)));

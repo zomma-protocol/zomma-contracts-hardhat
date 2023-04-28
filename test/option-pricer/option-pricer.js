@@ -1,12 +1,11 @@
 const assert = require('assert');
-const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, INT_MAX, createOptionPricer } = require('./support/helper');
+const { expectRevert, toDecimalStr, strFromDecimal, INT_MAX, createOptionPricer } = require('../support/helper');
 
-let Vault, Config, accounts;
+let accounts;
 describe('OptionPricer', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
-  let optionPricer, config, vault;
+  let optionPricer;
 
   const getPremiumParams = (params = {}) => {
     return {
@@ -32,66 +31,14 @@ describe('OptionPricer', () => {
   };
 
   before(async () => {
-    [Vault, Config] = await getContractFactories('TestVault', 'Config');
     accounts = await ethers.getSigners();
-    optionPricer = await createOptionPricer(artifacts);
-    config = await Config.deploy();
-    vault = await Vault.deploy();
-    await config.initialize(ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, ZERO_ADDRESS, 6);
-    await optionPricer.initialize(config.address);
-    await optionPricer.setVault(vault.address);
-  });
-
-  describe('#initialize', () => {
-    context('when initialize once', () => {
-      it('should pass', async () => {
-        assert.equal(await optionPricer.initialized(), true);
-        assert.equal(await optionPricer.config(), config.address);
-      });
-    });
-
-    context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(optionPricer.initialize(accounts[1].address), 'already initialized');
-      });
-    });
-  });
-
-  describe('#updateLookup', () => {
-    context('when 7 days to expire', () => {
-      before(async () => {
-        await vault.setTimestamp(now);
-      });
-
-      it('should update sqrtTs and pvs', async () => {
-        await optionPricer.updateLookup([expiry]);
-        assert.equal(strFromDecimal(await optionPricer.sqrtTs(expiry)), '0.138484952943562864');
-        assert.equal(strFromDecimal(await optionPricer.pvs(expiry)), '0.998849976852539634');
-      });
-    });
-
-    context('when expired', () => {
-      before(async () => {
-        await vault.setTimestamp(now + 1);
-        await optionPricer.updateLookup([now]);
-      });
-
-      it('should update sqrtTs and pvs', async () => {
-        assert.equal(strFromDecimal(await optionPricer.sqrtTs(now)), '0');
-        assert.equal(strFromDecimal(await optionPricer.pvs(now)), '1');
-      });
-    });
+    optionPricer = await createOptionPricer('OptionPricer');
   });
 
   describe('#getPrice', () => {
     function getPrice(isCall, spot, strike, timeToExpirySec = expiry - now) {
       return optionPricer.getPrice(isCall, expiry, timeToExpirySec, toDecimalStr(0.8), spot, strike, toDecimalStr(0.06));
     }
-
-    before(async () => {
-      await vault.setTimestamp(now);
-      await optionPricer.updateLookup([expiry]);
-    });
 
     context('when strike 1100', () => {
       const strike = toDecimalStr(1100);
@@ -146,11 +93,6 @@ describe('OptionPricer', () => {
       assert.equal(strFromDecimal(premium), expectedPremium);
       assert.equal(strFromDecimal(fee), expectedFee);
     }
-
-    before(async () => {
-      await vault.setTimestamp(now);
-      await optionPricer.updateLookup([expiry]);
-    });
 
     context('when buy', () => {
       context('when spot 1000', () => {

@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "../OptionPricer.sol";
-import "./TestVault.sol";
+import "../../option-pricer/CacheOptionPricer.sol";
+import "../TestVault.sol";
 
-contract TestOptionPricer is OptionPricer {
+contract TestCacheOptionPricer is CacheOptionPricer {
   TestVault private vault;
 
   function reinitialize(address _config, address _vault) external {

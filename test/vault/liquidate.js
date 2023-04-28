@@ -39,7 +39,7 @@ describe('Vault', () => {
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
-    optionPricer = await createOptionPricer(artifacts);
+    optionPricer = await createOptionPricer();
   });
 
   describe('#liquidate', () => {

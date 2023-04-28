@@ -1,54 +1,17 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "./black-scholes/BlackScholesLookup.sol";
-import "./libraries/SafeDecimalMath.sol";
-import "./utils/Timestamp.sol";
-import "./Config.sol";
+import "../black-scholes/BlackScholes.sol";
+import "../libraries/SafeDecimalMath.sol";
+import "../utils/Timestamp.sol";
+import "../interfaces/IOptionPricer.sol";
 
-contract OptionPricer is BlackScholesLookup, Timestamp {
+contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
 
-  struct GetPremiumParams {
-    uint now;
-    uint spot;
-    int riskFreeRate;
-    uint initialMarginRiskRate;
-    uint spotFee;
-    uint optionFee;
-    uint minPremium;
-    uint expiry;
-    uint strike;
-    uint iv;
-    int size;
-    int available;
-    int equity;
-    uint priceRatio;
-    uint priceRatio2;
-    uint priceRatioUtilization;
-    bool isCall;
-  }
-
-  Config public config;
-  bool public initialized;
-
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
   int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
-
-  function initialize(address _config) external {
-    require(!initialized, "already initialized");
-    initialized = true;
-    config = Config(_config);
-  }
-
-  function updateLookup(uint[] calldata expiries) external {
-    int riskFreeRate = config.riskFreeRate();
-    uint time = getTimestamp();
-    for (uint i = 0; i < expiries.length; ++i) {
-      internalUpdateLookup(time, expiries[i], riskFreeRate);
-    }
-  }
 
   function getPremium(GetPremiumParams memory params) external view returns (int, int) {
     require(params.iv > 0, "iv is 0");
