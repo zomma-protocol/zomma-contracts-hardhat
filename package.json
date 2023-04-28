@@ -20,7 +20,8 @@
     "hardhat": "^2.13.0"
   },
   "scripts": {
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "zksync:production": "PRODUCTION=1 hardhat --network zkSync deploy-zksync"
   },
   "author": "Yi-Cyuan Chen",
   "license": "ISC"

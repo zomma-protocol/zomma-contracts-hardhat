@@ -16,23 +16,40 @@ if (!PRIVATE_KEY) {
   throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
 }
 
-const isInterim = true;
 const isProduction = process.env.PRODUCTION === '1';
-const useDummyChainlink = !isProduction && !isInterim && process.env.TEST_CHAINLINK === '1';
+const oracle = process.env.ORACLE || 'chainlink-interim';
 
-let spotPricerContract, settlerContract, optionPricerContract, optionMarketContract, vaultContract;
+let spotPricerContract, settlerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
 if (isProduction) {
-  spotPricerContract = 'InterimSpotPricer';
   settlerContract = 'Settler';
   optionPricerContract = 'CacheOptionPricer';
   optionMarketContract = 'OptionMarket';
   vaultContract = 'Vault';
 } else {
-  spotPricerContract = 'TestInterimSpotPricer';
   settlerContract = 'TestSettler';
   optionPricerContract = 'TestCacheOptionPricer';
   optionMarketContract = 'TestOptionMarket';
   vaultContract = 'TestVault';
+}
+
+let chainlinkDeployable = false, isChainlinkSystem = true;
+// chainlink, chainlink-interim, chainlink-dummy
+switch (oracle) {
+  case 'chainlink-interim':
+    spotPricerContract = isProduction ? 'InterimSpotPricer' : 'TestInterimSpotPricer';
+    chainlinkContract = 'InterimChainlink';
+    chainlinkProxyContract = 'InterimChainlinkProxy';
+    chainlinkDeployable = true;
+    break;
+  case 'chainlink-dummy':
+    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
+    chainlinkContract = 'TestChainlink';
+    chainlinkProxyContract = 'TestChainlinkProxy';
+    chainlinkDeployable = true;
+    break;
+  default: // chainlink
+    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
+    break;
 }
 
 const wallet = new Wallet(PRIVATE_KEY);
@@ -125,11 +142,13 @@ async function createChainlink(chainlinkContract, chainlinkProxyContract) {
       console.log('chainlinkProxy.setChainlink...');
       await c.setChainlink(chainlink.address);
 
-      if (process.env.FEEDER) {
-        await c.transferOwnership(process.env.FEEDER);
-        await chainlink.transferOwnership(process.env.FEEDER);
-      } else {
-        console.log('should change owner');
+      if (oracle === 'chainlink-interim') {
+        if (process.env.FEEDER) {
+          await c.transferOwnership(process.env.FEEDER);
+          await chainlink.transferOwnership(process.env.FEEDER);
+        } else {
+          console.log('should change owner');
+        }
       }
     }
   });
@@ -154,8 +173,8 @@ module.exports = async function (hre) {
     faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
   }
   let chainlinkProxyAddress;
-  if (isInterim) {
-    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || await createChainlink('InterimChainlink', 'InterimChainlinkProxy');
+  if (isChainlinkSystem) {
+    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || chainlinkDeployable && await createChainlink(chainlinkContract, chainlinkProxyContract);
   }
   const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,
@@ -171,8 +190,7 @@ module.exports = async function (hre) {
       }
     }
   });
-  if (useDummyChainlink) {
-    chainlinkProxyAddress = await createChainlink('TestChainlink', 'TestChainlinkProxy');
+  if (!isProduction && chainlinkProxyAddress && chainlinkProxyAddress !== (await spotPricer.chainlink())) {
     console.log('spotPricer.reinitialize...');
     await spotPricer.reinitialize(chainlinkProxyAddress);
   }
