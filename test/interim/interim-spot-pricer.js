@@ -52,8 +52,8 @@ describe('InterimSpotPricer', () => {
               assert.equal(await spotPricer.migrated(), true);
             });
 
-            it('should be new chainlink', async () => {
-              assert.equal(await spotPricer.chainlink(), newChainlink.address);
+            it('should be new oracle', async () => {
+              assert.equal(await spotPricer.oracle(), newChainlink.address);
             });
           });
         });

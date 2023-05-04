@@ -47,6 +47,10 @@ switch (oracle) {
     chainlinkProxyContract = 'TestChainlinkProxy';
     chainlinkDeployable = true;
     break;
+  case 'pyth':
+    spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
+    vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
+    isChainlinkSystem = false;
   default: // chainlink
     spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
     break;
@@ -172,27 +176,33 @@ module.exports = async function (hre) {
   if (!isProduction) {
     faucet = await getOrDeploy(process.env.FAUCET, { contract: 'Faucet', args: [usdc.address] });
   }
-  let chainlinkProxyAddress;
+  let oracleAddress;
   if (isChainlinkSystem) {
-    chainlinkProxyAddress = process.env.CHAINLINK_PROXY || chainlinkDeployable && await createChainlink(chainlinkContract, chainlinkProxyContract);
+    oracleAddress = process.env.CHAINLINK_PROXY || chainlinkDeployable && await createChainlink(chainlinkContract, chainlinkProxyContract);
+  } else {
+    oracleAddress = process.env.PYTH;
   }
   const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,
     deployed: async(c) => {
-      if (chainlinkProxyAddress) {
+      if (oracleAddress) {
         console.log('spotPricer.initialize...');
-        await c.initialize(chainlinkProxyAddress);
+        if (isChainlinkSystem) {
+          await c.initialize(oracleAddress);
+        } else if (oracle === 'pyth') {
+          await c.initialize(oracleAddress, process.env.PYTH_PRICE_ID);
+        }
       } else if (!isProduction) {
         console.log('spotPricer.setPrice...');
         await c.setPrice('1000000000000000000000'); // 1000
       } else {
-        console.warn('should set CHAINLINK');
+        console.warn('should set Oracle');
       }
     }
   });
-  if (!isProduction && chainlinkProxyAddress && chainlinkProxyAddress !== (await spotPricer.chainlink())) {
+  if (!isProduction && oracleAddress && oracleAddress !== (await spotPricer.oracle())) {
     console.log('spotPricer.reinitialize...');
-    await spotPricer.reinitialize(chainlinkProxyAddress);
+    await spotPricer.reinitialize(oracleAddress);
   }
   // const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
   const settler = await getOrDeploy(process.env.SETTLER, { contract: settlerContract });
@@ -243,8 +253,10 @@ module.exports = async function (hre) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
   }
   console.log(`SETTLER=${settler.address.toLowerCase()}`);
-  if (chainlinkProxyAddress) {
-    console.log(`CHAINLINK_PROXY=${chainlinkProxyAddress.toLowerCase()}`);
+  if (oracleAddress) {
+    if (isChainlinkSystem) {
+      console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
+    }
   }
 
   console.log('=== fe ===');
@@ -269,8 +281,10 @@ module.exports = async function (hre) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
   }
   console.log(`SETTLER=${settler.address.toLowerCase()}`);
-  if (chainlinkProxyAddress) {
-    console.log(`CHAINLINK_PROXY=${chainlinkProxyAddress.toLowerCase()}`);
+  if (oracleAddress) {
+    if (isChainlinkSystem) {
+      console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
+    }
   }
 
   console.log('=== develop ===');

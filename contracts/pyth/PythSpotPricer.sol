@@ -7,14 +7,14 @@ import "../utils/Timestamp.sol";
 
 contract PythSpotPricer is Timestamp {
   mapping(uint => uint) public settledPrices;
-  IPyth public pyth;
+  IPyth public oracle;
   bytes32 public priceID;
 
   event SettlePrice(uint expiry, uint price, uint roundId);
 
-  function initialize(address _pyth, bytes32 _priceID) external {
-    require(address(pyth) == address(0), "already initialized");
-    pyth = IPyth(_pyth);
+  function initialize(address _oracle, bytes32 _priceID) external {
+    require(address(oracle) == address(0), "already initialized");
+    oracle = IPyth(_oracle);
     priceID = _priceID;
   }
 
@@ -22,8 +22,8 @@ contract PythSpotPricer is Timestamp {
     require(settledPrices[expiry] == 0, "settled");
     bytes32[] memory priceIds = new bytes32[](1);
     priceIds[0] = priceID;
-    uint fee = pyth.getUpdateFee(priceUpdateData);
-    PythStructs.PriceFeed[] memory priceFeeds = pyth.parsePriceFeedUpdates{ value: fee }(priceUpdateData, priceIds, uint64(expiry), uint64(expiry) + 5);
+    uint fee = oracle.getUpdateFee(priceUpdateData);
+    PythStructs.PriceFeed[] memory priceFeeds = oracle.parsePriceFeedUpdates{ value: fee }(priceUpdateData, priceIds, uint64(expiry), uint64(expiry) + 5);
     uint price = pythPriceToPrice(priceFeeds[0].price);
     require(priceFeeds[0].price.publishTime == expiry, 'invalid publishTime');
     settledPrices[expiry] = price;
@@ -34,15 +34,15 @@ contract PythSpotPricer is Timestamp {
   }
 
   function update(bytes[] calldata priceUpdateData) external payable {
-    uint fee = pyth.getUpdateFee(priceUpdateData);
-    pyth.updatePriceFeeds{ value: fee }(priceUpdateData);
+    uint fee = oracle.getUpdateFee(priceUpdateData);
+    oracle.updatePriceFeeds{ value: fee }(priceUpdateData);
     if (msg.value - fee > 0) {
       payable(msg.sender).transfer(msg.value - fee);
     }
   }
 
-  function getPrice() external view virtual returns (uint) {
-    PythStructs.Price memory price = pyth.getPrice(priceID);
+  function getPrice() public view virtual returns (uint) {
+    PythStructs.Price memory price = oracle.getPrice(priceID);
     return pythPriceToPrice(price);
   }
 

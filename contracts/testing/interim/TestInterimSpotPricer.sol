@@ -1,15 +1,15 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "../interim/InterimSpotPricer.sol";
-import "./TestVault.sol";
+import "../../interim/InterimSpotPricer.sol";
+import "../TestVault.sol";
 
 contract TestInterimSpotPricer is InterimSpotPricer {
   uint internal price;
   TestVault internal vault;
 
-  function reinitialize(address _chainlink) external {
-    chainlink = IChainlink(_chainlink);
+  function reinitialize(address _oracle) external {
+    oracle = IChainlink(_oracle);
   }
 
   function setVault(address _vault) external {
@@ -24,9 +24,9 @@ contract TestInterimSpotPricer is InterimSpotPricer {
     price = _price;
   }
 
-  function getPrice() external view override returns (uint) {
-    if (price == 0 && address(chainlink) != address(0)) {
-      return uint(chainlink.latestAnswer()) * 10**18 / 10**chainlink.decimals();
+  function getPrice() public view override returns (uint) {
+    if (price == 0 && address(oracle) != address(0)) {
+      return super.getPrice();
     }
     return price;
   }

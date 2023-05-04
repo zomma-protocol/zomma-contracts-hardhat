@@ -21,7 +21,7 @@ describe('SpotPricer', () => {
     context('when initialize once', () => {
       it('should pass', async () => {
         assert.equal(await spotPricer.initialized(), true);
-        assert.equal(await spotPricer.chainlink(), chainlinkProxy.address);
+        assert.equal(await spotPricer.oracle(), chainlinkProxy.address);
       });
     });
 
@@ -180,7 +180,6 @@ describe('SpotPricer', () => {
             now = expiry + 1;
             await chainlink.setNow(now);
             await vault.setTimestamp(now);
-            // await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
           });
 
           it('should revert with "invalid roundId"', async () => {

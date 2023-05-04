@@ -8,11 +8,11 @@ contract InterimSpotPricer is SpotPricer, Ownable {
   bool public migrated;
 
   // should be chainlink proxy
-  function migrate(address _chainlink) external onlyOwner {
+  function migrate(address _oracle) external onlyOwner {
     require(!migrated, "already migrated");
-    require(_chainlink != address(chainlink), "unchanged");
-    chainlink = IChainlink(_chainlink);
-    require(chainlink.latestAnswer() != 0, 'incorrect interface');
+    require(_oracle != address(oracle), "unchanged");
+    oracle = IChainlink(_oracle);
+    require(oracle.latestAnswer() != 0, 'incorrect interface');
     migrated = true;
   }
 
@@ -20,8 +20,8 @@ contract InterimSpotPricer is SpotPricer, Ownable {
     if (migrated) {
       return super.checkRoundId(expiry, _roundId);
     } else {
-      uint timestamp = chainlink.getTimestamp(_roundId);
-      uint timestamp2 = chainlink.getTimestamp(_roundId + 1);
+      uint timestamp = oracle.getTimestamp(_roundId);
+      uint timestamp2 = oracle.getTimestamp(_roundId + 1);
       return timestamp > 0 && expiry >= timestamp && expiry < timestamp2;
     }
   }

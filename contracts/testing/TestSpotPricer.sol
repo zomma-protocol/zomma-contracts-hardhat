@@ -8,8 +8,8 @@ contract TestSpotPricer is SpotPricer {
   uint internal price;
   TestVault internal vault;
 
-  function reinitialize(address _chainlink) external {
-    chainlink = IChainlink(_chainlink);
+  function reinitialize(address _oracle) external {
+    oracle = IChainlink(_oracle);
   }
 
   function setVault(address _vault) external {
@@ -24,9 +24,9 @@ contract TestSpotPricer is SpotPricer {
     price = _price;
   }
 
-  function getPrice() external view override returns (uint) {
-    if (price == 0 && address(chainlink) != address(0)) {
-      return uint(chainlink.latestAnswer()) * 10**18 / 10**chainlink.decimals();
+  function getPrice() public view override returns (uint) {
+    if (price == 0 && address(oracle) != address(0)) {
+      return super.getPrice();
     }
     return price;
   }

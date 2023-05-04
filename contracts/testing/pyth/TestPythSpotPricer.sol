@@ -4,12 +4,12 @@ pragma solidity ^0.8.11;
 import "../../pyth/PythSpotPricer.sol";
 import "./TestPythVault.sol";
 
-contract TestPythSpotPricer is SpotPricer {
+contract TestPythSpotPricer is PythSpotPricer {
   uint internal price;
   TestPythVault internal vault;
 
-  function reinitialize(address _chainlink) external {
-    chainlink = IChainlink(_chainlink);
+  function reinitialize(address _oracle) external {
+    oracle = IPyth(_oracle);
   }
 
   function setVault(address _vault) external {
@@ -24,9 +24,9 @@ contract TestPythSpotPricer is SpotPricer {
     price = _price;
   }
 
-  function getPrice() external view override returns (uint) {
-    if (price == 0 && address(chainlink) != address(0)) {
-      return uint(chainlink.latestAnswer()) * 10**18 / 10**chainlink.decimals();
+  function getPrice() public view override returns (uint) {
+    if (price == 0 && address(oracle) != address(0)) {
+      return super.getPrice();
     }
     return price;
   }
