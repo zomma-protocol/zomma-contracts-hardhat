@@ -27,6 +27,7 @@ const initVault = async (owner) => {
 
   await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
   await config.initialize(vault.address, owner.address, owner.address, usdc.address, 6);
+  await optionMarket.initialize();
   await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
 

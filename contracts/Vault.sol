@@ -3,7 +3,6 @@ pragma solidity ^0.8.11;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "./libraries/SafeDecimalMath.sol";
 import "./libraries/SignedSafeDecimalMath.sol";
 import "./utils/Timestamp.sol";
@@ -41,6 +40,7 @@ contract Vault is IVault, Ledger, Timestamp {
   error SellPositionFirst();
   error InvalidAccount();
   error CannotClear();
+  error NotOwner();
 
   struct PositionInfo {
     int buyNotional;
@@ -95,7 +95,8 @@ contract Vault is IVault, Ledger, Timestamp {
   SpotPricer public spotPricer;
   IOptionPricer public optionPricer;
   OptionMarket public optionMarket;
-  bool public initialized = false;
+  bool public initialized;
+  address public owner;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
   int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
@@ -111,10 +112,27 @@ contract Vault is IVault, Ledger, Timestamp {
       revert AlreadyInitialized();
     }
     initialized = true;
+    owner = msg.sender;
+    setAddresses(_config, _spotPricer, _optionPricer, _optionMarket);
+  }
+
+  function checkOwner() internal view {
+    if (msg.sender != owner) {
+      revert NotOwner();
+    }
+  }
+
+  function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket) public {
+    checkOwner();
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
     optionPricer = IOptionPricer(_optionPricer);
     optionMarket = OptionMarket(_optionMarket);
+  }
+
+  function changeOwner(address _owner) external {
+    checkOwner();
+    owner = _owner;
   }
 
   function deposit(uint amount) external {
@@ -934,4 +952,6 @@ contract Vault is IVault, Ledger, Timestamp {
       internalUpdatePosition(insuranceAccount, expiry, strike, isCall, size, notional, 0, ChangeType.Clear);
     }
   }
+
+  uint256[44] private __gap;
 }

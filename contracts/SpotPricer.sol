@@ -12,7 +12,7 @@ contract SpotPricer is Timestamp {
   event SettlePrice(uint expiry, uint price, uint roundId);
 
   // should be chainlink proxy
-  function initialize(address _oracle) external {
+  function initialize(address _oracle) public virtual {
     require(!initialized, "already initialized");
     initialized = true;
     oracle = IChainlink(_oracle);
@@ -36,4 +36,6 @@ contract SpotPricer is Timestamp {
     timestamp2 = timestamp2 == 0 ? getTimestamp() : timestamp2;
     return timestamp > 0 && expiry >= timestamp && expiry < timestamp2;
   }
+
+  uint256[47] private __gap;
 }

@@ -21,6 +21,7 @@ describe('Settler', () => {
     const optionMarket = await OptionMarket.deploy();
     const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await optionMarket.initialize();
     await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc, optionMarket };
@@ -34,29 +35,13 @@ describe('Settler', () => {
   };
 
   before(async () => {
-    [Vault, Config, OptionMarket, TestERC20, SpotPricer, Settler] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer', 'TestSettler');
+    [Vault, Config, OptionMarket, TestERC20, SpotPricer, Settler] = await getContractFactories('TestVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer', 'Settler');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     ({ vault, config, usdc, optionMarket } = await setup());
     settler = await Settler.deploy();
-    await settler.initialize(vault.address);
-  });
-
-  describe('#initialize', () => {
-    context('when initialize once', () => {
-      it('should pass', async () => {
-        assert.equal(await settler.initialized(), true);
-        assert.equal(await settler.vault(), vault.address);
-      });
-    });
-
-    context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(settler.initialize(trader.address), 'already initialized');
-      });
-    });
   });
 
   describe('#settle', () => {
@@ -72,7 +57,7 @@ describe('Settler', () => {
       await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-1), 0);
       await vault.setTimestamp(expiry);
       await spotPricer.setSettledPrice(expiry, toDecimalStr(1050));
-      await settler.settle(expiry, [trader.address, trader2.address]);
+      await settler.settle(vault.address, expiry, [trader.address, trader2.address]);
       position = await vault.positionOf(trader.address, expiry, strike, true);
       position2 = await vault.positionOf(trader2.address, expiry, strike, true);
     });

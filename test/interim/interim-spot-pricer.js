@@ -1,6 +1,7 @@
 const assert = require('assert');
 const { expect } = require('chai');
 const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
 let Vault, SpotPricer, Chainlink, ChainlinkProxy, accounts;
 describe('InterimSpotPricer', () => {
@@ -95,6 +96,7 @@ describe('InterimSpotPricer', () => {
         const [TestInterimSpotPricer] = await getContractFactories('TestInterimSpotPricer');
         vault = await Vault.deploy();
         spotPricer = await TestInterimSpotPricer.deploy();
+        await spotPricer.initialize(ZERO_ADDRESS);
         await chainlink.setNow(initExpiry - 120);
         await chainlink.submit(toDecimalStr('1100', 8));
         await spotPricer.migrate(chainlinkProxy.address);

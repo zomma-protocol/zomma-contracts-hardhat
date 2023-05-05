@@ -137,4 +137,6 @@ contract Ledger {
   function anyPosition(address account, uint expiry, uint strike) internal view returns (bool) {
     return positionSizeOf(account, expiry, strike, true) != 0 || positionSizeOf(account, expiry, strike, false) != 0;
   }
+
+  uint256[46] private __gap;
 }

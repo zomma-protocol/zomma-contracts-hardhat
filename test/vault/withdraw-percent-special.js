@@ -21,6 +21,7 @@ describe('Vault', () => {
     const optionMarket = await OptionMarket.deploy();
     const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await optionMarket.initialize();
     await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc, optionMarket };

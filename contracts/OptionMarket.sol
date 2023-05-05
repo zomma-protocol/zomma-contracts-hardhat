@@ -1,10 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Timestamp.sol";
 
-contract OptionMarket is Ownable, Timestamp {
+contract OptionMarket is OwnableUpgradeable, Timestamp {
   // [expiry][strike]
   mapping(uint => mapping(uint => uint)) internal markets;
   mapping(uint => bool) public expiryDisabled;
@@ -25,6 +25,10 @@ contract OptionMarket is Ownable, Timestamp {
   event SetIv(uint expiry, uint strike, uint market);
   event TradeDisabled(bool disabled);
   event ExpiryDisabled(uint expiry, bool disabled);
+
+  function initialize() external initializer {
+    __Ownable_init();
+  }
 
   // owner methods
 

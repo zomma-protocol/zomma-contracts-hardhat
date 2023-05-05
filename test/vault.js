@@ -21,6 +21,7 @@ describe('Vault', () => {
     const optionMarket = await OptionMarket.deploy();
     const vault = await createVault(config.address, optionMarket.address);
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
+    await optionMarket.initialize();
     await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
     return { vault, config, usdc, optionMarket };
@@ -55,6 +56,52 @@ describe('Vault', () => {
     context('when initialize twice', () => {
       it('should revert with AlreadyInitialized', async () => {
         await expectRevertCustom(vault.initialize(trader.address, spotPricer.address, optionPricer.address, optionMarket.address), Vault, 'AlreadyInitialized');
+      });
+    });
+  });
+
+  describe('#setAddresses', () => {
+    context('when owner', () => {
+      before(async () => {
+        await vault.setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address);
+      });
+
+      after(async () => {
+        await vault.setAddresses(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+      });
+
+      it('should pass', async () => {
+        assert.equal(await vault.config(), trader.address);
+        assert.equal(await vault.spotPricer(), spotPricer.address);
+        assert.equal(await vault.optionPricer(), optionPricer.address);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with NotOwner', async () => {
+        await expectRevertCustom(vault.connect(trader).setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address), Vault, 'NotOwner');
+      });
+    });
+  });
+
+  describe('#changeOwner', () => {
+    context('when owner', () => {
+      before(async () => {
+        await vault.changeOwner(trader.address);
+      });
+
+      after(async () => {
+        await vault.connect(trader).changeOwner(stakeholderAccount.address);
+      });
+
+      it('should pass', async () => {
+        assert.equal(await vault.owner(), trader.address);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with NotOwner', async () => {
+        await expectRevertCustom(vault.connect(trader).changeOwner(trader.address), Vault, 'NotOwner');
       });
     });
   });

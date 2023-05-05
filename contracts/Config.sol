@@ -1,11 +1,11 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./libraries/SafeDecimalMath.sol";
 import "./Vault.sol";
 
-contract Config is Ownable {
+contract Config is OwnableUpgradeable {
   enum ChangeType {
     initialMarginRiskRate,
     liquidateRate,
@@ -52,7 +52,6 @@ contract Config is Ownable {
   address public quote;
   address public insuranceAccount;
   address public stakeholderAccount;
-  bool public initialized;
 
   uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
   uint private constant MAX_LIQUIDATE_RATE = 1000000000000000000; // 1
@@ -72,10 +71,8 @@ contract Config is Ownable {
   event RemovePool(address pool);
   event SetPoolReservedRate(address pool, uint reservedRate);
 
-  function initialize(address _vault, address _stakeholderAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external {
-    require(!initialized, "already initialized");
-    initialized = true;
-
+  function initialize(address _vault, address _stakeholderAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external initializer {
+    __Ownable_init();
     vault = Vault(_vault);
     quote = _quote;
     quoteDecimal = _quoteDecimal;

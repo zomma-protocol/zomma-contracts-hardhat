@@ -19,14 +19,12 @@ if (!PRIVATE_KEY) {
 const isProduction = process.env.PRODUCTION === '1';
 const oracle = process.env.ORACLE || 'chainlink-interim';
 
-let spotPricerContract, settlerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
+let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
 if (isProduction) {
-  settlerContract = 'Settler';
   optionPricerContract = 'CacheOptionPricer';
   optionMarketContract = 'OptionMarket';
   vaultContract = 'Vault';
 } else {
-  settlerContract = 'TestSettler';
   optionPricerContract = 'TestCacheOptionPricer';
   optionMarketContract = 'TestOptionMarket';
   vaultContract = 'TestVault';
@@ -82,6 +80,32 @@ async function getOrDeploy(address, { contract, deployed, args = [] }) {
   } else {
     return await deploy({ contract, deployed, args });
   }
+}
+
+async function deployProxy({ contract, deployed, args = [] }) {
+  const artifact = await deployer.loadArtifact(contract);
+  console.log(`deploy ${contract} Proxy...`);
+  const admin = await deploy({ contract: 'ZksyncProxyAdmin' });
+  const implementation = await deploy({ contract });
+  const proxy = await deploy({ contract: 'ZksyncTransparentUpgradeableProxy', args: [implementation.address, admin.address, '0x' ] });
+  const instance = await getContractAt(contract, proxy.address);
+  if (deployed) {
+    await deployed(instance);
+  }
+  return instance;
+}
+
+async function getOrDeployProxy(address, { contract, deployed, args = [] }) {
+  if (address) {
+    return await getContractAt(contract, address);
+  } else {
+    return await deployProxy({ contract, deployed, args });
+  }
+}
+
+async function logProxy(label, proxy) {
+  console.log(`# ${label} Admin`, (await upgrades.erc1967.getAdminAddress(proxy.address)).toLocaleLowerCase());
+  console.log(`# ${label} Implementation`, (await upgrades.erc1967.getImplementationAddress(proxy.address)).toLocaleLowerCase());
 }
 
 // async function createPools(vault, config, poolFactory) {
@@ -182,7 +206,7 @@ module.exports = async function (hre) {
   } else {
     oracleAddress = process.env.PYTH;
   }
-  const spotPricer = await getOrDeploy(process.env.SPOT_PRICER, {
+  const spotPricer = await getOrDeployProxy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,
     deployed: async(c) => {
       if (oracleAddress) {
@@ -205,11 +229,16 @@ module.exports = async function (hre) {
     await spotPricer.reinitialize(oracleAddress);
   }
   // const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
-  const settler = await getOrDeploy(process.env.SETTLER, { contract: settlerContract });
-  const optionPricer = await getOrDeploy(process.env.OPTION_PRICER, { contract: optionPricerContract });
-  const optionMarket = await getOrDeploy(process.env.OPTION_MARKET, { contract: optionMarketContract });
-  const vault = await deploy({ contract: vaultContract });
-  const config = await deploy({ contract: 'Config' });
+  const settler = await getOrDeploy(process.env.SETTLER, { contract: 'Settler' });
+  const optionPricer = await getOrDeployProxy(process.env.OPTION_PRICER, { contract: optionPricerContract });
+  const optionMarket = await getOrDeployProxy(process.env.OPTION_MARKET, {
+    contract: optionMarketContract,
+    deployed: async (c) => {
+      await c.initialize();
+    }
+  });
+  const vault = await deployProxy({ contract: vaultContract });
+  const config = await deployProxy({ contract: 'Config' });
 
   console.log('vault.initialize...');
   await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
@@ -220,18 +249,12 @@ module.exports = async function (hre) {
   if (isProduction) {
     console.log('optionPricer.initialize...');
     await optionPricer.initialize(config.address);
-
-    console.log('settler.initialize...');
-    await settler.initialize(vault.address);
   } else {
     console.log('optionPricer.reinitialize...');
     await optionPricer.reinitialize(config.address, vault.address);
 
     console.log('optionMarket.setVault...');
     await optionMarket.setVault(vault.address);
-
-    console.log('settler.reinitialize...');
-    await settler.reinitialize(vault.address);
 
     console.log('spotPricer.setVault...');
     await spotPricer.setVault(vault.address);
@@ -286,6 +309,12 @@ module.exports = async function (hre) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
+
+  await logProxy('SPOT_PRICER', spotPricer);
+  await logProxy('OPTION_PRICER', optionPricer);
+  await logProxy('OPTION_MARKET', optionMarket);
+  await logProxy('VAULT', vault);
+  await logProxy('CONFIG', config);
 
   console.log('=== develop ===');
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);

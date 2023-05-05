@@ -10,6 +10,7 @@ describe('OptionMarket', () => {
 
   const setup = async () => {
     const optionMarket = await OptionMarket.deploy();
+    await optionMarket.initialize();
     return { optionMarket };
   };
 
@@ -18,6 +19,20 @@ describe('OptionMarket', () => {
     accounts = await ethers.getSigners();
     [owner, trader] = accounts;
     ({ optionMarket } = await setup());
+  });
+
+  describe('#initialize', () => {
+    context('when initialize once', () => {
+      it('should pass', async () => {
+        assert.equal(await optionMarket.owner(), owner.address);
+      });
+    });
+
+    context('when initialize twice', () => {
+      it('should revert with "Initializable: contract is already initialized"', async () => {
+        await expectRevert(optionMarket.initialize(), 'Initializable: contract is already initialized');
+      });
+    });
   });
 
   describe('#setIv', () => {

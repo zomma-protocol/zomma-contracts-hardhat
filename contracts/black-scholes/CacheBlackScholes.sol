@@ -21,4 +21,6 @@ contract CacheBlackScholes is BlackScholes {
   function getSqrtTsAndPvs(uint timestamp, uint expiry, int rate) internal view virtual override returns(uint s, uint p) {
     return (sqrtTs[expiry], pvs[expiry]);
   }
+
+  uint256[48] private __gap;
 }

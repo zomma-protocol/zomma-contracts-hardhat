@@ -13,6 +13,7 @@ async function setup(stakeholderAccount, insuranceAccount) {
   const vault = await Vault.deploy();
   await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
   await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, 6);
+  await optionMarket.initialize();
   await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
   return { poolFactory, config, vault, usdc, spotPricer, optionPricer, optionMarket };
@@ -54,7 +55,7 @@ describe('Config', () => {
   describe('#initialize', () => {
     context('when initialize once', () => {
       it('should pass', async () => {
-        assert.equal(await config.initialized(), true);
+        // assert.equal(await config.initialized(), true);
         assert.equal(await config.vault(), vault.address);
         assert.equal(await config.quote(), usdc.address);
         assert.equal(await config.quoteDecimal(), 6);
@@ -64,8 +65,8 @@ describe('Config', () => {
     });
 
     context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(config.initialize(vault.address, account1.address, account1.address, usdc.address, 8), 'already initialized');
+      it('should revert with "Initializable: contract is already initialized"', async () => {
+        await expectRevert(config.initialize(vault.address, account1.address, account1.address, usdc.address, 8), 'Initializable: contract is already initialized');
       });
     });
   });

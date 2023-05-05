@@ -24,6 +24,7 @@ describe('Pool', () => {
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
     await config.setInsuranceProportion(toDecimalStr(1));
+    await optionMarket.initialize();
     await optionMarket.setVault(vault.address);
     await optionPricer.reinitialize(config.address, vault.address);
     const { pool, poolToken } = (await createDefaultPool(vault, config));

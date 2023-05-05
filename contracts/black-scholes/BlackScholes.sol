@@ -42,4 +42,6 @@ contract BlackScholes is LnLookup, CdfLookup, SqrtTsAndPvs {
     put = spot < put ? put - spot : 0;
     return isCall ? call : put;
   }
+
+  uint256[50] private __gap;
 }

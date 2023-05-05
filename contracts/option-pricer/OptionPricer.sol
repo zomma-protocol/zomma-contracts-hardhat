@@ -81,4 +81,6 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   function getArea(uint x1, uint y1, uint x2, uint y2, uint x, uint w) internal pure returns (uint) {
     return getY(x1, y1, x2, y2, x).decimalMul(w);
   }
+
+  uint256[50] private __gap;
 }
