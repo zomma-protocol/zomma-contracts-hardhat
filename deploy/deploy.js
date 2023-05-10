@@ -116,7 +116,15 @@ async function setupCdf(optionPricer) {
 }
 
 async function createChainlink(chainlinkContract, chainlinkProxyContract) {
-  const chainlink = await deploy({ contract: chainlinkContract, args: [8] });
+  const chainlink = await deploy({
+    contract: chainlinkContract,
+    args: [8],
+    deployed: async (c) => {
+      if (chainlinkContract === 'InterimChainlinkOneinch') {
+        await c.setAddresses(100, process.env.ONEINCH_SPOT, process.env.ONEINCH_ETH, process.env.ONEINCH_USDC)
+      }
+    }
+  });
   chainlinkProxy = await deploy({
     contract: chainlinkProxyContract,
     deployed: async (c) => {
