@@ -31,6 +31,7 @@ interface IVault {
     int[10] available;
     int[10] adjustedAvailable;
     int[10] equity;
+    uint[] data;
   }
 
   struct TradingPoolsInfo {

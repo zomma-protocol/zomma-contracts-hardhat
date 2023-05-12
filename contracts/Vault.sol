@@ -388,7 +388,8 @@ contract Vault is IVault, Ledger, Timestamp {
 
   function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
-    if (checkDisable && (optionMarket.tradeDisabled() || timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD)) {
+    // if (checkDisable && (optionMarket.tradeDisabled() || timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD)) {
+    if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(timestamp))) {
       removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
@@ -594,7 +595,7 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  function initTxCache() private view returns (TxCache memory txCache) {
+  function initTxCache() internal view virtual returns (TxCache memory txCache) {
     address[] memory pools = config.getPools();
     txCache.poolLength = pools.length;
     txCache.spot = spotPricer.getPrice();
@@ -679,7 +680,8 @@ contract Vault is IVault, Ledger, Timestamp {
     }
 
     TxCache memory txCache = initTxCache();
-    if (txCache.now > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD) {
+    // if (txCache.now > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD) {
+    if (isIvOutdated(txCache.now)) {
       revert IvOutdated();
     }
 
@@ -769,7 +771,7 @@ contract Vault is IVault, Ledger, Timestamp {
       txCache.minPremium,
       expiry,
       strike,
-      optionMarket.getMarketIv(expiry, strike, isCall, size > 0),
+      getIv(txCache, expiry, strike, isCall, size > 0),
       size,
       available,
       equity,
@@ -778,6 +780,10 @@ contract Vault is IVault, Ledger, Timestamp {
       txCache.priceRatioUtilization,
       isCall
     ));
+  }
+
+  function getIv(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (uint) {
+    return optionMarket.getMarketIv(expiry, strike, isCall, isBuy);
   }
 
   function settle(address account, uint expiry) public {
@@ -951,6 +957,10 @@ contract Vault is IVault, Ledger, Timestamp {
     if (size != 0) {
       internalUpdatePosition(insuranceAccount, expiry, strike, isCall, size, notional, 0, ChangeType.Clear);
     }
+  }
+
+  function isIvOutdated(uint timestamp) internal view virtual returns (bool) {
+    return timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD;
   }
 
   uint256[44] private __gap;

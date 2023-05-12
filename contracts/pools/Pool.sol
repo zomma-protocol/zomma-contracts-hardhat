@@ -89,7 +89,8 @@ contract Pool is Ownable {
     amount = amount.truncate(quoteDecimal);
     require(amount > 0, 'amount is 0');
     transferFrom(msg.sender, address(this), amount);
-    Vault.AccountInfo memory accountInfo = vault.getAccountInfo(address(this));
+    // Vault.AccountInfo memory accountInfo = vault.getAccountInfo(address(this));
+    IVault.AccountInfo memory accountInfo = getAccountInfo(address(this));
     uint256 totalSupply = token.totalSupply();
     uint256 shares;
     if (totalSupply == 0) {
@@ -110,7 +111,8 @@ contract Pool is Ownable {
     }
 
     token.mint(msg.sender, shares);
-    vault.deposit(amount);
+    // vault.deposit(amount);
+    internalDeposit(amount);
 
     emit Deposit(msg.sender, amount, shares);
   }
@@ -120,7 +122,8 @@ contract Pool is Ownable {
     uint rate = shares.decimalDiv(totalSupply);
     uint afterFeeRate = rate == SafeDecimalMath.UNIT ? rate : rate.decimalMul(SafeDecimalMath.UNIT - withdrawFeeRate);
     token.burn(msg.sender, shares);
-    uint amount = vault.withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
+    // uint amount = vault.withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
+    uint amount = withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
     transfer(msg.sender, amount);
     uint fee = rate == SafeDecimalMath.UNIT ? 0 : amount.decimalDiv(SafeDecimalMath.UNIT - withdrawFeeRate).decimalMul(withdrawFeeRate);
     emit Withdraw(msg.sender, amount, shares, fee);
@@ -132,5 +135,17 @@ contract Pool is Ownable {
 
   function transferFrom(address from, address to, uint amount) private {
     quoteAsset.safeTransferFrom(from, to, (amount * 10**quoteDecimal) / SafeDecimalMath.UNIT);
+  }
+
+  function getAccountInfo(address addr) internal view virtual returns (IVault.AccountInfo memory) {
+    return vault.getAccountInfo(addr);
+  }
+
+  function internalDeposit(uint amount) internal virtual {
+    vault.deposit(amount);
+  }
+
+  function withdrawPercent(uint rate, uint acceptableAmount, uint _freeWithdrawableRate) internal virtual returns (uint) {
+    return vault.withdrawPercent(rate, acceptableAmount, _freeWithdrawableRate);
   }
 }

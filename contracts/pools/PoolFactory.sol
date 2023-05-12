@@ -8,8 +8,8 @@ import "./PoolToken.sol";
 contract PoolFactory {
   using Clones for address;
 
-  Pool private pool;
-  PoolToken private poolToken;
+  Pool internal pool;
+  PoolToken internal poolToken;
 
   event Create(address pool, address poolToken);
 

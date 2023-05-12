@@ -13,16 +13,30 @@ const cdf = require('./cdf');
 const isProduction = process.env.PRODUCTION === '1';
 const isBsLookup = process.env.BS_LOOKUP === '1';
 const oracle = process.env.ORACLE || 'chainlink';
+const vaultType = process.env.VAULT_TYPE || 'normal';
 
-let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
+let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
 if (isProduction) {
   optionPricerContract = isBsLookup ? 'CacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'OptionMarket';
-  vaultContract = 'Vault';
 } else {
   optionPricerContract = isBsLookup ? 'TestCacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'TestOptionMarket';
-  vaultContract = 'TestVault';
+}
+
+let setIvs = false;
+// append, normal
+switch (vaultType) {
+  case 'append':
+    vaultContract = isProduction ? 'AppendVault' : 'TestAppendVault';
+    poolFactoryContract = 'AppendPoolFactory';
+    setIvs = false;
+    break;
+  default: // normal
+    vaultContract = isProduction ? 'Vault' : 'TestVault';
+    poolFactoryContract = 'PoolFactory';
+    setIvs = true;
+    break;
 }
 
 let chainlinkDeployable = false, isChainlinkSystem = true;
@@ -116,10 +130,14 @@ async function setupIvs(optionMarket, optionPricer) {
     expiries.push(expiry);
     expiry += 86400 * 7;
   }
-  console.log('setIv...');
-  await optionMarket.setIv(mergeIv(data));
-  console.log('updateLookup...');
-  await optionPricer.updateLookup(expiries);
+  if (setIvs) {
+    console.log('setIv...');
+    await optionMarket.setIv(mergeIv(data));
+  }
+  if (isBsLookup) {
+    console.log('updateLookup...');
+    await optionPricer.updateLookup(expiries);
+  }
 }
 
 async function createPools(vault, config, poolFactory) {
@@ -234,7 +252,7 @@ async function main() {
     console.log('spotPricer.reinitialize...');
     await spotPricer.reinitialize(oracleAddress);
   }
-  const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
+  const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: poolFactoryContract });
   const settler = await getOrDeploy(process.env.SETTLER, { contract: 'Settler' });
   const optionPricer = await getOrDeployProxy(process.env.OPTION_PRICER, { contract: optionPricerContract });
   const optionMarket = await getOrDeployProxy(process.env.OPTION_MARKET, {
