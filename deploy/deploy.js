@@ -17,15 +17,16 @@ if (!PRIVATE_KEY) {
 }
 
 const isProduction = process.env.PRODUCTION === '1';
+const isBsLookup = process.env.BS_LOOKUP === '1';
 const oracle = process.env.ORACLE || 'chainlink-interim';
 
 let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
 if (isProduction) {
-  optionPricerContract = 'CacheOptionPricer';
+  optionPricerContract = isBsLookup ? 'CacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'OptionMarket';
   vaultContract = 'Vault';
 } else {
-  optionPricerContract = 'TestCacheOptionPricer';
+  optionPricerContract = isBsLookup ? 'TestCacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'TestOptionMarket';
   vaultContract = 'TestVault';
 }
@@ -232,7 +233,7 @@ module.exports = async function (hre) {
       }
     }
   });
-  if (!isProduction && oracleAddress && oracleAddress !== (await spotPricer.oracle())) {
+  if (!isProduction && oracleAddress && oracleAddress.toLowerCase() !== (await spotPricer.oracle()).toLowerCase()) {
     console.log('spotPricer.reinitialize...');
     await spotPricer.reinitialize(oracleAddress);
   }
@@ -255,11 +256,15 @@ module.exports = async function (hre) {
   await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
 
   if (isProduction) {
-    console.log('optionPricer.initialize...');
-    await optionPricer.initialize(config.address);
+    if (isBsLookup) {
+      console.log('optionPricer.initialize...');
+      await optionPricer.initialize(config.address);
+    }
   } else {
-    console.log('optionPricer.reinitialize...');
-    await optionPricer.reinitialize(config.address, vault.address);
+    if (isBsLookup) {
+      console.log('optionPricer.reinitialize...');
+      await optionPricer.reinitialize(config.address, vault.address);
+    }
 
     console.log('optionMarket.setVault...');
     await optionMarket.setVault(vault.address);
