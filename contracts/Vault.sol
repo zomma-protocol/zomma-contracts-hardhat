@@ -238,7 +238,8 @@ contract Vault is IVault, Ledger, Timestamp {
     uint riskDenominator = ratedRisk + uint(positionInfo.buyValue);
     // total risk want to remove
     uint riskDenominatorToRemove = riskDenominator.decimalMul(rate);
-    RemovePositions memory removePositions = getPositions(account, txCache.now, txCache.spot, MAX_REMOVE_POSITION, true);
+    // RemovePositions memory removePositions = getPositions(account, txCache.now, txCache.spot, MAX_REMOVE_POSITION, true);
+    RemovePositions memory removePositions = getPositions(txCache, account, MAX_REMOVE_POSITION, true);
     ReducePositionParams memory reducePositionParams;
     reducePositionParams.removeAll = rate == SafeDecimalMath.UNIT;
     reducePositionParams.account = account;
@@ -386,24 +387,26 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
+  // function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
+  function getPositions(TxCache memory txCache, address account, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
-    // if (checkDisable && (optionMarket.tradeDisabled() || timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD)) {
-    if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(timestamp))) {
+    if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(txCache.now))) {
       removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];
-      if (checkDisable && (timestamp >= expiry || optionMarket.expiryDisabled(expiry))) {
+      if (checkDisable && (txCache.now >= expiry || optionMarket.expiryDisabled(expiry))) {
         removePositions.morePositions = true;
         continue;
       }
       uint[] memory strikes = listOfStrikes(account, expiry);
       for (uint j = 0; j < strikes.length; ++j) {
         uint strike = strikes[j];
-        pushPosition(account, expiry, strike, true, spot, maxLength, removePositions, checkDisable);
-        pushPosition(account, expiry, strike, false, spot, maxLength, removePositions, checkDisable);
+        // pushPosition(account, expiry, strike, true, spot, maxLength, removePositions, checkDisable);
+        // pushPosition(account, expiry, strike, false, spot, maxLength, removePositions, checkDisable);
+        pushPosition(txCache, account, expiry, strike, true, maxLength, removePositions, checkDisable);
+        pushPosition(txCache, account, expiry, strike, false, maxLength, removePositions, checkDisable);
         if (removePositions.buyLength == maxLength && removePositions.sellLength == maxLength) {
           if (removePositions.morePositions) {
             return removePositions;
@@ -415,10 +418,12 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  function pushPosition(address account, uint expiry, uint strike, bool isCall, uint spot, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
+  // function pushPosition(address account, uint expiry, uint strike, bool isCall, uint spot, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
+  function pushPosition(TxCache memory txCache, address account, uint expiry, uint strike, bool isCall, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
     int size = positionSizeOf(account, expiry, strike, isCall);
     if (size > 0) {
-      if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, false)) {
+      // if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, false)) {
+      if (checkDisable && isMarketDisabled(txCache, expiry, strike ,isCall, false)) {
         removePositions.morePositions = true;
       } else if (removePositions.buyLength < maxLength) {
         removePositions.buyPositions[removePositions.buyLength++] = PositionParams(
@@ -428,11 +433,12 @@ contract Vault is IVault, Ledger, Timestamp {
         removePositions.morePositions = true;
       }
     } else if (size < 0) {
-      if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, true)) {
+      // if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, true)) {
+      if (checkDisable && isMarketDisabled(txCache, expiry, strike ,isCall, true)) {
         removePositions.morePositions = true;
       } else if (removePositions.sellLength < maxLength) {
         // priority: otm, expiry, S-K
-        int weight = isCall ? int(strike) - int(spot) : int(spot) - int(strike);
+        int weight = isCall ? int(strike) - int(txCache.spot) : int(txCache.spot) - int(strike);
         if (weight > 0) {
           weight += OTM_WEIGHT;
         }
@@ -598,7 +604,8 @@ contract Vault is IVault, Ledger, Timestamp {
   function initTxCache() internal view virtual returns (TxCache memory txCache) {
     address[] memory pools = config.getPools();
     txCache.poolLength = pools.length;
-    txCache.spot = spotPricer.getPrice();
+    // txCache.spot = spotPricer.getPrice();
+    txCache.spot = getPrice();
     txCache.initialMarginRiskRate = config.initialMarginRiskRate();
     txCache.spotInitialMarginRiskRate = txCache.spot.decimalMul(txCache.initialMarginRiskRate);
     txCache.priceRatio = config.priceRatio();
@@ -675,14 +682,14 @@ contract Vault is IVault, Ledger, Timestamp {
     if (getTimestamp() >= expiry) {
       revert InvalidTime(0);
     }
-    if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0)) {
-      revert TradeDisabled();
-    }
 
     TxCache memory txCache = initTxCache();
-    // if (txCache.now > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD) {
     if (isIvOutdated(txCache.now)) {
       revert IvOutdated();
+    }
+    // if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0)) {
+    if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || isMarketDisabled(txCache, expiry, strike ,isCall, size > 0)) {
+      revert TradeDisabled();
     }
 
     int premium;
@@ -862,7 +869,7 @@ contract Vault is IVault, Ledger, Timestamp {
         size = availableSize;
       }
     } else {
-      if (getPositions(account, txCache.now, txCache.spot, 1, false).sellLength > 0) {
+      if (getPositions(txCache, account, 1, false).sellLength > 0) {
         revert SellPositionFirst();
       }
       if (size > availableSize) {
@@ -961,6 +968,14 @@ contract Vault is IVault, Ledger, Timestamp {
 
   function isIvOutdated(uint timestamp) internal view virtual returns (bool) {
     return timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD;
+  }
+
+  function isMarketDisabled(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (bool) {
+    return optionMarket.isMarketDisabled(expiry, strike ,isCall, isBuy);
+  }
+
+  function getPrice() internal view virtual returns (uint) {
+    return spotPricer.getPrice();
   }
 
   uint256[44] private __gap;

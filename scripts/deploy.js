@@ -9,11 +9,12 @@ const { ethers, upgrades } = require('hardhat');
 const { toDecimalStr, nextFriday, buildIv, mergeIv } = require('./helper');
 const ln = require('./ln');
 const cdf = require('./cdf');
+const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
 const isProduction = process.env.PRODUCTION === '1';
 const isBsLookup = process.env.BS_LOOKUP === '1';
-const oracle = process.env.ORACLE || 'chainlink';
 const vaultType = process.env.VAULT_TYPE || 'normal';
+let oracle = process.env.ORACLE || 'chainlink';
 
 let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
 if (isProduction) {
@@ -25,12 +26,13 @@ if (isProduction) {
 }
 
 let setIvs = false;
-// append, normal
+// signed, normal
 switch (vaultType) {
-  case 'append':
-    vaultContract = isProduction ? 'AppendVault' : 'TestAppendVault';
-    poolFactoryContract = 'AppendPoolFactory';
+  case 'signed':
+    vaultContract = isProduction ? 'SignedVault' : 'TestSignedVault';
+    poolFactoryContract = 'SignedPoolFactory';
     setIvs = false;
+    oracle = 'zomma';
     break;
   default: // normal
     vaultContract = isProduction ? 'Vault' : 'TestVault';
@@ -58,6 +60,11 @@ switch (oracle) {
     spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
     vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
     isChainlinkSystem = false;
+    break;
+  case 'zomma':
+    spotPricerContract = 'SignedSpotPricer';
+    isChainlinkSystem = false;
+    chainlinkDeployable = false;
     break;
   default: // chainlink
     spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
@@ -227,8 +234,10 @@ async function main() {
   let oracleAddress;
   if (isChainlinkSystem) {
     oracleAddress = process.env.CHAINLINK_PROXY || chainlinkDeployable && await createChainlink(chainlinkContract, chainlinkProxyContract);
-  } else {
+  } else if (oracle === 'pyth') {
     oracleAddress = process.env.PYTH;
+  } else {
+    oracleAddress = ZERO_ADDRESS;
   }
   const spotPricer = await getOrDeployProxy(process.env.SPOT_PRICER, {
     contract: spotPricerContract,
@@ -239,6 +248,8 @@ async function main() {
           await c.initialize(oracleAddress);
         } else if (oracle === 'pyth') {
           await c.initialize(oracleAddress, process.env.PYTH_PRICE_ID);
+        } else {
+          await c.initialize(oracleAddress);
         }
       } else if (!isProduction) {
         console.log('spotPricer.setPrice...');
@@ -284,8 +295,10 @@ async function main() {
     console.log('optionMarket.setVault...');
     await optionMarket.setVault(vault.address);
 
-    console.log('spotPricer.setVault...');
-    await spotPricer.setVault(vault.address);
+    if (oracle !== 'zomma') {
+      console.log('spotPricer.setVault...');
+      await spotPricer.setVault(vault.address);
+    }
   }
 
   await setupCdf(optionPricer);

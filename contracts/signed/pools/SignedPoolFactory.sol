@@ -3,11 +3,11 @@ pragma solidity ^0.8.11;
 
 import "../../pools/PoolFactory.sol";
 import "../../pools/PoolToken.sol";
-import "./AppendPool.sol";
+import "./SignedPool.sol";
 
-contract AppendPoolFactory is PoolFactory {
+contract SignedPoolFactory is PoolFactory {
   constructor() {
-    pool = new AppendPool();
+    pool = new SignedPool();
     poolToken = new PoolToken();
   }
 }

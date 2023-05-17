@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-import "../../append/AppendVault.sol";
+import "../../signed/SignedVault.sol";
 
-contract TestAppendVault is AppendVault {
+contract TestSignedVault is SignedVault {
   uint public timestamp;
 
   function setTimestamp(uint _timestamp) external {
