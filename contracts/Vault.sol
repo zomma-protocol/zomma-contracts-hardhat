@@ -390,12 +390,14 @@ contract Vault is IVault, Ledger, Timestamp {
   // function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
   function getPositions(TxCache memory txCache, address account, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
+    // if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(timestamp))) {
     if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(txCache.now))) {
       removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];
+      // if (checkDisable && (timestamp >= expiry || optionMarket.expiryDisabled(expiry))) {
       if (checkDisable && (txCache.now >= expiry || optionMarket.expiryDisabled(expiry))) {
         removePositions.morePositions = true;
         continue;
@@ -438,6 +440,7 @@ contract Vault is IVault, Ledger, Timestamp {
         removePositions.morePositions = true;
       } else if (removePositions.sellLength < maxLength) {
         // priority: otm, expiry, S-K
+        // int weight = isCall ? int(strike) - int(spot) : int(spot) - int(strike);
         int weight = isCall ? int(strike) - int(txCache.spot) : int(txCache.spot) - int(strike);
         if (weight > 0) {
           weight += OTM_WEIGHT;
@@ -605,7 +608,7 @@ contract Vault is IVault, Ledger, Timestamp {
     address[] memory pools = config.getPools();
     txCache.poolLength = pools.length;
     // txCache.spot = spotPricer.getPrice();
-    txCache.spot = getPrice();
+    txCache.spot = getSpotPrice();
     txCache.initialMarginRiskRate = config.initialMarginRiskRate();
     txCache.spotInitialMarginRiskRate = txCache.spot.decimalMul(txCache.initialMarginRiskRate);
     txCache.priceRatio = config.priceRatio();
@@ -869,6 +872,7 @@ contract Vault is IVault, Ledger, Timestamp {
         size = availableSize;
       }
     } else {
+      // if (getPositions(account, txCache.now, txCache.spot, 1, false).sellLength > 0) {
       if (getPositions(txCache, account, 1, false).sellLength > 0) {
         revert SellPositionFirst();
       }
@@ -974,7 +978,7 @@ contract Vault is IVault, Ledger, Timestamp {
     return optionMarket.isMarketDisabled(expiry, strike ,isCall, isBuy);
   }
 
-  function getPrice() internal view virtual returns (uint) {
+  function getSpotPrice() internal view virtual returns (uint) {
     return spotPricer.getPrice();
   }
 

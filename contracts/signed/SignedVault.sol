@@ -46,7 +46,7 @@ contract SignedVault is Vault {
     return (market & disabled) == disabled;
   }
 
-  function getPrice() internal view override returns (uint) {
+  function getSpotPrice() internal view override returns (uint) {
     return 0;
   }
 

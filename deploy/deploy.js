@@ -139,7 +139,7 @@ async function createPools(vault, config) {
   ];
   const pools = [];
   const addedPools = await config.getPools();
-  for (let i = addedPools.length; i < 4; ++i) {
+  for (let i = addedPools.length; i < 2; ++i) {
     console.log(`create pool ${i}...`);
 
     const poolToken = await deploy({
