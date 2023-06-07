@@ -735,12 +735,12 @@ contract Vault is IVault, Ledger, Timestamp {
           revert UnacceptablePrice();
         }
       }
-    }
-    internalUpdatePosition(
-      msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
-    );
-    if (internalGetAvailable(txCache, msg.sender) < 0) {
-      revert Unavailable(2);
+      internalUpdatePosition(
+        msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
+      );
+      if (!tradingPoolsInfo.isClose && internalGetAvailable(txCache, msg.sender) < 0) {
+        revert Unavailable(2);
+      }
     }
     chargeFee(platformFee, FundType.Trade);
   }

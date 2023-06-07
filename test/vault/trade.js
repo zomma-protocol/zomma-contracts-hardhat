@@ -433,6 +433,26 @@ describe('Vault', () => {
                 assert.equal(strFromDecimal(poolChange), '0.864451536867962926');
               });
             });
+
+            context('when hf < 1', () => {
+              context('when then size 0.1', () => {
+                let accountInfoBefore, accountInfoAfter;
+
+                before(async () => {
+                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+                  await spotPricer.setPrice(toDecimalStr(1950));
+                  accountInfoBefore = await vault.getAccountInfo(trader.address);
+                  await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(0.1), INT_MAX);
+                  accountInfoAfter = await vault.getAccountInfo(trader.address);
+                  await spotPricer.setPrice(toDecimalStr(1000));
+                  await reset();
+                });
+
+                it('should increase healthFactor', async () => {
+                  assert.equal(accountInfoAfter.healthFactor.gt(accountInfoBefore.healthFactor), true);
+                });
+              });
+            });
           });
 
           context('when size is 20', () => {
