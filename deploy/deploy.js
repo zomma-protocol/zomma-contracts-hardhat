@@ -5,7 +5,7 @@ const { Wallet, ContractFactory } = require("zksync-web3");
 // const { HardhatRuntimeEnvironment } = require("hardhat/types");
 const { Deployer } = require("@matterlabs/hardhat-zksync-deploy");
 // const ethers = require("ethers");
-const { ethers } = require('hardhat');
+const { ethers, upgrades } = require('hardhat');
 const { toDecimalStr } = require('../scripts/helper');
 const ln = require('../scripts/ln');
 const cdf = require('../scripts/cdf');
@@ -18,19 +18,28 @@ if (!PRIVATE_KEY) {
 }
 
 const isProduction = process.env.PRODUCTION === '1';
-const isBsLookup = process.env.BS_LOOKUP === '1';
+const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
 const vaultType = process.env.VAULT_TYPE || 'normal';
 let oracle = process.env.ORACLE || 'chainlink-interim';
 
 let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolContract;
 if (isProduction) {
-  optionPricerContract = isBsLookup ? 'CacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'OptionMarket';
-  // vaultContract = 'Vault';
 } else {
-  optionPricerContract = isBsLookup ? 'TestCacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'TestOptionMarket';
-  // vaultContract = 'TestVault';
+}
+
+// signed, normal, lookup
+switch (optionPricerType) {
+  case 'signed':
+    optionPricerContract = 'SignedOptionPricer';
+    break;
+  case 'lookup':
+    optionPricerContract = isProduction ? 'CacheOptionPricer' : 'TestCacheOptionPricer';
+    break;
+  default: // normal
+    optionPricerContract = 'OptionPricer';
+    break;
 }
 
 // signed, normal
@@ -77,6 +86,21 @@ switch (oracle) {
 
 const wallet = new Wallet(PRIVATE_KEY);
 let deployer;
+
+async function upgradeProxy(address, contract) {
+  // const Contract = await ethers.getContractFactory(contract);
+  // console.log(`upgrade ${contract}...`);
+  // return await upgrades.upgradeProxy(address, Contract);
+
+  const proxy = await getContractAt('ZksyncTransparentUpgradeableProxy', address);
+  const adminAddress = await upgrades.erc1967.getAdminAddress(proxy.address)
+  const admin = await getContractAt('ZksyncProxyAdmin', adminAddress);
+  const implementation = await deploy({ contract });
+  await implementation.deployed();
+  console.log(`upgrade ${contract}...`);
+  await admin.upgrade(address, implementation.address);
+  return proxy;
+}
 
 async function getContractAt(nameOrAbi, address) {
   const artifact = await deployer.hre.artifacts.readArtifact(nameOrAbi);
@@ -280,12 +304,12 @@ module.exports = async function (hre) {
   await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
 
   if (isProduction) {
-    if (isBsLookup) {
+    if (optionPricerType === 'lookup') {
       console.log('optionPricer.initialize...');
       await optionPricer.initialize(config.address);
     }
   } else {
-    if (isBsLookup) {
+    if (optionPricerType === 'lookup') {
       console.log('optionPricer.reinitialize...');
       await optionPricer.reinitialize(config.address, vault.address);
     }

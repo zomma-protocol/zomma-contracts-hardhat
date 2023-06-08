@@ -12,17 +12,28 @@ const cdf = require('./cdf');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
 const isProduction = process.env.PRODUCTION === '1';
-const isBsLookup = process.env.BS_LOOKUP === '1';
+const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
 const vaultType = process.env.VAULT_TYPE || 'normal';
 let oracle = process.env.ORACLE || 'chainlink';
 
 let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
 if (isProduction) {
-  optionPricerContract = isBsLookup ? 'CacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'OptionMarket';
 } else {
-  optionPricerContract = isBsLookup ? 'TestCacheOptionPricer' : 'OptionPricer';
   optionMarketContract = 'TestOptionMarket';
+}
+
+// signed, normal, lookup
+switch (optionPricerType) {
+  case 'signed':
+    optionPricerContract = 'SignedOptionPricer';
+    break;
+  case 'lookup':
+    optionPricerContract = isProduction ? 'CacheOptionPricer' : 'TestCacheOptionPricer';
+    break;
+  default: // normal
+    optionPricerContract = 'OptionPricer';
+    break;
 }
 
 let setIvs = false;
@@ -69,6 +80,12 @@ switch (oracle) {
   default: // chainlink
     spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
     break;
+}
+
+async function upgradeProxy(address, contract) {
+  const Contract = await ethers.getContractFactory(contract);
+  console.log(`upgrade ${contract}...`);
+  return await upgrades.upgradeProxy(address, Contract);
 }
 
 async function deploy({ contract, deployed, args = [] }) {
@@ -141,7 +158,7 @@ async function setupIvs(optionMarket, optionPricer) {
     console.log('setIv...');
     await optionMarket.setIv(mergeIv(data));
   }
-  if (isBsLookup) {
+  if (optionPricerType === 'lookup') {
     console.log('updateLookup...');
     await optionPricer.updateLookup(expiries);
   }
@@ -282,12 +299,12 @@ async function main() {
   await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
 
   if (isProduction) {
-    if (isBsLookup) {
+    if (optionPricerType === 'lookup') {
       console.log('optionPricer.initialize...');
       await optionPricer.initialize(config.address);
     }
   } else {
-    if (isBsLookup) {
+    if (optionPricerType === 'lookup') {
       console.log('optionPricer.reinitialize...');
       await optionPricer.reinitialize(config.address, vault.address);
     }

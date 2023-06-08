@@ -26,7 +26,7 @@ contract BlackScholes is LnLookup, CdfLookup, SqrtTsAndPvs {
     d2 = d1 - vtSqrt;
   }
 
-  function getPrice(bool isCall, uint expiry, uint timeToExpirySec, uint volatility, uint spot, uint strike, int rate) public view returns (uint) {
+  function getPrice(bool isCall, uint expiry, uint timeToExpirySec, uint volatility, uint spot, uint strike, int rate) public view virtual returns (uint) {
     uint strikePV;
     int d1;
     int d2;

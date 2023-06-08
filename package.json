@@ -5,7 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "@matterlabs/hardhat-zksync-deploy": "^0.6.3",
-    "@matterlabs/hardhat-zksync-solc": "^0.3.15",
+    "@matterlabs/hardhat-zksync-solc": "^0.3.17",
     "@openzeppelin/contracts": "^4.8.0",
     "@openzeppelin/contracts-upgradeable": "^4.8.3",
     "@openzeppelin/test-helpers": "^0.5.16",
