@@ -14,7 +14,7 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
 
   function getPremium(GetPremiumParams memory params) external view returns (int, int) {
-    require(params.iv > 0, "iv is 0");
+    checkIv(params.iv);
     bool isBuy = params.size > 0;
     uint absSize = uint(isBuy ? params.size : -params.size);
     uint price = getPrice(params.isCall, params.expiry, params.expiry - params.now, params.iv, params.spot, params.strike, params.riskFreeRate);
@@ -80,6 +80,10 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
 
   function getArea(uint x1, uint y1, uint x2, uint y2, uint x, uint w) internal pure returns (uint) {
     return getY(x1, y1, x2, y2, x).decimalMul(w);
+  }
+
+  function checkIv(uint iv) internal pure virtual {
+    require(iv > 0, "iv is 0");
   }
 
   uint256[50] private __gap;

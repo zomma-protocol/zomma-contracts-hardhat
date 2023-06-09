@@ -8,4 +8,7 @@ contract SignedOptionPricer is OptionPricer {
   function getPrice(bool isCall, uint expiry, uint timeToExpirySec, uint volatility, uint spot, uint strike, int rate) public view override returns (uint) {
     return volatility;
   }
+
+  function checkIv(uint iv) internal pure override {
+  }
 }
