@@ -305,6 +305,20 @@ describe('Vault', () => {
                 await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'ZeroPrice');
               });
             });
+
+            context('when then other no balance account size -1', () => {
+              before(async () => {
+                await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+              });
+
+              after(async () => {
+                await reset();
+              });
+
+              it('should revert with Unavailable(2)', async () => {
+                await expectRevertCustom(vault.connect(pool3).trade(expiry, strike, true, toDecimalStr(-1), 0), Vault, 'Unavailable').withArgs(2);
+              });
+            });
           });
 
           context('when size is -1', () => {

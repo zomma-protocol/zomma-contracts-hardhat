@@ -735,10 +735,11 @@ contract Vault is IVault, Ledger, Timestamp {
           revert UnacceptablePrice();
         }
       }
+      bool isTraderClosing = traderClosing(msg.sender, expiry, strike, isCall, size);
       internalUpdatePosition(
         msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
       );
-      if (!tradingPoolsInfo.isClose && internalGetAvailable(txCache, msg.sender) < 0) {
+      if (!isTraderClosing && internalGetAvailable(txCache, msg.sender) < 0) {
         revert Unavailable(2);
       }
     }
@@ -790,6 +791,15 @@ contract Vault is IVault, Ledger, Timestamp {
       txCache.priceRatioUtilization,
       isCall
     ));
+  }
+
+  function traderClosing(address account, uint expiry, uint strike, bool isCall, int size) internal view returns (bool) {
+    int positionSize = positionSizeOf(account, expiry, strike, isCall);
+    if (positionSize > 0 && size < 0 || positionSize < 0 && size > 0) {
+      return size.abs() <= positionSize.abs();
+    } else {
+      return false;
+    }
   }
 
   function getIv(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (uint) {
