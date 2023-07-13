@@ -72,11 +72,11 @@ describe('SpotPricer', () => {
       initExpiry += 86400;
       await chainlink.setNow(expiry - 60);
       await chainlink.submit(toDecimalStr('1100', 8));
-      roundId = (await chainlink.roundId());
+      const roundId = (await chainlink.roundId());
 
       await chainlink.setNow(expiry);
       await chainlink.submit(toDecimalStr('1200', 8));
-      roundId2 = (await chainlink.roundId());
+      const roundId2 = (await chainlink.roundId());
       return { roundId, roundId2, expiry };
     };
 
@@ -202,7 +202,7 @@ describe('SpotPricer', () => {
       });
 
       it('should revert with "settled"', async () => {
-        await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId), 'settled');
+        await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'settled');
       });
     });
   });

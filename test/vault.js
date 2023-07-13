@@ -619,7 +619,7 @@ describe('Vault', () => {
     });
 
     context('when marginBalance < 0 and no positions', () => {
-      let vault, config, usdc;
+      let vault, config, usdc, insuranceAccountBalanceChange;
 
       before(async () => {
         ({ vault, config, usdc } = await subSetup());

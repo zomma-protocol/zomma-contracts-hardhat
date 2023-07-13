@@ -2,6 +2,8 @@ const { ethers } = require('hardhat');
 const { expect } = require('chai');
 const BigNumber = require('bigNumber.js');
 const _ = require('lodash');
+const { keccak256 } = require('js-sha3');
+const bs = require('black-scholes');
 const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
 const { getContractFactories: zkSyncGetContractFactories, createPool: zkSyncCreatePool, wallets } = require('./zksync');
@@ -138,6 +140,65 @@ function strFromDecimal(value, decimal = 18) {
   return fromDecimal(value, decimal).toString(10);
 }
 
+function buildData(ivs, spot, ttl) {
+  let data = _.padStart(new BigNumber(ttl).toString(16), 64, '0');
+  const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
+  mergedIvs.forEach((iv) => {
+    data += iv.replace('0x', '');
+  });
+  data += _.padStart(new BigNumber(spot).toString(16), 64, '0');
+  data += _.padStart(new BigNumber(mergedIvs.length + 6).toString(16), 64, '0');
+  return data;
+}
+
+async function signData(signer, ivs, spot, ttl) {
+  const data = buildData(ivs, spot, ttl);
+  const hash = keccak256(Buffer.from(data, 'hex'));
+  const messageHashBytes = ethers.utils.arrayify(`0x${hash}`);
+  const sig = await signer.signMessage(messageHashBytes);
+  const vrs = ethers.utils.splitSignature(sig);
+  return _.padStart(new BigNumber(vrs.v).toString(16), 64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
+}
+
+function ivsToPrices(ivs, spot, now, rate = 0.06) {
+  return ivs.map((iv) => {
+    const newIv = [...iv];
+    newIv[4] = toDecimalStr(bs.blackScholes(spot / 10**18, iv[1]  / 10**18, (iv[0] - now) / 31536000, iv[4] / 10**18, rate, iv[2] ? 'call' : 'put'));
+    return newIv;
+  });
+}
+
+function withSignedData(contract, signedData) {
+  const wrapFunctions = {};
+  Object.keys(contract.functions).forEach((func) => {
+    let funcInterface = contract.interface.functions[func];
+    if (!funcInterface) {
+      const key = Object.keys(contract.interface.functions).find((k) => contract.interface.functions[k].name === func)
+      funcInterface = contract.interface.functions[key];
+    }
+    const isCall = funcInterface.constant;
+    wrapFunctions[func] = async (...args) => {
+      const tx = await contract.populateTransaction[func](...args);
+      tx.data += signedData;
+      if (isCall) {
+        const result = await contract.signer.call(tx);
+        const decoded = contract.interface.decodeFunctionResult(funcInterface, result);
+        return Array.isArray(decoded[0]) ? decoded[0] : decoded;
+      } else {
+        const txr = await contract.signer.sendTransaction(tx);
+        const wait = txr.wait;
+        txr.wait = async () => {
+          const result = await wait();
+          result.events = result.logs.map((log) => contract.interface.parseLog(log));
+          return result;
+        };
+        return txr;
+      }
+    };
+  });
+  return wrapFunctions;
+}
+
 async function createOptionPricer(contract = 'TestCacheOptionPricer') {
   const [OptionPricer] = await getContractFactories(contract);
   const optionPricer = await OptionPricer.deploy();
@@ -201,7 +262,7 @@ async function getSigners() {
 }
 
 module.exports = {
-  getSigners,
+  getSigners, signData, withSignedData, ivsToPrices,
   expectRevert, expectRevertCustom, getContractFactories, createPool,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer

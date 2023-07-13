@@ -80,7 +80,7 @@ describe('CdfLookup', () => {
     });
 
     context('when cdf(3.999)', () => {
-      it('should be cdf', async () => {
+      it('should be 0.999968192217587251', async () => {
         assert.equal(strFromDecimal(await cdfLookup.cdf(toDecimalStr(3.999))), '0.999968192217587251');
       });
     });
