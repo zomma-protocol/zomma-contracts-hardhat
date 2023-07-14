@@ -16,6 +16,10 @@ async function expectRevert(actual, expected) {
   await expect(actual).to.be.revertedWith(expected);
 }
 
+async function expectRevertWithoutReason(actual) {
+  await expect(actual).to.be.revertedWithoutReason();
+}
+
 function expectRevertCustom(actual, contract, customErrorName) {
   return expect(actual).to.be.revertedWithCustomError(contract, customErrorName);
 }
@@ -189,7 +193,13 @@ function withSignedData(contract, signedData) {
         const wait = txr.wait;
         txr.wait = async () => {
           const result = await wait();
-          result.events = result.logs.map((log) => contract.interface.parseLog(log));
+          result.events = result.logs.map((log) => {
+            try {
+              return contract.interface.parseLog(log)
+            } catch (e) {
+              return log;
+            }
+          });
           return result;
         };
         return txr;
@@ -262,7 +272,7 @@ async function getSigners() {
 }
 
 module.exports = {
-  getSigners, signData, withSignedData, ivsToPrices,
+  getSigners, signData, withSignedData, ivsToPrices, expectRevertWithoutReason,
   expectRevert, expectRevertCustom, getContractFactories, createPool,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer

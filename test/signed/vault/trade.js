@@ -142,6 +142,13 @@ describe('SignedVault', () => {
               });
             });
 
+            context('when missing iv', () => {
+              it('should revert with InvalidMarket()', async () => {
+                const signedData = await createSignedData({ ivs: [] });
+                await expectRevertCustom(withSignedData(vault.connect(trader), signedData).trade(expiry, strike, true, toDecimalStr(1), INT_MAX), Vault, 'InvalidMarket');
+              });
+            });
+
             context('when acceptableTotal is 13.256648796875263156', () => {
               const acceptableTotal = toDecimalStr('13.256648796875263156');
 

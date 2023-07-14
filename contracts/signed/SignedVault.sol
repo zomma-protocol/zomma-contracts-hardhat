@@ -18,6 +18,7 @@ contract SignedVault is Vault {
 
   error SignatureExpired();
   error InvalidSignature();
+  error InvalidMarket();
 
   function initTxCache() internal view override returns (TxCache memory) {
     TxCache memory txCache = super.initTxCache();
@@ -102,6 +103,6 @@ contract SignedVault is Vault {
         return txCache.data[i + 1];
       }
     }
-    return 0;
+    revert InvalidMarket();
   }
 }

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { signData, withSignedData, ivsToPrices, getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal, createOptionPricer, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
+const { signData, withSignedData, ivsToPrices, getContractFactories, expectRevertCustom, expectRevertWithoutReason, toDecimalStr, strFromDecimal, createOptionPricer, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, OptionMarket, accounts;
 describe('SignedVault', () => {
@@ -67,19 +67,48 @@ describe('SignedVault', () => {
         context('when withdraw 1', () => {
           let tvlChange, insuranceChange;
 
-          before(async () => {
-            [insuranceChange] = await watchBalance(vault, [insuranceAccount.address], async () => {
-              [tvlChange] = await watchBalance(usdc, [vault.address], async () => {
-                await withSignedData(vault.connect(trader), signedData).withdraw(toDecimalStr(1));
+          context('when signed', () => {
+            before(async () => {
+              [insuranceChange] = await watchBalance(vault, [insuranceAccount.address], async () => {
+                [tvlChange] = await watchBalance(usdc, [vault.address], async () => {
+                  await withSignedData(vault.connect(trader), signedData).withdraw(toDecimalStr(1));
+                });
               });
+            });
+
+            it('should decrease tvl 1', async () => {
+              assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), '999');
+              assert.equal(strFromDecimal(insuranceChange), '0');
+              assert.equal(strFromDecimal(await usdc.balanceOf(trader.address), 6), '1');
+              assert.equal(strFromDecimal(tvlChange, 6), '-1');
             });
           });
 
-          it('should decrease tvl 1', async () => {
-            assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), '999');
-            assert.equal(strFromDecimal(insuranceChange), '0');
-            assert.equal(strFromDecimal(await usdc.balanceOf(trader.address), 6), '1');
-            assert.equal(strFromDecimal(tvlChange, 6), '-1');
+          context('when not signed', () => {
+            it('should revert without reason', async () => {
+              await expectRevertWithoutReason(vault.connect(trader).withdraw(toDecimalStr(1)));
+            });
+          });
+
+          context('when signature expired', () => {
+            it('should revert with SignatureExpired()', async () => {
+              const signedData = await createSignedData({ expired: now - 1 });
+              await expectRevertCustom(withSignedData(vault.connect(trader), signedData).withdraw(toDecimalStr(1)), Vault, 'SignatureExpired');
+            });
+          });
+
+          context('when invalid signer', () => {
+            it('should revert with InvalidSignature()', async () => {
+              const signedData = await signData(trader, [], toDecimalStr(1000), now);
+              await expectRevertCustom(withSignedData(vault.connect(trader), signedData).withdraw(toDecimalStr(1)), Vault, 'InvalidSignature');
+            });
+          });
+
+          context('when alert signature', () => {
+            it('should revert with InvalidSignature()', async () => {
+              const signedData2 = signedData.replace('3635c9adc5dea', '4635c9adc5dea');
+              await expectRevertCustom(withSignedData(vault.connect(trader), signedData2).withdraw(toDecimalStr(1)), Vault, 'InvalidSignature');
+            });
           });
         });
 
