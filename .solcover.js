@@ -1,6 +1,9 @@
 module.exports = {
   skipFiles: [
     'testing',
-    'utils/Timestamp.sol'
+    'utils/Timestamp.sol',
+    'tokenomics',
+    'pyth',
+    'zksync'
   ]
 };

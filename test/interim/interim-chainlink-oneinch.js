@@ -58,6 +58,10 @@ describe('InterimChainlinkOneinch', () => {
         it('should be getTimestamp 1674201600', async () => {
           assert.equal(await chainlink.getTimestamp(1), 1674201600);
         });
+
+        it('should be roundId 0', async () => {
+          assert.equal(await chainlink.roundId(), 0);
+        });
       });
 
       context('when second time', () => {

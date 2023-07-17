@@ -120,6 +120,24 @@ describe('VaultPricer', () => {
             assert.equal(strFromDecimal(fee), '0');
           });
         });
+
+        context('when settled price 1099 and put', () => {
+          let premium, fee;
+
+          before(async () => {
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(1099));
+            [premium, fee] = await vaultPricer.getPremium(expiry, strike, false, toDecimalStr(1));
+            await spotPricer.setSettledPrice(expiry, toDecimalStr(0));
+          });
+
+          it('should be premium 0', async () => {
+            assert.equal(strFromDecimal(premium), '-1');
+          });
+
+          it('should be fee 0', async () => {
+            assert.equal(strFromDecimal(fee), '-0.1');
+          });
+        });
       });
 
       context('when price not settled', () => {
