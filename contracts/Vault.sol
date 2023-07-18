@@ -204,7 +204,7 @@ contract Vault is IVault, Ledger, Timestamp {
     }
 
     int expectToWithdrawAmount = accountInfo.equity.decimalMul(int(rate));
-    int freeWithdrawableAmount;
+    int freeWithdrawableAmount = 0;
     if (freeWithdrawableRate > 0) {
       uint reservedRate = config.poolReservedRate(account);
       int reserved = accountInfo.marginBalance.decimalMul(int(reservedRate));
@@ -238,12 +238,16 @@ contract Vault is IVault, Ledger, Timestamp {
     uint riskDenominator = ratedRisk + uint(positionInfo.buyValue);
     // total risk want to remove
     uint riskDenominatorToRemove = riskDenominator.decimalMul(rate);
-    // RemovePositions memory removePositions = getPositions(account, txCache.now, txCache.spot, MAX_REMOVE_POSITION, true);
     RemovePositions memory removePositions = getPositions(txCache, account, MAX_REMOVE_POSITION, true);
-    ReducePositionParams memory reducePositionParams;
-    reducePositionParams.removeAll = rate == SafeDecimalMath.UNIT;
-    reducePositionParams.account = account;
-    reducePositionParams.amountToRemove = riskDenominatorToRemove > ratedRisk ? ratedRisk : riskDenominatorToRemove;
+    ReducePositionParams memory reducePositionParams = ReducePositionParams(
+      account,
+      riskDenominatorToRemove > ratedRisk ? ratedRisk : riskDenominatorToRemove,
+      0,
+      0,
+      0,
+      false,
+      rate == SafeDecimalMath.UNIT
+    );
     if (reducePositionParams.amountToRemove > 0) {
       reducePositionSub(reducePositionParams, txCache, removePositions, false);
     }
@@ -309,8 +313,8 @@ contract Vault is IVault, Ledger, Timestamp {
     }
     position.size = -size;
     TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, position, true, reducePositionParams.account);
-    int closePremium;
-    int closeFee;
+    int closePremium = 0;
+    int closeFee = 0;
     if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
       if (tradingPoolsInfo.totalSize != 0) {
         int tradedSize;
@@ -327,8 +331,8 @@ contract Vault is IVault, Ledger, Timestamp {
       }
     }
 
-    int premium;
-    int fee;
+    int premium = 0;
+    int fee = 0;
     if (size != 0) {
       (premium, fee, ) = reduceTradeTypePositionSub(reducePositionParams, position, txCache, isBuy ? uint(closePremium + closeFee) : 0, isBuy, -size, tradingPoolsInfo);
       if (!tradingPoolsInfo.isClose) {
@@ -387,17 +391,14 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  // function getPositions(address account, uint timestamp, uint spot, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
   function getPositions(TxCache memory txCache, address account, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
-    // if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(timestamp))) {
     if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(txCache.now))) {
       removePositions.morePositions = expiries.length != 0;
       return removePositions;
     }
     for (uint i = 0; i < expiries.length; ++i) {
       uint expiry = expiries[i];
-      // if (checkDisable && (timestamp >= expiry || optionMarket.expiryDisabled(expiry))) {
       if (checkDisable && (txCache.now >= expiry || optionMarket.expiryDisabled(expiry))) {
         removePositions.morePositions = true;
         continue;
@@ -405,8 +406,6 @@ contract Vault is IVault, Ledger, Timestamp {
       uint[] memory strikes = listOfStrikes(account, expiry);
       for (uint j = 0; j < strikes.length; ++j) {
         uint strike = strikes[j];
-        // pushPosition(account, expiry, strike, true, spot, maxLength, removePositions, checkDisable);
-        // pushPosition(account, expiry, strike, false, spot, maxLength, removePositions, checkDisable);
         pushPosition(txCache, account, expiry, strike, true, maxLength, removePositions, checkDisable);
         pushPosition(txCache, account, expiry, strike, false, maxLength, removePositions, checkDisable);
         if (removePositions.buyLength == maxLength && removePositions.sellLength == maxLength) {
@@ -420,11 +419,9 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  // function pushPosition(address account, uint expiry, uint strike, bool isCall, uint spot, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
   function pushPosition(TxCache memory txCache, address account, uint expiry, uint strike, bool isCall, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
     int size = positionSizeOf(account, expiry, strike, isCall);
     if (size > 0) {
-      // if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, false)) {
       if (checkDisable && isMarketDisabled(txCache, expiry, strike ,isCall, false)) {
         removePositions.morePositions = true;
       } else if (removePositions.buyLength < maxLength) {
@@ -435,12 +432,10 @@ contract Vault is IVault, Ledger, Timestamp {
         removePositions.morePositions = true;
       }
     } else if (size < 0) {
-      // if (checkDisable && optionMarket.isMarketDisabled(expiry, strike ,isCall, true)) {
       if (checkDisable && isMarketDisabled(txCache, expiry, strike ,isCall, true)) {
         removePositions.morePositions = true;
       } else if (removePositions.sellLength < maxLength) {
         // priority: otm, expiry, S-K
-        // int weight = isCall ? int(strike) - int(spot) : int(spot) - int(strike);
         int weight = isCall ? int(strike) - int(txCache.spot) : int(txCache.spot) - int(strike);
         if (weight > 0) {
           weight += OTM_WEIGHT;
@@ -690,16 +685,15 @@ contract Vault is IVault, Ledger, Timestamp {
     if (isIvOutdated(txCache.now)) {
       revert IvOutdated();
     }
-    // if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || optionMarket.isMarketDisabled(expiry, strike ,isCall, size > 0)) {
     if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || isMarketDisabled(txCache, expiry, strike ,isCall, size > 0)) {
       revert TradeDisabled();
     }
 
-    int premium;
-    int fee;
-    int closePremium;
-    int closeFee;
-    int platformFee;
+    int premium = 0;
+    int fee = 0;
+    int closePremium = 0;
+    int closeFee = 0;
+    int platformFee = 0;
     {
       PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
       TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, msg.sender);
@@ -754,8 +748,8 @@ contract Vault is IVault, Ledger, Timestamp {
     } else {
       PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
       TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, address(0));
-      int closePremium;
-      int closeFee;
+      int closePremium = 0;
+      int closeFee = 0;
       int remainSize = size;
       if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
         if (tradingPoolsInfo.totalSize != 0) {

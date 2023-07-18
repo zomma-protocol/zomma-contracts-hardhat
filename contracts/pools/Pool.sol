@@ -40,10 +40,10 @@ contract Pool is Ownable {
   event Deposit(address account, uint amount, uint shares);
   event Withdraw(address account, uint amount, uint shares, uint fee);
 
-  function initialize(address _vault, address _token, address _owner) external {
+  function initialize(address _vault, address _token, address owner_) external {
     require(!initialized, "already initialized");
     initialized = true;
-    _transferOwnership(_owner);
+    _transferOwnership(owner_);
     zlmRate = 800000000000000000; // 0.8
     bonusRate = 60000000000000000; // 6%
     withdrawFeeRate = 1000000000000000; // 0.1%

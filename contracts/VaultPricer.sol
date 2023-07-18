@@ -41,8 +41,8 @@ contract VaultPricer is IVault, Timestamp, Ownable {
     } else {
       PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
       TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, address(0));
-      int closePremium;
-      int closeFee;
+      int closePremium = 0;
+      int closeFee = 0;
       int remainSize = size;
       if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
         if (tradingPoolsInfo.totalSize != 0) {

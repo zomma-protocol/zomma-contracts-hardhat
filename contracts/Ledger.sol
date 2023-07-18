@@ -47,7 +47,7 @@ contract Ledger {
     }
 
     int oSize = position.size;
-    int realized;
+    int realized = 0;
     if (position.size > 0 && size < 0 || position.size < 0 && size > 0) {
       int absSize = int(position.size.abs());
       int absTradeSize = int(size.abs());
