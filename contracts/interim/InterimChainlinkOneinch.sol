@@ -36,7 +36,7 @@ contract InterimChainlinkOneinch is IChainlink, Ownable {
     return int(IOneinch(oracle).getRate(srcToken, dstToken, true) * offset);
   }
 
-  function roundId() public view returns (uint) {
+  function roundId() public pure returns (uint) {
     return 0;
   }
 

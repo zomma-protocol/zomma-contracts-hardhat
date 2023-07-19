@@ -5,7 +5,15 @@ import "./OptionPricer.sol";
 
 // iv is actually option price in signed data
 contract SignedOptionPricer is OptionPricer {
-  function getPrice(bool isCall, uint expiry, uint timeToExpirySec, uint volatility, uint spot, uint strike, int rate) public view override returns (uint) {
+  function getPrice(
+    bool /* isCall */,
+    uint /* expiry */,
+    uint /* timeToExpirySec */,
+    uint volatility, // price actually
+    uint /* spot */,
+    uint /* strike */,
+    int /* rate */
+  ) public pure override returns (uint) {
     return volatility;
   }
 

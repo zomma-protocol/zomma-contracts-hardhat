@@ -26,23 +26,23 @@ contract TestChainlinkProxy {
   }
 
   function getAnswer(uint _roundId) external view returns (int256) {
-    (uint16 pid, uint64 aggregatorRoundId) = parseIds(_roundId);
+    (, uint64 aggregatorRoundId) = parseIds(_roundId);
     return aggregator.getAnswer(aggregatorRoundId);
   }
 
   function getTimestamp(uint _roundId) external view returns (uint256) {
-    (uint16 pid, uint64 aggregatorRoundId) = parseIds(_roundId);
+    (, uint64 aggregatorRoundId) = parseIds(_roundId);
     return aggregator.getTimestamp(aggregatorRoundId);
   }
 
-  function parseIds(uint256 _roundId) internal view returns (uint16, uint64) {
+  function parseIds(uint256 _roundId) internal pure returns (uint16, uint64) {
     uint16 pid = uint16(_roundId >> PHASE_OFFSET);
     uint64 aggregatorRoundId = uint64(_roundId);
 
     return (pid, aggregatorRoundId);
   }
 
-  function phaseAggregators(uint16 _phaseId) external view returns (address) {
+  function phaseAggregators(uint16 /* _phaseId */) external view returns (address) {
     return address(aggregator);
   }
 }

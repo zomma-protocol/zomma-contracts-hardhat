@@ -27,16 +27,16 @@ contract SignedVault is Vault {
     return txCache;
   }
 
-  function getIv(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view override returns (uint) {
+  function getIv(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal pure override returns (uint) {
     uint market = getMarket(txCache, expiry, strike);
     return market == 0 ? 0 : getMarketIv(market, isCall, isBuy);
   }
 
-  function isIvOutdated(uint timestamp) internal view override returns (bool) {
+  function isIvOutdated(uint) internal pure override returns (bool) {
     return false;
   }
 
-  function isMarketDisabled(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view override returns (bool) {
+  function isMarketDisabled(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal pure override returns (bool) {
     uint market = getMarket(txCache, expiry, strike);
     uint disabled;
     if (isCall) {
@@ -47,7 +47,7 @@ contract SignedVault is Vault {
     return (market & disabled) == disabled;
   }
 
-  function getSpotPrice() internal view override returns (uint) {
+  function getSpotPrice() internal pure override returns (uint) {
     return 0;
   }
 
@@ -96,7 +96,7 @@ contract SignedVault is Vault {
     return ((market & mask) >> shift) * 10**10;
   }
 
-  function getMarket(TxCache memory txCache, uint expiry, uint strike) internal view returns (uint) {
+  function getMarket(TxCache memory txCache, uint expiry, uint strike) internal pure returns (uint) {
     uint target = strike << 40 | expiry;
     for (uint i = 0; i < txCache.data.length; i += 2) {
       if (txCache.data[i] == target) {

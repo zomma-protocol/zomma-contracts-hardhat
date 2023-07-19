@@ -796,7 +796,7 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  function getIv(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (uint) {
+  function getIv(TxCache memory /* txCache */, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (uint) {
     return optionMarket.getMarketIv(expiry, strike, isCall, isBuy);
   }
 
@@ -978,7 +978,7 @@ contract Vault is IVault, Ledger, Timestamp {
     return timestamp > optionMarket.lastUpdatedAt() + OUTDATED_PERIOD;
   }
 
-  function isMarketDisabled(TxCache memory txCache, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (bool) {
+  function isMarketDisabled(TxCache memory /* txCache */, uint expiry, uint strike, bool isCall, bool isBuy) internal view virtual returns (bool) {
     return optionMarket.isMarketDisabled(expiry, strike ,isCall, isBuy);
   }
 

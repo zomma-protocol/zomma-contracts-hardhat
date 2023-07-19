@@ -18,7 +18,7 @@ contract CacheBlackScholes is BlackScholes {
     emit UpdateLookup(expiry, s, p);
   }
 
-  function getSqrtTsAndPvs(uint timestamp, uint expiry, int rate) internal view virtual override returns(uint s, uint p) {
+  function getSqrtTsAndPvs(uint /* timestamp */, uint expiry, int /* rate */) internal view virtual override returns(uint s, uint p) {
     return (sqrtTs[expiry], pvs[expiry]);
   }
 
