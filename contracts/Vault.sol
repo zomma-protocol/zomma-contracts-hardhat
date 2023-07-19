@@ -673,19 +673,47 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  // uint expiry, uint strike, bool isCall, int size, uint acceptableTotal
+  function multiTrade(int[] memory data) public {
+    if (data.length % 5 != 0) {
+      revert();
+    }
+    if (optionMarket.tradeDisabled()) {
+      revert TradeDisabled();
+    }
+    TxCache memory txCache = initTxCache();
+    if (isIvOutdated(txCache.now)) {
+      revert IvOutdated();
+    }
+    txCache.isTraderClosing = true;
+    int platformFee = 0;
+    for (uint i = 0;i < data.length; i += 5) {
+      platformFee += internalTrade(txCache, uint(data[i]), uint(data[i + 1]), data[i + 2] == 1, data[i + 3], uint(data[i + 4]));
+    }
+    if (!txCache.isTraderClosing && internalGetAvailable(txCache, msg.sender) < 0) {
+      revert Unavailable(2);
+    }
+    chargeFee(platformFee, FundType.Trade);
+  }
+
   function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) public {
+    int[] memory data = new int[](5);
+    data[0] = int(expiry);
+    data[1] = int(strike);
+    data[2] = isCall ? int(1) :int(0);
+    data[3] = size;
+    data[4] = int(acceptableTotal);
+    multiTrade(data);
+  }
+
+  function internalTrade(TxCache memory txCache, uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) internal returns(int platformFee) {
     if (size == 0) {
       revert InvalidSize(0);
     }
     if (getTimestamp() >= expiry) {
       revert InvalidTime(0);
     }
-
-    TxCache memory txCache = initTxCache();
-    if (isIvOutdated(txCache.now)) {
-      revert IvOutdated();
-    }
-    if (optionMarket.tradeDisabled() || optionMarket.expiryDisabled(expiry) || isMarketDisabled(txCache, expiry, strike ,isCall, size > 0)) {
+    if (optionMarket.expiryDisabled(expiry) || isMarketDisabled(txCache, expiry, strike ,isCall, size > 0)) {
       revert TradeDisabled();
     }
 
@@ -693,51 +721,44 @@ contract Vault is IVault, Ledger, Timestamp {
     int fee = 0;
     int closePremium = 0;
     int closeFee = 0;
-    int platformFee = 0;
+    PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
+    TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, msg.sender);
     {
-      PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
-      TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, msg.sender);
-      {
-        int remainSize = size;
-        if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
-          if (tradingPoolsInfo.totalSize != 0) {
-            (closePremium, closeFee) = internalGetPremium(txCache, expiry, strike, isCall, tradingPoolsInfo.totalSize, INT256_MAX, 0);
-            positionParams.size = -tradingPoolsInfo.totalSize;
-            positionParams.notional = -closePremium;
-            platformFee = internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -closeFee);
-            remainSize -= tradingPoolsInfo.totalSize;
-            positionParams.size = size;
-          }
-          tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, false, msg.sender);
+      int remainSize = size;
+      if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
+        if (tradingPoolsInfo.totalSize != 0) {
+          (closePremium, closeFee) = internalGetPremium(txCache, expiry, strike, isCall, tradingPoolsInfo.totalSize, INT256_MAX, 0);
+          positionParams.size = -tradingPoolsInfo.totalSize;
+          positionParams.notional = -closePremium;
+          platformFee = internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -closeFee);
+          remainSize -= tradingPoolsInfo.totalSize;
+          positionParams.size = size;
         }
-        (premium, fee) = internalGetPremium(txCache, expiry, strike, isCall, remainSize, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
-        positionParams.size = -remainSize;
-        positionParams.notional = -premium;
-        platformFee += internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -fee);
+        tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, false, msg.sender);
       }
-      {
-        int total = premium + closePremium + fee + closeFee;
-        if (!tradingPoolsInfo.isClose) {
-          if (tradingPoolsInfo.totalAdjustedAvailable < 0) {
-            revert Unavailable(1);
-          }
-          if (size > 0 ? total >= 0 : total <= 0) {
-            revert ZeroPrice();
-          }
+      (premium, fee) = internalGetPremium(txCache, expiry, strike, isCall, remainSize, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
+      positionParams.size = -remainSize;
+      positionParams.notional = -premium;
+      platformFee += internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -fee);
+    }
+    {
+      int total = premium + closePremium + fee + closeFee;
+      if (!tradingPoolsInfo.isClose) {
+        if (tradingPoolsInfo.totalAdjustedAvailable < 0) {
+          revert Unavailable(1);
         }
-        if (total < (size > 0 ? -int(acceptableTotal) : int(acceptableTotal))) {
-          revert UnacceptablePrice();
+        if (size > 0 ? total >= 0 : total <= 0) {
+          revert ZeroPrice();
         }
       }
-      bool isTraderClosing = traderClosing(msg.sender, expiry, strike, isCall, size);
-      internalUpdatePosition(
-        msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
-      );
-      if (!isTraderClosing && internalGetAvailable(txCache, msg.sender) < 0) {
-        revert Unavailable(2);
+      if (total < (size > 0 ? -int(acceptableTotal) : int(acceptableTotal))) {
+        revert UnacceptablePrice();
       }
     }
-    chargeFee(platformFee, FundType.Trade);
+    txCache.isTraderClosing = txCache.isTraderClosing && traderClosing(msg.sender, expiry, strike, isCall, size);
+    internalUpdatePosition(
+      msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
+    );
   }
 
   function getPremium(uint expiry, uint strike, bool isCall, int size) external view returns (int, int) {

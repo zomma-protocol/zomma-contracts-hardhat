@@ -135,10 +135,12 @@ describe('Vault', () => {
       context('when now is expired', () => {
         beforeEach(async () => {
           await vault.setTimestamp(expiry);
+          await optionMarket.setIv([]);
         });
 
         afterEach(async () => {
           await vault.setTimestamp(now);
+          await optionMarket.setIv([]);
         });
 
         it('should revert with InvalidTime(0)', async () => {
@@ -472,6 +474,48 @@ describe('Vault', () => {
           context('when size is 20', () => {
             it('should revert with Unavailable(1)', async () => {
               await expectRevertCustom(vault.connect(trader).trade(expiry, strike, true, toDecimalStr(20), INT_MAX), Vault, 'Unavailable').withArgs(1);
+            });
+          });
+
+          context('when buy call put', () => {
+            let traderChange, poolChange, traderPosition, traderPosition2, poolPosition, poolPosition2;
+
+            before(async () => {
+              await optionMarket.setIv(mergeIv([
+                buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
+                buildIv(expiry, strike, true, false, toDecimalStr(0.8), false),
+                buildIv(expiry, strike, false, true, toDecimalStr(0.8), false),
+                buildIv(expiry, strike, false, false, toDecimalStr(0.8), false)
+              ]));
+              [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
+                await vault.connect(trader).multiTrade([
+                  expiry, strike, 1, toDecimalStr(1), INT_MAX,
+                  expiry, strike, 0, toDecimalStr(1), INT_MAX,
+                ]);
+              });
+              traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
+              traderPosition2 = await vault.positionOf(trader.address, expiry, strike, false);
+              poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
+              poolPosition2 = await vault.positionOf(pool.address, expiry, strike, false);
+              await reset();
+            });
+
+            it('should be trader size 1', async () => {
+              assert.equal(strFromDecimal(traderPosition.size), '1');
+              assert.equal(strFromDecimal(traderPosition2.size), '1');
+            });
+
+            it('should be trader notional -12.827953914221877123', async () => {
+              assert.equal(strFromDecimal(traderPosition.notional), '-12.827953914221877123');
+            });
+
+            it('should be pool size -1', async () => {
+              assert.equal(strFromDecimal(poolPosition.size), '-1');
+              assert.equal(strFromDecimal(poolPosition2.size), '-1');
+            });
+
+            it('should be pool notional 12.827953914221877123', async () => {
+              assert.equal(strFromDecimal(poolPosition.notional), '12.827953914221877123');
             });
           });
         });
