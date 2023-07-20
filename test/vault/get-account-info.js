@@ -140,7 +140,7 @@ describe('Vault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
           accountInfo = await vault.getAccountInfo(trader2.address);
         });
 
@@ -331,7 +331,7 @@ describe('Vault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-1), 0);
+          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
           accountInfo = await vault.getAccountInfo(trader2.address);
         });
 
@@ -536,7 +536,7 @@ describe('Vault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, trader2);
-        await vault.connect(trader2).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
+        await vault.connect(trader2).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
       });
 
       context('when settled price is 900', () => {

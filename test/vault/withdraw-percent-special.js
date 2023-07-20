@@ -79,7 +79,7 @@ describe('Vault', () => {
 
       before(async () => {
         for (let i = 0; i < positionCount; ++i) {
-          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(0.002), INT_MAX);
+          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX]);
         }
       });
 
@@ -120,7 +120,7 @@ describe('Vault', () => {
 
       before(async () => {
         for (let i = 0; i < positionCount; ++i) {
-          await vault.connect(trader).trade(expiry, toDecimalStr(1100 + i), true, toDecimalStr(0.002), INT_MAX);
+          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX]);
         }
       });
 

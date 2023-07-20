@@ -50,7 +50,7 @@ describe('SignedPool', () => {
     await usdc.mint(stakeholderAccount.address, toDecimalStr(1000, decimals));
     await usdc.approve(vault.address, toDecimalStr(100000000000, decimals));
     await withSignedData(vault, signedData).deposit(toDecimalStr(1000));
-    await withSignedData(vault, signedData).trade(expiry, toDecimalStr(1100), true, toDecimalStr(10), INT_MAX);
+    await withSignedData(vault, signedData).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX]);
   };
 
   before(async () => {

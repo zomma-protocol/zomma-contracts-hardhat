@@ -231,14 +231,14 @@ describe('Pool', () => {
       assert.equal(toDecimal(poolInfo.healthFactor).gt(toBigNumber(0.8)), true);
 
       await vault.connect(trader).deposit(toDecimalStr(10000));
-      await vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(15), INT_MAX)
-      await vault.connect(trader).trade(expiry, toDecimalStr(1100), true, toDecimalStr(15), INT_MAX)
-      await vault.connect(trader).trade(expiry, toDecimalStr(1200), true, toDecimalStr(15), INT_MAX)
-      await vault.connect(trader).trade(expiry, toDecimalStr(1300), true, toDecimalStr(15), INT_MAX)
+      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(15), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(15), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1200), 1, toDecimalStr(15), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1300), 1, toDecimalStr(15), INT_MAX]);
 
       expiry += 86400 * 7;
-      await vault.connect(trader).trade(expiry, toDecimalStr(1000), true, toDecimalStr(1.5), INT_MAX)
-      await vault.connect(trader).trade(expiry, toDecimalStr(1100), true, toDecimalStr(2), INT_MAX)
+      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1.5), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(2), INT_MAX]);
 
       poolInfo = await vault.getAccountInfo(pools[0]);
 

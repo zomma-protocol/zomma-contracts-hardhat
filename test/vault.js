@@ -324,7 +324,7 @@ describe('Vault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, accounts[5]);
-        await vault.connect(accounts[5]).trade(expiry, strike, true, toDecimalStr(-8), 0);
+        await vault.connect(accounts[5]).trade([expiry, strike, 1, toDecimalStr(-8), 0]);
         await spotPricer.setPrice(toDecimalStr(1300));
       });
 
@@ -349,7 +349,7 @@ describe('Vault', () => {
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
-      await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
       return { vault, config, usdc };
     };
 
@@ -517,9 +517,9 @@ describe('Vault', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, liquidator);
-      await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-7), 0);
-      await vault.connect(trader).trade(expiry, strike2, true, toDecimalStr('-0.000000000000000001'), 0);
-      await vault.connect(trader).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-7), 0]);
+      await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0]);
+      await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
       return { vault, config, usdc };
     }
 
@@ -779,7 +779,7 @@ describe('Vault', () => {
 
       context('when position can close', () => {
         before(async () => {
-          await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
         });
 
         context('when partial close', () => {
@@ -822,10 +822,10 @@ describe('Vault', () => {
           let premium, fee;
 
           before(async () => {
-            await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
             await addPool(config, pool2);
             await mintAndDeposit(vault, usdc, pool2);
-            await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
             [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(2));
           });
 

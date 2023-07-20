@@ -53,8 +53,8 @@ describe('Settler', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, trader2);
-      await vault.connect(trader).trade(expiry, strike, true, toDecimalStr(-1), 0);
-      await vault.connect(trader2).trade(expiry, strike, true, toDecimalStr(-1), 0);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+      await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
       await vault.setTimestamp(expiry);
       await spotPricer.setSettledPrice(expiry, toDecimalStr(1050));
       await settler.settle(vault.address, expiry, [trader.address, trader2.address]);

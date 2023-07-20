@@ -41,6 +41,7 @@ contract Vault is IVault, Ledger, Timestamp {
   error InvalidAccount();
   error CannotClear();
   error NotOwner();
+  error InvalidInput();
 
   struct PositionInfo {
     int buyNotional;
@@ -674,9 +675,9 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   // uint expiry, uint strike, bool isCall, int size, uint acceptableTotal
-  function multiTrade(int[] memory data) public {
-    if (data.length % 5 != 0) {
-      revert();
+  function trade(int[] calldata data) public {
+    if (data.length == 0 || data.length % 5 != 0) {
+      revert InvalidInput();
     }
     if (optionMarket.tradeDisabled()) {
       revert TradeDisabled();
@@ -694,16 +695,6 @@ contract Vault is IVault, Ledger, Timestamp {
       revert Unavailable(2);
     }
     chargeFee(platformFee, FundType.Trade);
-  }
-
-  function trade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) public {
-    int[] memory data = new int[](5);
-    data[0] = int(expiry);
-    data[1] = int(strike);
-    data[2] = isCall ? int(1) :int(0);
-    data[3] = size;
-    data[4] = int(acceptableTotal);
-    multiTrade(data);
   }
 
   function internalTrade(TxCache memory txCache, uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) internal returns(int platformFee) {

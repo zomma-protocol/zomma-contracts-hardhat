@@ -15,14 +15,9 @@ contract PythVault is Vault {
     return withdrawPercent(rate, acceptableAmount, freeWithdrawableRate);
   }
 
-  function pythTrade(uint expiry, uint strike, bool isCall, int size, uint acceptableTotal, bytes[] calldata priceUpdateData) external {
+  function pythTrade(int[] calldata data, bytes[] calldata priceUpdateData) external {
     updatePrice(priceUpdateData);
-    trade(expiry, strike, isCall, size, acceptableTotal);
-  }
-
-  function pythSettle(address account, uint expiry, bytes[] calldata priceUpdateData) public {
-    updatePrice(priceUpdateData);
-    settle(account, expiry);
+    trade(data);
   }
 
   function pythLiquidate(
@@ -37,12 +32,7 @@ contract PythVault is Vault {
     return liquidate(account, expiry, strike, isCall, size);
   }
 
-  function pythClear(address account, bytes[] calldata priceUpdateData) external {
-    updatePrice(priceUpdateData);
-    clear(account);
-  }
-
-  function updatePrice(bytes[] calldata priceUpdateData) internal {
+  function updatePrice(bytes[] calldata priceUpdateData) public {
     PythSpotPricer(address(spotPricer)).update(priceUpdateData);
   }
 }

@@ -63,9 +63,9 @@ describe('SignedVault', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, liquidator);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike, true, toDecimalStr(-7), 0);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike2, true, toDecimalStr('-0.000000000000000001'), 0);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(-7), 0]);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0]);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
       return { vault, config, usdc, optionMarket, signedData };
     }
 
@@ -174,9 +174,9 @@ describe('SignedVault', () => {
                   await mintAndDeposit(vault, usdc, pool, { amount: 10000 });
                   await mintAndDeposit(vault, usdc, trader);
                   await mintAndDeposit(vault, usdc, liquidator, { amount: 10000 });
-                  await withSignedData(vault.connect(trader), signedData2).trade(expiry, strike, true, toDecimalStr(-6), 0);
-                  await withSignedData(vault.connect(trader), signedData2).trade(expiry, strike, false, toDecimalStr('0.000000000000000001'), INT_MAX);
-                  await withSignedData(vault.connect(trader), signedData2).trade(expiry, strike2, true, toDecimalStr('6.000000000000000001'), INT_MAX);
+                  await withSignedData(vault.connect(trader), signedData2).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
+                  await withSignedData(vault.connect(trader), signedData2).trade([expiry, strike, 0, toDecimalStr('0.000000000000000001'), INT_MAX]);
+                  await withSignedData(vault.connect(trader), signedData2).trade([expiry, strike2, 1, toDecimalStr('6.000000000000000001'), INT_MAX]);
                   await config.setLiquidateRate(toDecimalStr('0.825124542401224942'));
                   await optionMarket.setTradeDisabled(true);
                   await optionMarket.setExpiryDisabled(expiry, true);

@@ -213,7 +213,7 @@ describe('SignedVault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, accounts[5]);
-        await withSignedData(vault.connect(accounts[5]), signedData).trade(expiry, strike, true, toDecimalStr(-8), 0);
+        await withSignedData(vault.connect(accounts[5]), signedData).trade([expiry, strike, 1, toDecimalStr(-8), 0]);
         signedData = await createSignedData({ spot: toDecimalStr(1300) });
       });
 
@@ -245,9 +245,9 @@ describe('SignedVault', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, liquidator);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike, true, toDecimalStr(-7), 0);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike2, true, toDecimalStr('-0.000000000000000001'), 0);
-      await withSignedData(vault.connect(trader), signedData).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(-7), 0]);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0]);
+      await withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
       return { vault, config, usdc };
     }
 

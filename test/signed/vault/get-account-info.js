@@ -142,7 +142,7 @@ describe('SignedVault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await withSignedData(vault.connect(trader2), signedData).trade(expiry, strike, true, toDecimalStr(1), INT_MAX);
+          await withSignedData(vault.connect(trader2), signedData).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
           accountInfo = await withSignedData(vault, signedData).getAccountInfo(trader2.address);
         });
 
@@ -332,7 +332,7 @@ describe('SignedVault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await withSignedData(vault.connect(trader2), signedData).trade(expiry, strike, true, toDecimalStr(-1), 0);
+          await withSignedData(vault.connect(trader2), signedData).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
           accountInfo = await withSignedData(vault, signedData).getAccountInfo(trader2.address);
         });
 
@@ -537,7 +537,7 @@ describe('SignedVault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, trader2);
-        await withSignedData(vault.connect(trader2), signedData).trade(expiry, strike, false, toDecimalStr(1), INT_MAX);
+        await withSignedData(vault.connect(trader2), signedData).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
       });
 
       context('when settled price is 900', () => {
