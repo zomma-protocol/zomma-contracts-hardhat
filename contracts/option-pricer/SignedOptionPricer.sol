@@ -3,7 +3,9 @@ pragma solidity ^0.8.11;
 
 import "./OptionPricer.sol";
 
-// iv is actually option price in signed data
+/**
+ * @dev iv is actually option price in signed data
+ */
 contract SignedOptionPricer is OptionPricer {
   function getPrice(
     bool /* isCall */,

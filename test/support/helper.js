@@ -212,10 +212,12 @@ function withSignedData(contract, signedData) {
 async function createOptionPricer(contract = 'TestCacheOptionPricer') {
   const [OptionPricer] = await getContractFactories(contract);
   const optionPricer = await OptionPricer.deploy();
-  await optionPricer.setLn(ln.keys, ln.values);
-  const chunkSize = 200;
-  for (let i = 0; i < cdf.keys.length; i += chunkSize) {
-    await optionPricer.setCdf(cdf.keys.slice(i, i + chunkSize), cdf.values.slice(i, i + chunkSize));
+  if (contract !== 'SignedOptionPricer') {
+    await optionPricer.setLn(ln.keys, ln.values);
+    const chunkSize = 200;
+    for (let i = 0; i < cdf.keys.length; i += chunkSize) {
+      await optionPricer.setCdf(cdf.keys.slice(i, i + chunkSize), cdf.values.slice(i, i + chunkSize));
+    }
   }
   return optionPricer;
 }

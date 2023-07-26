@@ -9,6 +9,9 @@ import "../OptionMarket.sol";
 import "../Config.sol";
 import "./PoolToken.sol";
 
+/**
+ * @dev Pool contract is for makers to deposit.
+ */
 contract Pool is Ownable {
   using SafeDecimalMath for uint;
   using SafeERC20 for IERC20;
@@ -40,6 +43,12 @@ contract Pool is Ownable {
   event Deposit(address account, uint amount, uint shares);
   event Withdraw(address account, uint amount, uint shares, uint fee);
 
+  /**
+  * @dev Initalize method. Can call only once.
+  * @param _vault: Should be Vault address.
+  * @param _token: Should be quote token address. (eg. USDC)
+  * @param owner_: Should be owner address.
+  */
   function initialize(address _vault, address _token, address owner_) external {
     require(!initialized, "already initialized");
     initialized = true;
@@ -85,11 +94,14 @@ contract Pool is Ownable {
     emit ConfigChange(ChangeType.freeWithdrawableRate, abi.encodePacked(_freeWithdrawableRate));
   }
 
+  /**
+  * @dev Deposit and get shares. Will get bonus when hf < 0.8.
+  * @param amount: Amount to deposit. In decimals 18.
+  */
   function deposit(uint256 amount) external {
     amount = amount.truncate(quoteDecimal);
     require(amount > 0, 'amount is 0');
     transferFrom(msg.sender, address(this), amount);
-    // Vault.AccountInfo memory accountInfo = vault.getAccountInfo(address(this));
     IVault.AccountInfo memory accountInfo = getAccountInfo(address(this));
     uint256 totalSupply = token.totalSupply();
     uint256 shares;
@@ -111,18 +123,21 @@ contract Pool is Ownable {
     }
 
     token.mint(msg.sender, shares);
-    // vault.deposit(amount);
     internalDeposit(amount);
 
     emit Deposit(msg.sender, amount, shares);
   }
 
+  /**
+  * @dev Burn shares and withdraw. It will be charged a withdrawal fee. (Default is 0.1%)
+  * @param shares: Share to burn for withdrawal. In decimals 18.
+  * @param acceptableAmount: Acceptable amount after slippage. In decimals 18.
+  */
   function withdraw(uint256 shares, uint acceptableAmount) external {
     uint256 totalSupply = token.totalSupply();
     uint rate = shares.decimalDiv(totalSupply);
     uint afterFeeRate = rate == SafeDecimalMath.UNIT ? rate : rate.decimalMul(SafeDecimalMath.UNIT - withdrawFeeRate);
     token.burn(msg.sender, shares);
-    // uint amount = vault.withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
     uint amount = withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
     transfer(msg.sender, amount);
     uint fee = rate == SafeDecimalMath.UNIT ? 0 : amount.decimalDiv(SafeDecimalMath.UNIT - withdrawFeeRate).decimalMul(withdrawFeeRate);

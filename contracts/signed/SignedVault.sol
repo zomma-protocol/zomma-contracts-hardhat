@@ -1,9 +1,11 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.11;
 
-// import 'hardhat/console.sol';
 import "../Vault.sol";
 
+/**
+ * @dev Signed data version contract. Spot price and ivs includes in singed data.
+ */
 contract SignedVault is Vault {
   using SafeDecimalMath for uint;
 
@@ -51,6 +53,17 @@ contract SignedVault is Vault {
     return 0;
   }
 
+  /**
+  * @dev Signed data is appended in tx data. Format is:
+  *      v: 32 bytes. Owner signature.
+  *      r: 32 bytes. Owner signature.
+  *      s: 32 bytes. Owner signature.
+  *      validTime: 32 bytes. When signature will expire.
+  *      marketData: Dynamic bytes. Market data array, including iv and disabled status. 32 bytes for each item.
+  *                  One market has two items. First item includes expiry and strike. Second item includes iv and disabled status.
+  *      spotPrice: 32 bytes. Spot price.
+  *      dataLength: 32 bytes. How many data slot of signed data. 32 bytes for each data slot. It will be 5 + item length of marketData.
+  */
   function extractData() internal view returns (uint[] memory, uint) {
     (uint dataLength, uint v, bytes32 r, bytes32 s, uint validTime, uint[] memory data, uint spot) = getData();
     if (getTimestamp() > validTime) {
@@ -93,6 +106,7 @@ contract SignedVault is Vault {
     } else {
       (mask, shift) = isBuy ? (BUY_PUT_IV_MASK, 112) : (SELL_PUT_IV_MASK, 168);
     }
+    // compressed iv decimal is 8
     return ((market & mask) >> shift) * 10**10;
   }
 

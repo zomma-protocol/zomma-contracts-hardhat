@@ -13,6 +13,9 @@ import "./Config.sol";
 import "./interfaces/IOptionPricer.sol";
 import "./interfaces/IVault.sol";
 
+/**
+ * @dev Main contract, including deposit, withdraw, trade and so on. keep assets in this contract.
+ */
 contract Vault is IVault, Ledger, Timestamp {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
@@ -108,6 +111,13 @@ contract Vault is IVault, Ledger, Timestamp {
 
   event Fund(address account, int amount, FundType fundType);
 
+  /**
+  * @dev Initalize method. Can call only once.
+  * @param _config: Should be Config address.
+  * @param _spotPricer: Should be SpotPricer address.
+  * @param _optionPricer: Should be OptionPricer address.
+  * @param _optionMarket: Should be OptionMarket address.
+  */
   function initialize(address _config, address _spotPricer, address _optionPricer, address _optionMarket) external {
     if (initialized) {
       revert AlreadyInitialized();
@@ -123,6 +133,13 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Change contract addresses. Can call by owner only.
+  * @param _config: Should be Config address.
+  * @param _spotPricer: Should be SpotPricer address.
+  * @param _optionPricer: Should be OptionPricer address.
+  * @param _optionMarket: Should be OptionMarket address.
+  */
   function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket) public {
     checkOwner();
     config = Config(_config);
@@ -131,11 +148,19 @@ contract Vault is IVault, Ledger, Timestamp {
     optionMarket = OptionMarket(_optionMarket);
   }
 
+  /**
+  * @dev Change owner address. Can call by owner only.
+  * @param _owner: New owner address
+  */
   function changeOwner(address _owner) external {
     checkOwner();
     owner = _owner;
   }
 
+  /**
+  * @dev Deposit to increase margin balance.
+  * @param amount: How much to deposit. In decimals 18.
+  */
   function deposit(uint amount) external {
     amount = amount.truncate(config.quoteDecimal());
     if (amount == 0) {
@@ -145,6 +170,10 @@ contract Vault is IVault, Ledger, Timestamp {
     updateBalance(msg.sender, int(amount), FundType.Deposit);
   }
 
+  /**
+  * @dev Withdraw available balance.
+  * @param amount: How much to withdraw, In decimals 18.
+  */
   function withdraw(uint amount) public {
     if (amount == 0) {
       revert ZeroAmount(1);
@@ -161,6 +190,16 @@ contract Vault is IVault, Ledger, Timestamp {
     transfer(msg.sender, amount);
   }
 
+  /**
+  * @dev Withdraw percentage of equity and remove positions if need to keep health factor healthy.
+  *      This is used for pool withdrawal.
+  * @param rate: Percentage. Range is 0 ~ 1, In decimals 18.
+  * @param acceptableAmount: Acceptable amount after slippage. In decimals 18.
+  * @param freeWithdrawableRate: A threshold that can withdraw without removing positions. Range is 0 ~ 1. In decimals 18.
+  *                              Concept is that if pool is low utilization, unnecessary to remove positions.
+  *                              For example, freeWithdrawableRate 0.4 means that it can withdraw without removing positions if utilization is below 40%.
+  *                              If withdraw amount will cause utilization over 40%, it should remove positions to keep utilization 40%.
+  */
   function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) public returns (uint) {
     if (rate == 0 || rate > SafeDecimalMath.UNIT) {
       revert InvalidRate();
@@ -181,6 +220,10 @@ contract Vault is IVault, Ledger, Timestamp {
     return uint(amount);
   }
 
+  /**
+  * @dev System use decimals 18 for ledger, but quote token may not less decimals (e.g. 6). For correct accounting, dust will be collect as fee.
+  *      For example, if quote decimals 6, an user balance is 1.0000012 in zomma and withdraw all. He can receive only 1.000001. We collect 0.0000002 as fee.
+  */
   function collectDust(uint amount) private {
     amount -= amount.truncate(config.quoteDecimal());
     if (amount > 0) {
@@ -232,6 +275,9 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Consider to effeciently reduce initial margin. Remove selling position first.
+  */
   function reducePosition(address account, int amountToRemove, TxCache memory txCache, PositionInfo memory positionInfo, AccountInfo memory accountInfo) private returns (int) {
     uint rate = uint(amountToRemove.decimalDivRound(accountInfo.equity));
     // sell position risk
@@ -420,6 +466,10 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Consider to effeciently remove positions. Remove lower trading fee first.
+  *      Ordering will be otm first, expiry closer first, and less difference of spot price minus strike first.
+  */
   function pushPosition(TxCache memory txCache, address account, uint expiry, uint strike, bool isCall, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
     int size = positionSizeOf(account, expiry, strike, isCall);
     if (size > 0) {
@@ -603,7 +653,6 @@ contract Vault is IVault, Ledger, Timestamp {
   function initTxCache() internal view virtual returns (TxCache memory txCache) {
     address[] memory pools = config.getPools();
     txCache.poolLength = pools.length;
-    // txCache.spot = spotPricer.getPrice();
     txCache.spot = getSpotPrice();
     txCache.initialMarginRiskRate = config.initialMarginRiskRate();
     txCache.spotInitialMarginRiskRate = txCache.spot.decimalMul(txCache.initialMarginRiskRate);
@@ -623,6 +672,13 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Get information of pools for trading. Including available and equity. This is used for calculate option price and proportion of pools.
+  * @param txCache: Cache object.
+  * @param positionParams: Trading information.
+  * @param isClose: Specify if it is closing position. If true, proportion bases on size of open positions.
+  * @param excludedPool: Exclude a pool. It's used for withdrawing from a pool and needs to remove positions. Can't trade with itself.
+  */
   function getTradingPoolsInfo(TxCache memory txCache, PositionParams memory positionParams, bool isClose, address excludedPool) private view returns(TradingPoolsInfo memory tradingPoolsInfo) {
     bool isBuy = positionParams.size > 0;
     tradingPoolsInfo.isClose = isClose;
@@ -674,7 +730,16 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
-  // uint expiry, uint strike, bool isCall, int size, uint acceptableTotal
+  /**
+  * @dev Batch trade. Can only trade not expired, tradable and available enough except closing positions. (After trade available should be >= 0)
+  * @param data: Trade data. Should be multiples of 5. It means following arguments.
+  *              uint expiry: Expiry timestamp.
+  *              uint strike: Strike. In decimals 18.
+  *              bool isCall: true is call, and false is put. Pass 0 or 1 in data.
+  *              int size: Size to trade. Positive is buy, and negative is sell. In decimals 18.
+  *              uint acceptableTotal: Acceptable amount after slippage, including fee. In decimals 18.
+  *                                    It means pay out premium when buy, and receive when sell.
+  */
   function trade(int[] calldata data) public {
     if (data.length == 0 || data.length % 5 != 0) {
       revert InvalidInput();
@@ -752,6 +817,15 @@ contract Vault is IVault, Ledger, Timestamp {
     );
   }
 
+  /**
+  * @dev Estimate premium and fee.
+  * @param expiry: Expiry timestamp.
+  * @param strike: Strike. In decimals 18.
+  * @param isCall: true is call, and false is put.
+  * @param size: Size to trade. Positive is buy, and negative is sell. In decimals 18.
+  * @return premium: Premium. It will be positive when sell, and negative when buy. In decimals 18.
+  * @return fee: Fee. Should be negative. In decimals 18.
+  */
   function getPremium(uint expiry, uint strike, bool isCall, int size) external view returns (int, int) {
     TxCache memory txCache = initTxCache();
     if (txCache.now >= expiry) {
@@ -812,6 +886,11 @@ contract Vault is IVault, Ledger, Timestamp {
     return optionMarket.getMarketIv(expiry, strike, isCall, isBuy);
   }
 
+  /**
+  * @dev Settle all position of the account and expiry. Can call only after expired and settled price ready.
+  * @param account: Target account address to settle.
+  * @param expiry: Expiry timestamp.
+  */
   function settle(address account, uint expiry) public {
     if (getTimestamp() < expiry) {
       revert InvalidTime(1);
@@ -854,6 +933,15 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Liquidate a position. Can call only hf < liquidateRate (default is 0.5), and should liquidate selling positions first.
+  * @param account: Target account address to liquidate.
+  * @param expiry: Expiry timestamp.
+  * @param strike: Strike. In decimals 18.
+  * @param isCall: true is call, and false is put.
+  * @param size: Size to liquidate, must be positive. In decimals 18.
+  * @return liquidatedSize: Actual liquidated size, positive. In decimals 18.
+  */
   function liquidate(
     address account,
     uint expiry,
@@ -888,7 +976,6 @@ contract Vault is IVault, Ledger, Timestamp {
         size = availableSize;
       }
     } else {
-      // if (getPositions(account, txCache.now, txCache.spot, 1, false).sellLength > 0) {
       if (getPositions(txCache, account, 1, false).sellLength > 0) {
         revert SellPositionFirst();
       }
@@ -952,6 +1039,10 @@ contract Vault is IVault, Ledger, Timestamp {
     emit Fund(account, change, fundType);
   }
 
+  /**
+  * @dev Clear an account. insuranceAccount will take over all balance and positions. Can call only hf < clearRate (default is 0.2) or negative balance without any position.
+  * @param account: Target account address to liquidate.
+  */
   function clear(address account) public {
     address insuranceAccount = config.insuranceAccount();
     if (account == insuranceAccount) {
