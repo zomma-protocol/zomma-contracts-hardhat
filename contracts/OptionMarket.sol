@@ -4,6 +4,9 @@ pragma solidity ^0.8.11;
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Timestamp.sol";
 
+/**
+ * @dev Market status. Markets will be useless if using SignedVault, tradeDisabled and expiryDisabled are used in SignedVault.
+ */
 contract OptionMarket is OwnableUpgradeable, Timestamp {
   // [expiry][strike]
   mapping(uint => mapping(uint => uint)) internal markets;

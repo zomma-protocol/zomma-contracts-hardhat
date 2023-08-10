@@ -197,6 +197,9 @@ contract Config is OwnableUpgradeable {
     emit Change(ChangeType.stakeholderAccount, abi.encodePacked(_stakeholderAccount));
   }
 
+  /**
+  * @dev Add an account as pool. Account should enable to be a pool first.
+  */
   function addPool(address pool) external onlyOwner {
     require(poolEnabled[pool], "need to enable pool");
     require(vault.listOfExpiries(pool).length == 0, "position not empty");
@@ -208,6 +211,9 @@ contract Config is OwnableUpgradeable {
     emit AddPool(pool);
   }
 
+  /**
+  * @dev Remove an account from pools.
+  */
   function removePool(address pool) external onlyOwner {
     require(vault.listOfExpiries(pool).length == 0, "position not empty");
     require(poolAdded[pool], "pool not found");

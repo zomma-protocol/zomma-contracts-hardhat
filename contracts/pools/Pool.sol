@@ -112,6 +112,7 @@ contract Pool is Ownable {
       uint adjustedAmount = amount;
       // zlm
       if (accountInfo.healthFactor < int(zlmRate)) {
+        // only lack of margin part (hf < 1) can get bonus
         uint bonusPart = uint(int(accountInfo.initialMargin) - accountInfo.marginBalance);
         if (amount < bonusPart) {
           bonusPart = amount;

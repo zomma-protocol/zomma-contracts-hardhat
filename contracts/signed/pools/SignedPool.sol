@@ -6,7 +6,7 @@ import "../../interfaces/IVault.sol";
 import "../../pools/Pool.sol";
 
 /**
-* @dev Append signed data for signed data version Vault. 
+* @dev Append signed data for signed data version Vault.
 */
 contract SignedPool is Pool {
   using Address for address;

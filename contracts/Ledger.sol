@@ -40,6 +40,10 @@ contract Ledger {
     return positionOf(account, expiry, strike, isCall).size;
   }
 
+  /**
+  * @dev Adjust price by utilization.
+  * @return size: Changed sold size
+  */
   function internalUpdatePosition(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType) internal returns (int) {
     Position memory position = positionOf(account, expiry, strike, isCall);
     if (position.size == 0) {
@@ -69,7 +73,7 @@ contract Ledger {
       clearStrike(account, expiry, strike);
     }
 
-    // increased sell size
+    // changed sold size
     return (position.size > 0 ? int(0) : position.size) - (oSize > 0 ? int(0) : oSize);
   }
 

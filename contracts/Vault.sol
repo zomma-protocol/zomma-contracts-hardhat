@@ -199,6 +199,7 @@ contract Vault is IVault, Ledger, Timestamp {
   *                              Concept is that if pool is low utilization, unnecessary to remove positions.
   *                              For example, freeWithdrawableRate 0.4 means that it can withdraw without removing positions if utilization is below 40%.
   *                              If withdraw amount will cause utilization over 40%, it should remove positions to keep utilization 40%.
+  * @return amount: Actual withdrawal amount
   */
   function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) public returns (uint) {
     if (rate == 0 || rate > SafeDecimalMath.UNIT) {
@@ -221,7 +222,7 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   /**
-  * @dev System use decimals 18 for ledger, but quote token may not less decimals (e.g. 6). For correct accounting, dust will be collect as fee.
+  * @dev System use decimals 18 for ledger, but quote token may be less decimals (e.g. 6). For correct accounting, dust will be collect as fee.
   *      For example, if quote decimals 6, an user balance is 1.0000012 in zomma and withdraw all. He can receive only 1.000001. We collect 0.0000002 as fee.
   */
   function collectDust(uint amount) private {
@@ -276,11 +277,16 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   /**
-  * @dev Consider to effeciently reduce initial margin. Remove selling position first.
+  * @dev Consider to effeciently reduce initial margin. Remove sold position first.
+  * @param account: Account
+  * @param amountToRemove: Lack of available amount. Remove positions to release for withdrawal.
+  * @param txCache: TxCache object
+  * @param positionInfo: PositionInfo object
+  * @param accountInfo: AccountInfo object
   */
   function reducePosition(address account, int amountToRemove, TxCache memory txCache, PositionInfo memory positionInfo, AccountInfo memory accountInfo) private returns (int) {
     uint rate = uint(amountToRemove.decimalDivRound(accountInfo.equity));
-    // sell position risk
+    // sold position risk
     uint ratedRisk = accountInfo.initialMargin - uint(-positionInfo.sellValue);
     uint riskDenominator = ratedRisk + uint(positionInfo.buyValue);
     // total risk want to remove
@@ -299,7 +305,7 @@ contract Vault is IVault, Ledger, Timestamp {
       reducePositionSub(reducePositionParams, txCache, removePositions, false);
     }
 
-    // more than sell risk, may remove buy position
+    // more than sold risk, may remove bought position
     if (riskDenominatorToRemove > ratedRisk) {
       accountInfo.available = balanceOf[account] + positionInfo.buyNotional;
 
@@ -311,10 +317,15 @@ contract Vault is IVault, Ledger, Timestamp {
       }
     }
     chargeFee(reducePositionParams.platformFee, FundType.Trade);
-    // actual remain - expect remain
+    // use actual equity to include fee loss
+    // actual witdrawal amount will be actual equity - expected remain
+    // notice: accountInfo.equity excluded freeWithdrawableAmount in previous function
     return internalGetAccountInfo(txCache, account).equity - (accountInfo.equity - amountToRemove);
   }
 
+  /**
+  * @dev Reduce positions of sold or bought.
+  */
   function reducePositionSub(ReducePositionParams memory reducePositionParams, TxCache memory txCache, RemovePositions memory removePositions, bool isBuy) private {
     PositionParams[50] memory positions;
     uint length;
@@ -336,6 +347,7 @@ contract Vault is IVault, Ledger, Timestamp {
       if (reducePositionParams.done) {
         return;
       }
+      // reducePositionParams.amountToRemove means risk when sold, value when bought
       uint removedAmount = isBuy ? uint(reducePositionParams.amountChange) : uint(reducePositionParams.sizeChange).decimalMul(txCache.spotInitialMarginRiskRate);
       if (removedAmount >= reducePositionParams.amountToRemove) {
         return;
@@ -347,10 +359,14 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Reduce a position.
+  */
   function reduceTradeTypePosition(ReducePositionParams memory reducePositionParams, PositionParams memory position, TxCache memory txCache) private {
     reducePositionParams.sizeChange = 0;
     int size = position.size;
     bool isBuy = size > 0;
+    // when sold position, check if this position risk is more than required
     if (!reducePositionParams.removeAll && !isBuy) {
       uint ratedRisk = uint(-size).decimalMul(txCache.spotInitialMarginRiskRate);
       if (reducePositionParams.amountToRemove < ratedRisk) {
@@ -362,6 +378,10 @@ contract Vault is IVault, Ledger, Timestamp {
     TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, position, true, reducePositionParams.account);
     int closePremium = 0;
     int closeFee = 0;
+    // check available closing size, three possible cases
+    // 1. open: no available closing size
+    // 2. close: available closing size is more than required
+    // 3. close and open: available closing size is less than required
     if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
       if (tradingPoolsInfo.totalSize != 0) {
         int tradedSize;
@@ -395,8 +415,16 @@ contract Vault is IVault, Ledger, Timestamp {
     reducePositionParams.amountChange += fee + closeFee;
   }
 
+  /**
+  * @dev Reduce a position and should not remove too much over expected.
+  * @param removingAmount: value to remove
+  * @return premium: Premium. It will be positive when sell, and negative when buy. In decimals 18.
+  * @return fee: Fee. Should be negative. In decimals 18.
+  * @return size: Actual removed size. In decimals 18.
+  */
   function reduceTradeTypePositionSub(ReducePositionParams memory reducePositionParams, PositionParams memory position, TxCache memory txCache, uint removingAmount, bool isBuy, int size, TradingPoolsInfo memory tradingPoolsInfo) private returns (int, int, int) {
     (int premium, int fee) = internalGetPremium(txCache, position.expiry, position.strike, position.isCall, size, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
+    // when bought position, check if removed value is more than required
     if (!reducePositionParams.removeAll && isBuy && reducePositionParams.amountToRemove - removingAmount < uint(premium + fee)) {
       size = size.decimalMulRoundUp(int(reducePositionParams.amountToRemove - removingAmount)).decimalDivRoundUp(premium + fee);
       (premium, fee) = internalGetPremium(txCache, position.expiry, position.strike, position.isCall, size, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
@@ -438,6 +466,9 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Load positions of this account.
+  */
   function getPositions(TxCache memory txCache, address account, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
     if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(txCache.now))) {
@@ -501,6 +532,9 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  /**
+  * @dev Allocating position and fee to pools.
+  */
   function internalPoolUpdatePosition(PositionParams memory positionParams, TxCache memory txCache, TradingPoolsInfo memory tradingPoolsInfo, int fee) internal virtual returns (int) {
     int poolFee = fee.decimalMul(int(txCache.poolProportion));
     uint length = tradingPoolsInfo.length;
@@ -625,6 +659,7 @@ contract Vault is IVault, Ledger, Timestamp {
 
   function getTradeTypeInfo(TxCache memory txCache, address account, PositionParams memory positionParams, uint settledPrice) private view returns (int notional, int value, int fee) {
     notional = accountPositions[account][positionParams.expiry][positionParams.strike][positionParams.isCall].notional;
+    // If position expired, get value by settlement rule. If settled price is not set yet, use spot price in temporary
     (value, fee) = txCache.now >= positionParams.expiry ?
       getTradeTypeSettledValue(txCache.exerciseFeeRate, txCache.profitFeeRate, positionParams.strike, settledPrice == 0 ? txCache.spot :
       settledPrice, positionParams.isCall, positionParams.size) : internalGetPremium(txCache, positionParams.expiry, positionParams.strike, positionParams.isCall, -positionParams.size, INT256_MAX, 0);
@@ -640,6 +675,7 @@ contract Vault is IVault, Ledger, Timestamp {
         value = int(strike - settledPrice).decimalMul(size);
       }
     }
+    // settlement fee: min(settlement price * 0.015%, options value * 10%)
     if (value != 0) {
       fee = int(settledPrice.decimalMul(exerciseFeeRate));
       int fee2 = int(value.abs().decimalMul(profitFeeRate));
@@ -688,6 +724,7 @@ contract Vault is IVault, Ledger, Timestamp {
         continue;
       }
 
+      // count by available to close size when closing
       if (isClose) {
         int size = positionSizeOf(pool, positionParams.expiry, positionParams.strike, positionParams.isCall);
         if (!(isBuy && size > 0 || !isBuy && size < 0)) {
@@ -696,6 +733,7 @@ contract Vault is IVault, Ledger, Timestamp {
         tradingPoolsInfo.rates[i] = size;
         tradingPoolsInfo.totalSize += size;
       } else {
+        // count by available liquidity when opening
         if (!txCache.loaded[i]) {
           AccountInfo memory accountInfo = internalGetAccountInfo(txCache, pool);
           uint reservedRate = config.poolReservedRate(pool);
@@ -781,6 +819,10 @@ contract Vault is IVault, Ledger, Timestamp {
     TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, msg.sender);
     {
       int remainSize = size;
+      // check available closing size, three possible cases
+      // 1. open: no available closing size
+      // 2. close: available closing size is more than required
+      // 3. close and open: available closing size is less than required
       if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
         if (tradingPoolsInfo.totalSize != 0) {
           (closePremium, closeFee) = internalGetPremium(txCache, expiry, strike, isCall, tradingPoolsInfo.totalSize, INT256_MAX, 0);
@@ -873,6 +915,9 @@ contract Vault is IVault, Ledger, Timestamp {
     ));
   }
 
+  /**
+  * @dev Check current trade is closing for trader
+  */
   function traderClosing(address account, uint expiry, uint strike, bool isCall, int size) internal view returns (bool) {
     int positionSize = positionSizeOf(account, expiry, strike, isCall);
     if (positionSize > 0 && size < 0 || positionSize < 0 && size > 0) {
@@ -934,7 +979,7 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   /**
-  * @dev Liquidate a position. Can call only hf < liquidateRate (default is 0.5), and should liquidate selling positions first.
+  * @dev Liquidate a position. Can call only hf < liquidateRate (default is 0.5), and should liquidate sold positions first.
   * @param account: Target account address to liquidate.
   * @param expiry: Expiry timestamp.
   * @param strike: Strike. In decimals 18.

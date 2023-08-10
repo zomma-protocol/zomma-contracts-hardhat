@@ -13,6 +13,11 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
   int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
 
+  /**
+  * @dev Calculate and get premium and fee.
+  * @return premium: Premium. It will be positive when sell, and negative when buy. In decimals 18.
+  * @return fee: Fee. Should be negative. In decimals 18.
+  */
   function getPremium(GetPremiumParams memory params) external view returns (int, int) {
     checkIv(params.iv);
     bool isBuy = params.size > 0;
@@ -34,6 +39,10 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     );
   }
 
+  /**
+  * @dev Adjust price by utilization.
+  * @return price: Adjusted price.
+  */
   function adjustPriceByUtilization(GetPremiumParams memory params, uint price, bool isBuy) internal pure returns (uint) {
     if (params.available > params.equity) {
       params.available = params.equity;
