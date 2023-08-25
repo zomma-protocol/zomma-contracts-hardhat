@@ -98,7 +98,7 @@ async function upgradeProxy(address, contract) {
   const implementation = await deploy({ contract });
   await implementation.deployed();
   console.log(`upgrade ${contract}...`);
-  await admin.upgrade(address, implementation.address);
+  await (await admin.upgrade(address, implementation.address)).wait();
   return proxy;
 }
 
@@ -297,11 +297,18 @@ module.exports = async function (hre) {
   const vault = await deployProxy({ contract: vaultContract });
   const config = await deployProxy({ contract: 'Config' });
 
+  const rewardDistributor = await getOrDeployProxy(process.env.REWARD_DISTRIBUTOR, {
+    contract: 'RewardDistributor',
+    deployed: async(c) => {
+      await c.initialize(vault.address);
+    }
+  });
+
   console.log('vault.initialize...');
   await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
 
   console.log('config.initialize...');
-  await config.initialize(vault.address, process.env.STAKEHOLDER, process.env.INSURANCE, usdc.address, 6);
+  await config.initialize(vault.address, process.env.STAKEHOLDER || rewardDistributor.address, process.env.INSURANCE || rewardDistributor.address, usdc.address, 6);
 
   if (isProduction) {
     if (optionPricerType === 'lookup') {
@@ -344,13 +351,15 @@ module.exports = async function (hre) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
   console.log('=== fe ===');
   console.log(`quote: '${usdc.address.toLowerCase()}',`);
   console.log(`spotPricer: '${spotPricer.address.toLowerCase()}',`);
   console.log(`optionPricer: '${optionPricer.address.toLowerCase()}',`);
   console.log(`vault: '${vault.address.toLowerCase()}',`);
-  console.log(`config: '${config.address.toLowerCase()}'`);
+  console.log(`config: '${config.address.toLowerCase()}',`);
+  console.log(`rewardDistributor: '${rewardDistributor.address.toLowerCase()}'`);
 
   if (!isProduction) {
     console.log('=== contracts ===');
@@ -372,12 +381,14 @@ module.exports = async function (hre) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
   await logProxy('SPOT_PRICER', spotPricer);
   await logProxy('OPTION_PRICER', optionPricer);
   await logProxy('OPTION_MARKET', optionMarket);
   await logProxy('VAULT', vault);
   await logProxy('CONFIG', config);
+  await logProxy('REWARD_DISTRIBUTOR', rewardDistributor);
 
   console.log('=== develop ===');
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);
@@ -389,4 +400,5 @@ module.exports = async function (hre) {
     console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);
   }
   console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
+  console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
 }
