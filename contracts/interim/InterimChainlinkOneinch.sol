@@ -32,19 +32,32 @@ contract InterimChainlinkOneinch is IChainlink, Ownable {
     histories[_roundId] = (_updatedAt << 216) | uint(_submission);
   }
 
-  function latestAnswer() external view returns (int) {
-    return int(IOneinch(oracle).getRate(srcToken, dstToken, true) * offset);
+  function getRoundData(uint80 _roundId) external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    uint data = histories[_roundId];
+    roundId = _roundId;
+    answer = int(data & ANSWER_MASK);
+    startedAt = data >> 216;
+    updatedAt = startedAt;
+    answeredInRound = _roundId;
   }
 
-  function roundId() public pure returns (uint) {
+  function latestRoundData() external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    answer = int(IOneinch(oracle).getRate(srcToken, dstToken, true) * offset);
+  }
+
+  function latestRound() public pure returns (uint) {
     return 0;
-  }
-
-  function getAnswer(uint _roundId) external view returns (int256) {
-    return int(histories[_roundId] & ANSWER_MASK);
-  }
-
-  function getTimestamp(uint _roundId) external view returns (uint256) {
-    return histories[_roundId] >> 216;
   }
 }

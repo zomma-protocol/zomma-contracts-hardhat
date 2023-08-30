@@ -218,8 +218,8 @@ contract Config is OwnableUpgradeable {
     require(vault.listOfExpiries(pool).length == 0, "position not empty");
     require(poolAdded[pool], "pool not found");
     uint length = pools.length;
-    bool found = false;
-    for (uint i = 0; i < length; i++) {
+    bool found;
+    for (uint i; i < length; i++) {
       if (found) {
         pools[i - 1] = pools[i];
       } else if (pools[i] == pool) {

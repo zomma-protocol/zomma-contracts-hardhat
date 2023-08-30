@@ -12,7 +12,7 @@ contract InterimChainlink is IChainlink, Ownable {
   uint public outdatedPeriod = 3600;
   uint private latest;
 
-  mapping(uint => uint) private histories;
+  mapping(uint80 => uint) private histories;
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
 
@@ -24,9 +24,9 @@ contract InterimChainlink is IChainlink, Ownable {
     outdatedPeriod = _outdatedPeriod;
   }
 
-  function submit(int256 _submission, uint _roundId, uint _updatedAt, bool addToHistory) external onlyOwner {
-    if (_roundId > roundId()) {
-      latest = (_updatedAt << 216) | (_roundId << 128) | uint(_submission);
+  function submit(int256 _submission, uint80 _roundId, uint _updatedAt, bool addToHistory) external onlyOwner {
+    if (_roundId > latestRound()) {
+      latest = (_updatedAt << 208) | (uint(_roundId) << 128) | uint(_submission);
     }
     if (addToHistory) {
       setHistory(_submission, _roundId, _updatedAt);
@@ -34,26 +34,42 @@ contract InterimChainlink is IChainlink, Ownable {
     emit AnswerUpdated(_submission, _roundId, _updatedAt);
   }
 
-  function setHistory(int256 _submission, uint _roundId, uint _updatedAt) public onlyOwner {
+  function setHistory(int256 _submission, uint80 _roundId, uint _updatedAt) public onlyOwner {
     require(histories[_roundId] == 0, 'submitted');
-    histories[_roundId] = (_updatedAt << 216) | uint(_submission);
+    histories[_roundId] = (_updatedAt << 208) | uint(_submission);
   }
 
-  function latestAnswer() external view returns (int) {
-    uint updatedAt = (latest >> 216);
-    require(updatedAt >= block.timestamp || block.timestamp - updatedAt < outdatedPeriod, 'outdated');
-    return int(latest & ANSWER_MASK);
+  function getRoundData(uint80 _roundId) external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    uint data = histories[_roundId];
+    roundId = _roundId;
+    answer = int(data & ANSWER_MASK);
+    startedAt = data >> 208;
+    updatedAt = startedAt;
+    answeredInRound = _roundId;
   }
 
-  function roundId() public view returns (uint) {
-    return (latest & ROUND_ID_MASK) >> 128;
+  function latestRoundData() external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    startedAt = (latest >> 208);
+    require(startedAt >= block.timestamp || block.timestamp - startedAt < outdatedPeriod, 'outdated');
+    updatedAt = startedAt;
+    answer = int(latest & ANSWER_MASK);
+    roundId = latestRound();
+    answeredInRound = roundId;
   }
 
-  function getAnswer(uint _roundId) external view returns (int256) {
-    return int(histories[_roundId] & ANSWER_MASK);
-  }
-
-  function getTimestamp(uint _roundId) external view returns (uint256) {
-    return histories[_roundId] >> 216;
+  function latestRound() public view returns (uint80) {
+    return uint80((latest & ROUND_ID_MASK) >> 128);
   }
 }

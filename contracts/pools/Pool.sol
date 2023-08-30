@@ -62,7 +62,7 @@ contract Pool is Ownable {
     config = Config(vault.config());
     quoteDecimal = config.quoteDecimal();
     quoteAsset = IERC20(config.quote());
-    quoteAsset.safeApprove(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    quoteAsset.safeIncreaseAllowance(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
     config.enablePool();
   }
 

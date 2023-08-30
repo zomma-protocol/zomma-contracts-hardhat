@@ -45,16 +45,31 @@ describe('InterimSpotPricer', () => {
           });
 
           context('when chainlinkProxy', () => {
-            before(async () => {
-              await spotPricer.migrate(newChainlink.address);
+            context('when no round', () => {
+              let emptyChainlink;
+
+              before(async () => {
+                emptyChainlink = await Chainlink.deploy(8);
+              });
+
+              it('should revert with "unchanged"', async () => {
+                await expectRevert(spotPricer.migrate(emptyChainlink.address), 'incorrect interface');
+              });
             });
 
-            it('should be migrated', async () => {
-              assert.equal(await spotPricer.migrated(), true);
-            });
+            context('when round exists', () => {
+              before(async () => {
+                await spotPricer.migrate(newChainlink.address);
+              });
 
-            it('should be new oracle', async () => {
-              assert.equal(await spotPricer.oracle(), newChainlink.address);
+              it('should be migrated', async () => {
+                assert.equal(await spotPricer.migrated(), true);
+              });
+
+              it('should be new oracle', async () => {
+                assert.equal(await spotPricer.oracle(), newChainlink.address);
+              });
+
             });
           });
         });
@@ -84,11 +99,11 @@ describe('InterimSpotPricer', () => {
         initExpiry += 86400;
         await chainlink.setNow(expiry - 60);
         await chainlink.submit(toDecimalStr('1100', 8));
-        roundId = (await chainlink.roundId());
+        roundId = (await chainlink.latestRound());
 
         await chainlink.setNow(expiry);
         await chainlink.submit(toDecimalStr('1200', 8));
-        roundId2 = (await chainlink.roundId());
+        roundId2 = (await chainlink.latestRound());
         return { roundId, roundId2, expiry };
       };
 
@@ -128,11 +143,10 @@ describe('InterimSpotPricer', () => {
               now = expiry + 1;
               await chainlink.setNow(now);
               await vault.setTimestamp(now);
-              await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
             });
 
-            it('should get 1200', async () => {
-              assert.equal(strFromDecimal(await spotPricer.settledPrices(expiry)), '1200');
+            it('should revert with "invalid roundId"', async () => {
+              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
             });
           });
 
@@ -177,7 +191,7 @@ describe('InterimSpotPricer', () => {
               await chainlink.setNow(now);
               await vault.setTimestamp(now);
               await chainlink.submit(toDecimalStr('1300', 8));
-              roundId3 = (await chainlink.roundId());
+              roundId3 = (await chainlink.latestRound());
             });
 
             it('should revert with "invalid roundId"', async () => {
@@ -231,11 +245,11 @@ describe('InterimSpotPricer', () => {
         initExpiry += 86400;
         await chainlink.setNow(expiry - 60);
         await chainlink.submit(toDecimalStr('1100', 8));
-        roundId = (await chainlink.roundId());
+        roundId = (await chainlink.latestRound());
 
         await chainlink.setNow(expiry);
         await chainlink.submit(toDecimalStr('1200', 8));
-        roundId2 = (await chainlink.roundId());
+        roundId2 = (await chainlink.latestRound());
         return { roundId, roundId2, expiry };
       };
 
@@ -320,7 +334,7 @@ describe('InterimSpotPricer', () => {
               await chainlink.setNow(now);
               await vault.setTimestamp(now);
               await chainlink.submit(toDecimalStr('1300', 8));
-              roundId3 = (await chainlink.roundId());
+              roundId3 = (await chainlink.latestRound());
             });
 
             it('should revert with "invalid roundId"', async () => {

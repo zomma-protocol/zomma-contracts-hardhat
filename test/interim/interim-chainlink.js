@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
-const { loadFixture, time } = require("@nomicfoundation/hardhat-network-helpers");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 let InterimChainlink, accounts;
 describe('InterimChainlink', () => {
@@ -50,95 +50,110 @@ describe('InterimChainlink', () => {
     });
 
     context('when owner', () => {
-      context('when roundId is greater than lastest', () => {
+      context('when latestRound is greater than lastest', () => {
         context('when addToHistory is false', () => {
+          let roundData;
 
           before(async () => {
             await chainlink.submit(toDecimalStr(1000, 8), 100, updatedAt, false);
+            roundData = await chainlink.getRoundData(100);
           });
 
-          it('should be latestAnswer 1000', async () => {
-            assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1000');
+          it('should be latestRoundData answer 1000', async () => {
+            const latestRoundData = await chainlink.latestRoundData();
+            assert.equal(strFromDecimal(latestRoundData.answer, 8), '1000');
           });
 
-          it('should be roundId 100', async () => {
-            assert.equal(await chainlink.roundId(), 100);
+          it('should be latestRound 100', async () => {
+            assert.equal(await chainlink.latestRound(), 100);
           });
 
-          it('should be getAnswer 0', async () => {
-            assert.equal(strFromDecimal(await chainlink.getAnswer(100), 8), '0');
+          it('should be getRoundData answer 0', async () => {
+            assert.equal(strFromDecimal(roundData.answer, 8), '0');
           });
 
-          it('should be getTimestamp 0', async () => {
-            assert.equal(await chainlink.getTimestamp(100), 0);
+          it('should be getRoundData startedAt 0', async () => {
+            assert.equal(roundData.startedAt, 0);
           });
         });
 
         context('when addToHistory is true', () => {
+          let roundData;
+
           before(async () => {
             await chainlink.submit(toDecimalStr(1001, 8), 101, updatedAt + 60, true);
+            roundData = await chainlink.getRoundData(101);
           });
 
-          it('should be latestAnswer 1001', async () => {
-            assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1001');
+          it('should be latestRoundData answer 1001', async () => {
+            const latestRoundData = await chainlink.latestRoundData();
+            assert.equal(strFromDecimal(latestRoundData.answer, 8), '1001');
           });
 
-          it('should be roundId 101', async () => {
-            assert.equal(await chainlink.roundId(), 101);
+          it('should be latestRound 101', async () => {
+            assert.equal(await chainlink.latestRound(), 101);
           });
 
-          it('should be getAnswer 1001', async () => {
-            assert.equal(strFromDecimal(await chainlink.getAnswer(101), 8), '1001');
+          it('should be getRoundData answer 1001', async () => {
+            assert.equal(strFromDecimal(roundData.answer, 8), '1001');
           });
 
-          it('should be getTimestamp updatedAt + 60', async () => {
-            assert.equal(await chainlink.getTimestamp(101), updatedAt + 60);
+          it('should be getRoundData startedAt updatedAt + 60', async () => {
+            assert.equal(roundData.startedAt, updatedAt + 60);
           });
         });
       });
 
-      context('when roundId is not greater than lastest', () => {
+      context('when latestRound is not greater than lastest', () => {
         context('when addToHistory is false', () => {
+          let roundData;
+
           before(async () => {
             await chainlink.submit(toDecimalStr(999, 8), 99, updatedAt - 60, false);
+            roundData = await chainlink.getRoundData(99);
           });
 
-          it('should be latestAnswer 1001', async () => {
-            assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1001');
+          it('should be latestRoundData answer 1001', async () => {
+            const latestRoundData = await chainlink.latestRoundData();
+            assert.equal(strFromDecimal(latestRoundData.answer, 8), '1001');
           });
 
-          it('should be roundId 101', async () => {
-            assert.equal(await chainlink.roundId(), 101);
+          it('should be latestRound 101', async () => {
+            assert.equal(await chainlink.latestRound(), 101);
           });
 
-          it('should be getAnswer 0', async () => {
-            assert.equal(strFromDecimal(await chainlink.getAnswer(99), 8), '0');
+          it('should be getRoundData answer 0', async () => {
+            assert.equal(strFromDecimal(roundData.answer, 8), '0');
           });
 
-          it('should be getTimestamp 0', async () => {
-            assert.equal(await chainlink.getTimestamp(99), 0);
+          it('should be getRoundData startedAt 0', async () => {
+            assert.equal(roundData.startedAt, 0);
           });
         });
 
         context('when addToHistory is true', () => {
+          let roundData;
+
           before(async () => {
             await chainlink.submit(toDecimalStr(998, 8), 98, updatedAt - 120, true);
+            roundData = await chainlink.getRoundData(98);
           });
 
-          it('should be latestAnswer 1001', async () => {
-            assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1001');
+          it('should be latestRoundData answer 1001', async () => {
+            const latestRoundData = await chainlink.latestRoundData();
+            assert.equal(strFromDecimal(latestRoundData.answer, 8), '1001');
           });
 
-          it('should be roundId 101', async () => {
-            assert.equal(await chainlink.roundId(), 101);
+          it('should be latestRound 101', async () => {
+            assert.equal(await chainlink.latestRound(), 101);
           });
 
-          it('should be getAnswer 998', async () => {
-            assert.equal(strFromDecimal(await chainlink.getAnswer(98), 8), '998');
+          it('should be getRoundData answer 998', async () => {
+            assert.equal(strFromDecimal(roundData.answer, 8), '998');
           });
 
-          it('should be getTimestamp updatedAt - 120', async () => {
-            assert.equal(await chainlink.getTimestamp(98), updatedAt - 120);
+          it('should be getRoundData startedAt updatedAt - 120', async () => {
+            assert.equal(roundData.startedAt, updatedAt - 120);
           });
         });
       });
@@ -156,16 +171,19 @@ describe('InterimChainlink', () => {
 
     context('when owner', () => {
       context('when first time', () => {
+        let roundData;
+
         before(async () => {
           await chainlink.setHistory(toDecimalStr(90, 8), 1, updatedAt);
+          roundData = await chainlink.getRoundData(1);
         });
 
-        it('should be getAnswer 90', async () => {
-          assert.equal(strFromDecimal(await chainlink.getAnswer(1), 8), '90');
+        it('should be getRoundData answer 90', async () => {
+          assert.equal(strFromDecimal(roundData.answer, 8), '90');
         });
 
-        it('should be getTimestamp 1674201600', async () => {
-          assert.equal(await chainlink.getTimestamp(1), 1674201600);
+        it('should be getRoundData startedAt 1674201600', async () => {
+          assert.equal(roundData.startedAt, 1674201600);
         });
       });
 
@@ -183,7 +201,7 @@ describe('InterimChainlink', () => {
     });
   });
 
-  describe('#latestAnswer', () => {
+  describe('#latestRoundData', () => {
     async function deployFixture(timeToIncrease) {
       const chainlink = await InterimChainlink.deploy(8);
       chainlink.submit(toDecimalStr(1010, 8), 110, await time.latest(), false);
@@ -199,7 +217,7 @@ describe('InterimChainlink', () => {
       });
 
       it('should revert with "outdated"', async () => {
-        await expectRevert(chainlink.latestAnswer(), 'outdated');
+        await expectRevert(chainlink.latestRoundData(), 'outdated');
       });
     });
 
@@ -211,8 +229,9 @@ describe('InterimChainlink', () => {
       });
 
       context('when normal time', () => {
-        it('should be latestAnswer 1010', async () => {
-          assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1010');
+        it('should be latestRoundData answer 1010', async () => {
+          const latestRoundData = await chainlink.latestRoundData();
+          assert.equal(strFromDecimal(latestRoundData.answer, 8), '1010');
         });
       });
 
@@ -221,8 +240,9 @@ describe('InterimChainlink', () => {
           chainlink.submit(toDecimalStr(1020, 8), 111, await time.latest() + 60, false);
         });
 
-        it('should be latestAnswer 1020', async () => {
-          assert.equal(strFromDecimal(await chainlink.latestAnswer(), 8), '1020');
+        it('should be latestRoundData answer 1020', async () => {
+          const latestRoundData = await chainlink.latestRoundData();
+          assert.equal(strFromDecimal(latestRoundData.answer, 8), '1020');
         });
       });
     });

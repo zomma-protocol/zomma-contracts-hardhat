@@ -52,21 +52,25 @@ describe('InterimChainlinkProxy', () => {
     });
   });
 
-  describe('#latestAnswer', () => {
+  describe('#latestRoundData', () => {
     it('should be 1000', async () => {
-      assert.equal(await chainlinkProxy.latestAnswer(), toDecimalStr(1000, 8));
+      const latestRoundData = await chainlinkProxy.latestRoundData();
+      assert.equal(latestRoundData.answer, toDecimalStr(1000, 8));
     });
   });
 
-  describe('#getAnswer', () => {
-    it('should be 1000', async () => {
-      assert.equal(await chainlinkProxy.getAnswer(100), toDecimalStr(1000, 8));
+  describe('#getRoundData', () => {
+    let roundData;
+    before(async () => {
+      roundData = await chainlinkProxy.getRoundData(100);
     });
-  });
 
-  describe('#getTimestamp', () => {
+    it('should be 1000', async () => {
+      assert.equal(strFromDecimal(roundData.answer, 8), '1000');
+    });
+
     it('should be now', async () => {
-      assert.equal(await chainlinkProxy.getTimestamp(100), updatedAt);
+      assert.equal(roundData.startedAt, updatedAt);
     });
   });
 

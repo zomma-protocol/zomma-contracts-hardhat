@@ -41,8 +41,8 @@ contract VaultPricer is IVault, Timestamp, Ownable {
     } else {
       PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
       TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, address(0));
-      int closePremium = 0;
-      int closeFee = 0;
+      int closePremium;
+      int closeFee;
       int remainSize = size;
       if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
         if (tradingPoolsInfo.totalSize != 0) {
@@ -95,7 +95,7 @@ contract VaultPricer is IVault, Timestamp, Ownable {
     txCache.poolProportion = config.poolProportion();
     txCache.now = getTimestamp();
     txCache.riskFreeRate = config.riskFreeRate();
-    for (uint i = 0; i < txCache.poolLength; ++i) {
+    for (uint i; i < txCache.poolLength; ++i) {
       txCache.pools[i] = pools[i];
     }
   }
@@ -103,7 +103,7 @@ contract VaultPricer is IVault, Timestamp, Ownable {
   function getTradingPoolsInfo(TxCache memory txCache, PositionParams memory positionParams, bool isClose, address excludedPool) private view returns(TradingPoolsInfo memory tradingPoolsInfo) {
     bool isBuy = positionParams.size > 0;
     tradingPoolsInfo.isClose = isClose;
-    for (uint i = 0; i < txCache.poolLength; ++i) {
+    for (uint i; i < txCache.poolLength; ++i) {
       address pool = txCache.pools[i];
       if (excludedPool == pool) {
         continue;
@@ -141,7 +141,7 @@ contract VaultPricer is IVault, Timestamp, Ownable {
       int remaining = SignedSafeDecimalMath.UNIT;
       int base = isClose ? tradingPoolsInfo.totalSize : tradingPoolsInfo.totalAdjustedAvailable;
       uint index;
-      for (uint i = 0; i < tradingPoolsInfo.length - 1; ++i) {
+      for (uint i; i < tradingPoolsInfo.length - 1; ++i) {
         index = tradingPoolsInfo.indexes[i];
         tradingPoolsInfo.rates[index] = tradingPoolsInfo.rates[index].decimalDivRound(base);
         remaining -= tradingPoolsInfo.rates[index];

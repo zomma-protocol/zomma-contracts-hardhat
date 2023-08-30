@@ -29,7 +29,7 @@ contract TimeDistributedPool is StakingPool {
 
   function internalStake(address beneficiary, uint amount, bool isCancelUnstake) internal virtual override {
     if (totalSupply() == 0) {
-      for (uint i = 0; i < rewardItems.length; ++i) {
+      for (uint i; i < rewardItems.length; ++i) {
         lastDistributedAt[rewardItems[i]] = getTimestamp();
       }
     }

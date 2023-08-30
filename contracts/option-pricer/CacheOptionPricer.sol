@@ -19,7 +19,7 @@ contract CacheOptionPricer is OptionPricer, CacheBlackScholes {
   function updateLookup(uint[] calldata expiries) external {
     int riskFreeRate = config.riskFreeRate();
     uint time = getTimestamp();
-    for (uint i = 0; i < expiries.length; ++i) {
+    for (uint i; i < expiries.length; ++i) {
       internalUpdateLookup(time, expiries[i], riskFreeRate);
     }
   }

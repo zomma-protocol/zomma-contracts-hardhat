@@ -1,11 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-
 library SafeDecimalMath {
-  using SafeMath for uint;
-
   uint8 public constant PRECISION = 18;
   uint public constant UNIT = 10**uint(PRECISION);
 

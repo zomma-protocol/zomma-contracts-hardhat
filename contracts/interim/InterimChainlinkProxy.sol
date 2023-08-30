@@ -22,18 +22,25 @@ contract InterimChainlinkProxy is Ownable {
     return aggregator.decimals();
   }
 
-  function latestAnswer() external view returns (int256) {
-    return aggregator.latestAnswer();
+  function getRoundData(uint80 _roundId) external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    (, uint64 aggregatorRoundId) = parseIds(_roundId);
+    return aggregator.getRoundData(aggregatorRoundId);
   }
 
-  function getAnswer(uint _roundId) external view returns (int256) {
-    (, uint64 aggregatorRoundId) = parseIds(_roundId);
-    return aggregator.getAnswer(aggregatorRoundId);
-  }
-
-  function getTimestamp(uint _roundId) external view returns (uint256) {
-    (, uint64 aggregatorRoundId) = parseIds(_roundId);
-    return aggregator.getTimestamp(aggregatorRoundId);
+  function latestRoundData() external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    return aggregator.latestRoundData();
   }
 
   function parseIds(uint256 _roundId) internal pure returns (uint16, uint64) {

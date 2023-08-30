@@ -22,5 +22,5 @@ interface IOptionPricer {
     bool isCall;
   }
 
-  function getPremium(GetPremiumParams memory params) external view returns (int, int);
+  function getPremium(GetPremiumParams calldata params) external view returns (int, int);
 }

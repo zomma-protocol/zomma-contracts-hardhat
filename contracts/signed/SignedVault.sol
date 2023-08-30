@@ -59,8 +59,8 @@ contract SignedVault is Vault {
   *      r: 32 bytes. Owner signature.
   *      s: 32 bytes. Owner signature.
   *      validTime: 32 bytes. When signature will expire.
-  *      marketData: Dynamic bytes. Market data array, including iv and disabled status. 32 bytes for each item.
-  *                  One market has two items. First item includes expiry and strike. Second item includes iv and disabled status.
+  *      marketData: Dynamic bytes. Market data array, including option price and disabled status. 32 bytes for each item.
+  *                  One market has two items. First item includes expiry and strike. Second item includes option price and disabled status.
   *      spotPrice: 32 bytes. Spot price.
   *      dataLength: 32 bytes. How many data slot of signed data. 32 bytes for each data slot. It will be 5 + item length of marketData.
   */
@@ -112,7 +112,7 @@ contract SignedVault is Vault {
 
   function getMarket(TxCache memory txCache, uint expiry, uint strike) internal pure returns (uint) {
     uint target = strike << 40 | expiry;
-    for (uint i = 0; i < txCache.data.length; i += 2) {
+    for (uint i; i < txCache.data.length; i += 2) {
       if (txCache.data[i] == target) {
         return txCache.data[i + 1];
       }

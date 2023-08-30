@@ -72,11 +72,11 @@ describe('SpotPricer', () => {
       initExpiry += 86400;
       await chainlink.setNow(expiry - 60);
       await chainlink.submit(toDecimalStr('1100', 8));
-      const roundId = (await chainlink.roundId());
+      const roundId = (await chainlink.latestRound());
 
       await chainlink.setNow(expiry);
       await chainlink.submit(toDecimalStr('1200', 8));
-      const roundId2 = (await chainlink.roundId());
+      const roundId2 = (await chainlink.latestRound());
       return { roundId, roundId2, expiry };
     };
 
@@ -113,11 +113,10 @@ describe('SpotPricer', () => {
             now = expiry + 1;
             await chainlink.setNow(now);
             await vault.setTimestamp(now);
-            await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
           });
 
-          it('should get 1200', async () => {
-            assert.equal(strFromDecimal(await spotPricer.settledPrices(expiry)), '1200');
+          it('should revert with "invalid roundId"', async () => {
+            await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
           });
         });
 
@@ -162,7 +161,7 @@ describe('SpotPricer', () => {
             await chainlink.setNow(now);
             await vault.setTimestamp(now);
             await chainlink.submit(toDecimalStr('1300', 8));
-            roundId3 = (await chainlink.roundId());
+            roundId3 = (await chainlink.latestRound());
           });
 
           it('should revert with "invalid roundId"', async () => {

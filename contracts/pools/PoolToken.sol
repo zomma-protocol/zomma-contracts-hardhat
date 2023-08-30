@@ -14,7 +14,7 @@ contract PoolToken is ERC20("", "") {
     _;
   }
 
-  function initialize(address pool_, string memory name_, string memory symbol_) external {
+  function initialize(address pool_, string calldata name_, string calldata symbol_) external {
     require(!initialized, "already initialized");
     initialized = true;
     pool = pool_;

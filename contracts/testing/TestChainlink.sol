@@ -6,9 +6,9 @@ import "../interfaces/IChainlink.sol";
 contract TestChainlink is IChainlink {
   int public latestAnswer;
   uint8 public decimals;
-  uint public roundId;
-  mapping(uint256 => int256) private answers;
-  mapping(uint256 => uint256) private timestamps;
+  uint80 public latestRound;
+  mapping(uint80 => int256) private answers;
+  mapping(uint80 => uint256) private timestamps;
   uint private timestamp;
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);
@@ -18,7 +18,7 @@ contract TestChainlink is IChainlink {
   }
 
   function submit(int256 _submission) external {
-    uint _roundId = ++roundId;
+    uint80 _roundId = ++latestRound;
     latestAnswer = _submission;
     answers[_roundId] = _submission;
     uint time = getNow();
@@ -26,12 +26,32 @@ contract TestChainlink is IChainlink {
     emit AnswerUpdated(_submission, _roundId, time);
   }
 
-  function getAnswer(uint _roundId) external view returns (int256) {
-    return answers[_roundId];
+  function getRoundData(uint80 _roundId) external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    roundId = _roundId;
+    answer = answers[_roundId];
+    startedAt = timestamps[_roundId];
+    updatedAt = startedAt;
+    answeredInRound = _roundId;
   }
 
-  function getTimestamp(uint _roundId) external view returns (uint256) {
-    return timestamps[_roundId];
+  function latestRoundData() external view returns (
+    uint80 roundId,
+    int256 answer,
+    uint256 startedAt,
+    uint256 updatedAt,
+    uint80 answeredInRound
+  ) {
+    roundId = latestRound;
+    answeredInRound = roundId;
+    startedAt = timestamps[roundId];
+    updatedAt = startedAt;
+    answer = answers[roundId];
   }
 
   function setNow(uint _timestamp) external {

@@ -18,7 +18,7 @@ contract PoolFactory {
     poolToken = new PoolToken();
   }
 
-  function create(address _vault, string memory name, string memory symbol) external returns(address clonedPool, address clonedPoolToken) {
+  function create(address _vault, string calldata name, string calldata symbol) external returns(address clonedPool, address clonedPoolToken) {
     clonedPoolToken = address(poolToken).clone();
     clonedPool = address(pool).clone();
 

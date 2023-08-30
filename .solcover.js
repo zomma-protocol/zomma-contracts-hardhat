@@ -4,6 +4,7 @@ module.exports = {
     'utils/Timestamp.sol',
     'tokenomics',
     'pyth',
-    'zksync'
+    'zksync',
+    'VaultPricer.sol'
   ]
 };

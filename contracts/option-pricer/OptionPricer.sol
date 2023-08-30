@@ -18,7 +18,7 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   * @return premium: Premium. It will be positive when sell, and negative when buy. In decimals 18.
   * @return fee: Fee. Should be negative. In decimals 18.
   */
-  function getPremium(GetPremiumParams memory params) external view returns (int, int) {
+  function getPremium(GetPremiumParams calldata params) external view returns (int, int) {
     checkIv(params.iv);
     bool isBuy = params.size > 0;
     uint absSize = uint(isBuy ? params.size : -params.size);
@@ -43,27 +43,8 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   * @dev Adjust price by utilization.
   * @return price: Adjusted price.
   */
-  function adjustPriceByUtilization(GetPremiumParams memory params, uint price, bool isBuy) internal pure returns (uint) {
-    if (params.available > params.equity) {
-      params.available = params.equity;
-    }
-    require(params.available > 0, "available must be greater than 0");
-
-    uint utilization = SafeDecimalMath.UNIT - uint(params.available.decimalDiv(params.equity));
-    uint utilizationAfter;
-    {
-      int availableAfter;
-      // pool sell
-      if (isBuy) {
-        uint maxRisk = uint(params.size).decimalMul(params.spot);
-        int initialMarginChange = int(maxRisk.decimalMul(params.initialMarginRiskRate));
-        availableAfter = params.available - initialMarginChange;
-      } else {
-        int value = int(price).decimalMul(params.size);
-        availableAfter = params.available + value;
-      }
-      utilizationAfter = availableAfter >= 0 ? SafeDecimalMath.UNIT - uint(availableAfter.decimalDiv(params.equity)) : SafeDecimalMath.UNIT;
-    }
+  function adjustPriceByUtilization(GetPremiumParams calldata params, uint price, bool isBuy) internal pure returns (uint) {
+    (uint utilization, uint utilizationAfter) = getUtilizations(params, price, isBuy);
     uint utilizationAdjust;
     if (utilization < params.priceRatioUtilization && utilizationAfter > params.priceRatioUtilization) {
       uint area1 = getArea(0, 0, params.priceRatioUtilization, params.priceRatio, (utilization + params.priceRatioUtilization) / 2, params.priceRatioUtilization - utilization);
@@ -79,6 +60,27 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     }
     utilizationAdjust += SafeDecimalMath.UNIT;
     return isBuy ? price.decimalMul(utilizationAdjust) : price.decimalDiv(utilizationAdjust);
+  }
+
+  function getUtilizations(GetPremiumParams calldata params, uint price, bool isBuy) internal pure returns (uint utilization, uint utilizationAfter) {
+    int available = params.available;
+    if (available > params.equity) {
+      available = params.equity;
+    }
+    require(available > 0, "available must be greater than 0");
+
+    utilization = SafeDecimalMath.UNIT - uint(available.decimalDiv(params.equity));
+    int availableAfter;
+    // pool sell
+    if (isBuy) {
+      uint maxRisk = uint(params.size).decimalMul(params.spot);
+      int initialMarginChange = int(maxRisk.decimalMul(params.initialMarginRiskRate));
+      availableAfter = available - initialMarginChange;
+    } else {
+      int value = int(price).decimalMul(params.size);
+      availableAfter = available + value;
+    }
+    utilizationAfter = availableAfter >= 0 ? SafeDecimalMath.UNIT - uint(availableAfter.decimalDiv(params.equity)) : SafeDecimalMath.UNIT;
   }
 
   // x: utilization

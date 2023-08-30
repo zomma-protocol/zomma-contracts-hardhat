@@ -5,7 +5,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Timestamp.sol";
 
 /**
- * @dev Market status. Markets will be useless if using SignedVault, tradeDisabled and expiryDisabled are used in SignedVault.
+ * @dev Market status. Markets will be useless if using SignedVault, only tradeDisabled and expiryDisabled are used in SignedVault.
  */
 contract OptionMarket is OwnableUpgradeable, Timestamp {
   // [expiry][strike]
@@ -55,7 +55,7 @@ contract OptionMarket is OwnableUpgradeable, Timestamp {
   function internalSetIv(uint[] calldata data) internal {
     uint length = data.length;
     require(length % 2 == 0, 'invalid length');
-    for (uint i = 0; i < length; i += 2) {
+    for (uint i; i < length; i += 2) {
       uint datum = data[i];
       uint market = data[i + 1];
       uint expiry = datum & EXPIRY_MASK;

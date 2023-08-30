@@ -51,7 +51,7 @@ contract Ledger {
     }
 
     int oSize = position.size;
-    int realized = 0;
+    int realized;
     if (position.size > 0 && size < 0 || position.size < 0 && size > 0) {
       int absSize = int(position.size.abs());
       int absTradeSize = int(size.abs());
@@ -113,7 +113,7 @@ contract Ledger {
   function removeStrike(address account, uint expiry, uint strike) internal {
     uint[] memory strikes = listOfStrikes(account, expiry);
     uint length = strikes.length;
-    for (uint i = 0; i < length; i++) {
+    for (uint i; i < length; i++) {
       if (strikes[i] == strike) {
         accountStrikes[account][expiry][i] = strikes[length - 1];
         accountStrikes[account][expiry].pop();
@@ -125,7 +125,7 @@ contract Ledger {
   function removeExpiry(address account, uint expiry) internal {
     uint[] memory expiries = listOfExpiries(account);
     uint length = expiries.length;
-    for (uint i = 0; i < length; i++) {
+    for (uint i; i < length; i++) {
       if (expiries[i] == expiry) {
         accountExpiries[account][i] = expiries[length - 1];
         accountExpiries[account].pop();

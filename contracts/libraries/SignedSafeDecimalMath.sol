@@ -1,11 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.11;
 
-import "@openzeppelin/contracts/utils/math/SignedSafeMath.sol";
-
 library SignedSafeDecimalMath {
-  using SignedSafeMath for int;
-
   uint8 public constant PRECISION = 18;
   int public constant UNIT = int(10**uint(PRECISION));
 
@@ -24,7 +20,7 @@ library SignedSafeDecimalMath {
   // }
 
   function decimalMulRoundUp(int x, int y) internal pure returns (int) {
-    int quotientTimesTen = x.mul(y) / (UNIT / 10);
+    int quotientTimesTen = x * y / (UNIT / 10);
 
     if (quotientTimesTen % 10 > 0) {
       quotientTimesTen += 10;
@@ -40,17 +36,19 @@ library SignedSafeDecimalMath {
   }
 
   function decimalDivRound(int x, int y) internal pure returns (int) {
-    int resultTimesTen = x.mul(UNIT * 10).div(y);
+    int resultTimesTen = x * (UNIT * 10) / y;
 
     if (resultTimesTen % 10 >= 5) {
       resultTimesTen += 10;
+    } else if (resultTimesTen % 10 <= -5) {
+      resultTimesTen -= 10;
     }
 
     return resultTimesTen / 10;
   }
 
   function decimalDivRoundUp(int x, int y) internal pure returns (int) {
-    int resultTimesTen = x.mul(UNIT * 10).div(y);
+    int resultTimesTen = x * (UNIT * 10) / y;
 
     if (resultTimesTen % 10 > 0) {
       resultTimesTen += 10;

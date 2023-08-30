@@ -14,7 +14,7 @@ contract CdfLookup {
     require(!frozenCdf, "frozen");
     require(keys.length == values.length, "incorrect length");
     uint length = keys.length;
-    for (uint i = 0; i < length; ++i) {
+    for (uint i; i < length; ++i) {
       CDF[keys[i]] = values[i];
     }
   }

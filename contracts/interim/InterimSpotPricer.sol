@@ -17,17 +17,8 @@ contract InterimSpotPricer is SpotPricer, OwnableUpgradeable {
     require(!migrated, "already migrated");
     require(_oracle != address(oracle), "unchanged");
     oracle = IChainlink(_oracle);
-    require(oracle.latestAnswer() != 0, 'incorrect interface');
+    (, int256 answer, , ,) = oracle.latestRoundData();
+    require(answer != 0, 'incorrect interface');
     migrated = true;
-  }
-
-  function checkRoundId(uint expiry, uint _roundId) internal view override returns (bool) {
-    if (migrated) {
-      return super.checkRoundId(expiry, _roundId);
-    } else {
-      uint timestamp = oracle.getTimestamp(_roundId);
-      uint timestamp2 = oracle.getTimestamp(_roundId + 1);
-      return timestamp > 0 && expiry >= timestamp && expiry < timestamp2;
-    }
   }
 }

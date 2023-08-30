@@ -23,7 +23,7 @@ contract SignedSpotPricer is SpotPricer, OwnableUpgradeable {
     emit SettlePrice(expiry, price, 0);
   }
 
-  function checkRoundId(uint /* expiry */, uint /* _roundId */) internal pure override returns (bool) {
+  function checkRoundId(uint /* expiry */, uint80 /* _roundId */) internal pure override returns (bool) {
     return false;
   }
 }

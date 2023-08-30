@@ -44,8 +44,8 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     require(rewardItemAdded[rewardItem], "rewardItem not found");
     distribute(rewardItem);
     uint length = rewardItems.length;
-    bool found = false;
-    for (uint i = 0; i < length; i++) {
+    bool found;
+    for (uint i; i < length; i++) {
       if (found) {
         rewardItems[i - 1] = rewardItems[i];
       } else if (rewardItems[i] == rewardItem) {
@@ -70,7 +70,7 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
 
   function unstake(uint amount) external {
     require(balanceOf(msg.sender) >= amount, "balanceOf not enough");
-    for (uint i = 0; i < rewardItems.length; ++i) {
+    for (uint i; i < rewardItems.length; ++i) {
       address rewardItem = rewardItems[i];
       internalClaimRewards(rewardItem, payable(msg.sender));
       payout[rewardItem][msg.sender] -= amount * rewardPerShareWithPending(rewardItem);
@@ -132,7 +132,7 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     } else {
       IERC20(stakingToken).safeTransferFrom(msg.sender, address(this), amount);
     }
-    for (uint i = 0; i < rewardItems.length; ++i) {
+    for (uint i; i < rewardItems.length; ++i) {
       address rewardItem = rewardItems[i];
       distribute(rewardItem);
       payout[rewardItem][beneficiary] += amount * rewardPerShareWithPending(rewardItem);
@@ -141,7 +141,7 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
   }
 
   function internalClaimAllRewards(address payable user) internal {
-    for (uint i = 0; i < rewardItems.length; ++i) {
+    for (uint i; i < rewardItems.length; ++i) {
       internalClaimRewards(rewardItems[i], user);
     }
   }

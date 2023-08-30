@@ -29,10 +29,11 @@ contract SpotPricer is Timestamp {
   * @param expiry: Expiry timestamp to settle.
   * @param roundId: The roundId is most close to this expiry. It must be last roundId before expired.
   */
-  function settle(uint expiry, uint roundId) external {
+  function settle(uint expiry, uint80 roundId) external {
     require(settledPrices[expiry] == 0, "settled");
     require(checkRoundId(expiry, roundId), "invalid roundId");
-    uint price = uint(oracle.getAnswer(roundId)) * 10**18 / 10**oracle.decimals();
+    (, int256 answer, , , ) = oracle.getRoundData(roundId);
+    uint price = uint(answer) * 10**18 / 10**oracle.decimals();
     settledPrices[expiry] = price;
     emit SettlePrice(expiry, price, roundId);
   }
@@ -42,14 +43,14 @@ contract SpotPricer is Timestamp {
   * @return spotPrice: Spot price. In decimals 18.
   */
   function getPrice() public view virtual returns (uint) {
-    return uint(oracle.latestAnswer()) * 10**18 / 10**oracle.decimals();
+    (, int256 answer, , , ) = oracle.latestRoundData();
+    return uint(answer) * 10**18 / 10**oracle.decimals();
   }
 
-  function checkRoundId(uint expiry, uint roundId) internal view virtual returns (bool) {
-    uint timestamp = oracle.getTimestamp(roundId);
-    uint timestamp2 = oracle.getTimestamp(roundId + 1);
-    timestamp2 = timestamp2 == 0 ? getTimestamp() : timestamp2;
-    return timestamp > 0 && expiry >= timestamp && expiry < timestamp2;
+  function checkRoundId(uint expiry, uint80 roundId) internal view virtual returns (bool) {
+    (, , uint startedAt, , ) = oracle.getRoundData(roundId);
+    (, , uint startedAt2, , ) = oracle.getRoundData(roundId + 1);
+    return startedAt > 0 && expiry >= startedAt && expiry < startedAt2;
   }
 
   uint256[47] private __gap;

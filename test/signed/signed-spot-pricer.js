@@ -123,11 +123,11 @@ describe('SignedSpotPricer', () => {
       initExpiry += 86400;
       await chainlink.setNow(expiry - 60);
       await chainlink.submit(toDecimalStr('1100', 8));
-      const roundId = (await chainlink.roundId());
+      const roundId = (await chainlink.latestRound());
 
       await chainlink.setNow(expiry);
       await chainlink.submit(toDecimalStr('1200', 8));
-      const roundId2 = (await chainlink.roundId());
+      const roundId2 = (await chainlink.latestRound());
       return { roundId, roundId2, expiry };
     };
 
