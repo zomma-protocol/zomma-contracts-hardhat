@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "./StakingPool.sol";
 
@@ -29,8 +29,10 @@ contract TimeDistributedPool is StakingPool {
 
   function internalStake(address beneficiary, uint amount, bool isCancelUnstake) internal virtual override {
     if (totalSupply() == 0) {
-      for (uint i; i < rewardItems.length; ++i) {
+      uint length = rewardItems.length;
+      for (uint i; i < length;) {
         lastDistributedAt[rewardItems[i]] = getTimestamp();
+        unchecked { ++i; }
       }
     }
     super.internalStake(beneficiary, amount, isCancelUnstake);

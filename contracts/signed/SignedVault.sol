@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "../Vault.sol";
 
@@ -112,10 +112,12 @@ contract SignedVault is Vault {
 
   function getMarket(TxCache memory txCache, uint expiry, uint strike) internal pure returns (uint) {
     uint target = strike << 40 | expiry;
-    for (uint i; i < txCache.data.length; i += 2) {
+    uint length = txCache.data.length;
+    for (uint i; i < length;) {
       if (txCache.data[i] == target) {
-        return txCache.data[i + 1];
+        unchecked { return txCache.data[i + 1]; }
       }
+      unchecked { i += 2; }
     }
     revert InvalidMarket();
   }

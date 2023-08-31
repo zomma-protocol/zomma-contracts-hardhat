@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -11,8 +11,7 @@ import "hardhat/console.sol";
 abstract contract StakingPool is ERC20, Ownable, Timestamp {
   using SafeERC20 for IERC20;
 
-  uint constant internal OFFSET = 2 ** 64;
-  // uint constant internal OFFSET = 10 ** 18;
+  uint private constant OFFSET = 2 ** 64;
 
   mapping(address => mapping(address => uint)) public payout;
   mapping(address => uint) public unstakedAt;
@@ -45,12 +44,13 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     distribute(rewardItem);
     uint length = rewardItems.length;
     bool found;
-    for (uint i; i < length; i++) {
+    for (uint i; i < length;) {
       if (found) {
         rewardItems[i - 1] = rewardItems[i];
       } else if (rewardItems[i] == rewardItem) {
         found = true;
       }
+      unchecked { ++i; }
     }
     rewardItems.pop();
     rewardItemAdded[rewardItem] = false;
@@ -70,10 +70,12 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
 
   function unstake(uint amount) external {
     require(balanceOf(msg.sender) >= amount, "balanceOf not enough");
-    for (uint i; i < rewardItems.length; ++i) {
+    uint length = rewardItems.length;
+    for (uint i; i < length;) {
       address rewardItem = rewardItems[i];
       internalClaimRewards(rewardItem, payable(msg.sender));
       payout[rewardItem][msg.sender] -= amount * rewardPerShareWithPending(rewardItem);
+      unchecked { ++i; }
     }
     unstakedAt[msg.sender] = getTimestamp();
     unstaking[msg.sender] += amount;
@@ -132,17 +134,21 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     } else {
       IERC20(stakingToken).safeTransferFrom(msg.sender, address(this), amount);
     }
-    for (uint i; i < rewardItems.length; ++i) {
+    uint length = rewardItems.length;
+    for (uint i; i < length;) {
       address rewardItem = rewardItems[i];
       distribute(rewardItem);
       payout[rewardItem][beneficiary] += amount * rewardPerShareWithPending(rewardItem);
+      unchecked { ++i; }
     }
     _mint(beneficiary, amount);
   }
 
   function internalClaimAllRewards(address payable user) internal {
-    for (uint i; i < rewardItems.length; ++i) {
+    uint length = rewardItems.length;
+    for (uint i; i < length;) {
       internalClaimRewards(rewardItems[i], user);
+      unchecked { ++i; }
     }
   }
 

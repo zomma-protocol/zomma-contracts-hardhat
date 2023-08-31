@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -34,6 +34,7 @@ contract Pool is Ownable {
   uint public freeWithdrawableRate;
   bool public initialized;
 
+  uint private constant ONE = 1 ether;
   uint private constant MAX_ZLM_RATE = 1000000000000000000; // 1
   uint private constant MAX_BONUS_RATE = 1000000000000000000; // 100%
   uint private constant MAX_WITHDRAW_FEE_RATE = 100000000000000000; // 10%
@@ -117,7 +118,7 @@ contract Pool is Ownable {
         if (amount < bonusPart) {
           bonusPart = amount;
         }
-        adjustedAmount = (amount - bonusPart) + bonusPart.decimalMul(SafeDecimalMath.UNIT + bonusRate);
+        adjustedAmount = (amount - bonusPart) + bonusPart.decimalMul(ONE + bonusRate);
       }
       shares = adjustedAmount * totalSupply / uint(accountInfo.equity);
       require(shares > 0, 'shares is 0');
@@ -137,20 +138,20 @@ contract Pool is Ownable {
   function withdraw(uint256 shares, uint acceptableAmount) external {
     uint256 totalSupply = token.totalSupply();
     uint rate = shares.decimalDiv(totalSupply);
-    uint afterFeeRate = rate == SafeDecimalMath.UNIT ? rate : rate.decimalMul(SafeDecimalMath.UNIT - withdrawFeeRate);
+    uint afterFeeRate = rate == ONE ? rate : rate.decimalMul(ONE - withdrawFeeRate);
     token.burn(msg.sender, shares);
     uint amount = withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
     transfer(msg.sender, amount);
-    uint fee = rate == SafeDecimalMath.UNIT ? 0 : amount.decimalDiv(SafeDecimalMath.UNIT - withdrawFeeRate).decimalMul(withdrawFeeRate);
+    uint fee = rate == ONE ? 0 : amount.decimalDiv(ONE - withdrawFeeRate).decimalMul(withdrawFeeRate);
     emit Withdraw(msg.sender, amount, shares, fee);
   }
 
   function transfer(address to, uint amount) private {
-    quoteAsset.safeTransfer(to, (amount * 10**quoteDecimal) / SafeDecimalMath.UNIT);
+    quoteAsset.safeTransfer(to, (amount * 10**quoteDecimal) / ONE);
   }
 
   function transferFrom(address from, address to, uint amount) private {
-    quoteAsset.safeTransferFrom(from, to, (amount * 10**quoteDecimal) / SafeDecimalMath.UNIT);
+    quoteAsset.safeTransferFrom(from, to, (amount * 10**quoteDecimal) / ONE);
   }
 
   function getAccountInfo(address addr) internal view virtual returns (IVault.AccountInfo memory) {

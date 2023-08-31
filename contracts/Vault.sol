@@ -1,9 +1,8 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import "./libraries/SafeDecimalMath.sol";
 import "./libraries/SignedSafeDecimalMath.sol";
 import "./utils/Timestamp.sol";
@@ -104,11 +103,12 @@ contract Vault is IVault, Ledger, Timestamp {
   address public owner;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
-  int internal constant OTM_WEIGHT = 10**40;
-  int internal constant EXPIRY_WEIGHT = 10**28;
-  uint internal constant OUTDATED_PERIOD = 1 hours;
-  uint internal constant MAX_REMOVE_POSITION = 50;
+  int256 private constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  int private constant OTM_WEIGHT = 10**40;
+  int private constant EXPIRY_WEIGHT = 10**28;
+  uint private constant OUTDATED_PERIOD = 1 hours;
+  uint private constant MAX_REMOVE_POSITION = 50;
+  uint private constant ONE = 1 ether;
 
   event Fund(address account, int amount, FundType fundType);
 
@@ -203,10 +203,10 @@ contract Vault is IVault, Ledger, Timestamp {
   * @return amount: Actual withdrawal amount
   */
   function withdrawPercent(uint rate, uint acceptableAmount, uint freeWithdrawableRate) public returns (uint) {
-    if (rate == 0 || rate > SafeDecimalMath.UNIT) {
+    if (rate == 0 || rate > ONE) {
       revert InvalidRate();
     }
-    if (freeWithdrawableRate > SafeDecimalMath.UNIT) {
+    if (freeWithdrawableRate > ONE) {
       revert InvalidFreeWithdrawableRate();
     }
     int amount = internalWithdrawPercent(msg.sender, rate, freeWithdrawableRate);
@@ -234,11 +234,11 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   function transfer(address to, uint amount) private {
-    IERC20(config.quote()).safeTransfer(to, (amount * 10**config.quoteDecimal()) / SafeDecimalMath.UNIT);
+    IERC20(config.quote()).safeTransfer(to, (amount * 10**config.quoteDecimal()) / ONE);
   }
 
   function transferFrom(address from, address to, uint amount) private {
-    IERC20(config.quote()).safeTransferFrom(from, to, (amount * 10**config.quoteDecimal()) / SafeDecimalMath.UNIT);
+    IERC20(config.quote()).safeTransferFrom(from, to, (amount * 10**config.quoteDecimal()) / ONE);
   }
 
   function internalWithdrawPercent(address account, uint rate, uint freeWithdrawableRate) private returns (int) {
@@ -257,8 +257,8 @@ contract Vault is IVault, Ledger, Timestamp {
       int adjustedAvailable = accountInfo.available - reserved;
       int adjustedEquity = accountInfo.equity - reserved;
       int maxFreeWithdrawableAmount = adjustedEquity - (adjustedEquity - adjustedAvailable).decimalDiv(int(freeWithdrawableRate));
-      if (reservedRate < SafeDecimalMath.UNIT) {
-        maxFreeWithdrawableAmount = maxFreeWithdrawableAmount.decimalDiv(int(SafeDecimalMath.UNIT - reservedRate));
+      if (reservedRate < ONE) {
+        unchecked { maxFreeWithdrawableAmount = maxFreeWithdrawableAmount.decimalDiv(int(ONE - reservedRate)); }
       } else {
         maxFreeWithdrawableAmount = 0;
       }
@@ -271,7 +271,7 @@ contract Vault is IVault, Ledger, Timestamp {
       }
     }
     if (expectToWithdrawAmount > freeWithdrawableAmount) {
-      return reducePosition(account, expectToWithdrawAmount - freeWithdrawableAmount, txCache, positionInfo, accountInfo);
+      unchecked { return reducePosition(account, expectToWithdrawAmount - freeWithdrawableAmount, txCache, positionInfo, accountInfo); }
     } else {
       return freeWithdrawableAmount;
     }
@@ -300,7 +300,7 @@ contract Vault is IVault, Ledger, Timestamp {
       0,
       0,
       false,
-      rate == SafeDecimalMath.UNIT
+      rate == ONE
     );
     if (reducePositionParams.amountToRemove > 0) {
       reducePositionSub(reducePositionParams, txCache, removePositions, false);
@@ -329,20 +329,21 @@ contract Vault is IVault, Ledger, Timestamp {
   */
   function reducePositionSub(ReducePositionParams memory reducePositionParams, TxCache memory txCache, RemovePositions memory removePositions, bool isBuy) private {
     PositionParams[50] memory positions;
-    uint length;
+    int lastIndex;
     if (isBuy) {
       positions = removePositions.buyPositions;
-      length = removePositions.buyLength;
+      unchecked { lastIndex = int(removePositions.buyLength) - 1; }
     } else {
       positions = removePositions.sellPositions;
-      length = removePositions.sellLength;
+      unchecked { lastIndex = int(removePositions.sellLength) - 1; }
     }
-    quickSort(positions, 0, int(length) - 1);
+    quickSort(positions, 0, lastIndex);
 
-    for (int i = int(length) - 1; i >= 0; --i) {
+    for (int i = lastIndex; i >= 0;) {
       PositionParams memory position = positions[uint(i)];
       reduceTradeTypePosition(reducePositionParams, position, txCache);
       if (reducePositionParams.removeAll) {
+        unchecked { --i; }
         continue;
       }
       if (reducePositionParams.done) {
@@ -354,6 +355,7 @@ contract Vault is IVault, Ledger, Timestamp {
         return;
       }
       reducePositionParams.amountToRemove -= removedAmount;
+      unchecked { --i; }
     }
     if (!reducePositionParams.removeAll || removePositions.morePositions) {
       revert WithdrawTooMuch();
@@ -390,7 +392,7 @@ contract Vault is IVault, Ledger, Timestamp {
         if (isBuy && reducePositionParams.done) {
           size = 0;
         } else {
-          size -= -tradedSize;
+          unchecked { size -= -tradedSize; }
         }
         position.size = -size;
       }
@@ -445,18 +447,20 @@ contract Vault is IVault, Ledger, Timestamp {
     if (i == j) {
       return;
     }
-    int pivot = arr[uint(left + (right - left) / 2)].notional;
-    while (i <= j) {
-      while (arr[uint(i)].notional < pivot) {
-        i++;
-      }
-      while (pivot < arr[uint(j)].notional) {
-        j--;
-      }
-      if (i <= j) {
-        (arr[uint(i)], arr[uint(j)]) = (arr[uint(j)], arr[uint(i)]);
-        i++;
-        j--;
+    unchecked {
+      int pivot = arr[uint(left + (right - left) / 2)].notional;
+      while (i <= j) {
+        while (arr[uint(i)].notional < pivot) {
+          ++i;
+        }
+        while (pivot < arr[uint(j)].notional) {
+          --j;
+        }
+        if (i <= j) {
+          (arr[uint(i)], arr[uint(j)]) = (arr[uint(j)], arr[uint(i)]);
+          ++i;
+          --j;
+        }
       }
     }
     if (left < j) {
@@ -472,30 +476,37 @@ contract Vault is IVault, Ledger, Timestamp {
   */
   function getPositions(TxCache memory txCache, address account, uint maxLength, bool checkDisable) private view returns (RemovePositions memory removePositions) {
     uint[] memory expiries = listOfExpiries(account);
+    uint expiriesLength = expiries.length;
     if (checkDisable && (optionMarket.tradeDisabled() || isIvOutdated(txCache.now))) {
-      removePositions.morePositions = expiries.length != 0;
+      removePositions.morePositions = expiriesLength != 0;
       return removePositions;
     }
-    for (uint i; i < expiries.length; ++i) {
-      uint expiry = expiries[i];
-      if (checkDisable && (txCache.now >= expiry || optionMarket.expiryDisabled(expiry))) {
-        removePositions.morePositions = true;
-        continue;
-      }
-      uint[] memory strikes = listOfStrikes(account, expiry);
-      for (uint j; j < strikes.length; ++j) {
-        uint strike = strikes[j];
-        pushPosition(txCache, account, expiry, strike, true, maxLength, removePositions, checkDisable);
-        pushPosition(txCache, account, expiry, strike, false, maxLength, removePositions, checkDisable);
-        if (removePositions.buyLength == maxLength && removePositions.sellLength == maxLength) {
-          if (removePositions.morePositions) {
-            return removePositions;
-          } else {
-            continue;
+    unchecked {
+      for (uint i; i < expiriesLength; ++i) {
+        uint expiry = expiries[i];
+        if (checkDisable && (txCache.now >= expiry || optionMarket.expiryDisabled(expiry))) {
+          removePositions.morePositions = true;
+          continue;
+        }
+        uint[] memory strikes = listOfStrikes(account, expiry);
+        uint strikesLength = strikes.length;
+        for (uint j; j < strikesLength; ++j) {
+          pushPositions(txCache, account, expiry, strikes[j], maxLength, removePositions, checkDisable);
+          if (removePositions.buyLength == maxLength && removePositions.sellLength == maxLength) {
+            if (removePositions.morePositions) {
+              return removePositions;
+            } else {
+              continue;
+            }
           }
         }
       }
     }
+  }
+
+  function pushPositions(TxCache memory txCache, address account, uint expiry, uint strike, uint maxLength, RemovePositions memory removePositions, bool checkDisable) internal view {
+    pushPosition(txCache, account, expiry, strike, true, maxLength, removePositions, checkDisable);
+    pushPosition(txCache, account, expiry, strike, false, maxLength, removePositions, checkDisable);
   }
 
   /**
@@ -538,22 +549,24 @@ contract Vault is IVault, Ledger, Timestamp {
   */
   function internalPoolUpdatePosition(PositionParams memory positionParams, TxCache memory txCache, TradingPoolsInfo memory tradingPoolsInfo, int fee) internal virtual returns (int) {
     int poolFee = fee.decimalMul(int(txCache.poolProportion));
-    uint length = tradingPoolsInfo.length;
     UpdatePositionInfo memory info = UpdatePositionInfo(positionParams.size, positionParams.notional, poolFee, tradingPoolsInfo.totalSize == -positionParams.size);
     int sellSizeChange;
     int notional;
     int subFee;
     uint index;
-    for (uint i; i < length - 1; i++) {
+    uint lastIndex;
+    unchecked { lastIndex = tradingPoolsInfo.length - 1; }
+    for (uint i; i < lastIndex;) {
       index = tradingPoolsInfo.indexes[i];
       (sellSizeChange, notional, subFee) = internalUpdatePositionSub(positionParams, txCache.pools[index], tradingPoolsInfo.rates[index], poolFee, info);
       updateAvailableCache(tradingPoolsInfo, txCache, index, sellSizeChange, notional, subFee);
       if (info.remainSize == 0) {
         break;
       }
+      unchecked { ++i; }
     }
     if (info.remainSize != 0) {
-      index = tradingPoolsInfo.indexes[length - 1];
+      index = tradingPoolsInfo.indexes[lastIndex];
       notional = info.remainNotional;
       subFee = info.remainFee;
       sellSizeChange = internalUpdatePosition(
@@ -623,15 +636,19 @@ contract Vault is IVault, Ledger, Timestamp {
   function getPositionInfo(TxCache memory txCache, address account) private view returns (PositionInfo memory positionInfo) {
     uint[] memory expiries = listOfExpiries(account);
     PositionParams memory positionParams;
-    for (uint i; i < expiries.length; ++i) {
+    uint expiriesLength = expiries.length;
+    for (uint i; i < expiriesLength;) {
       positionParams.expiry = expiries[i];
       uint settledPrice = txCache.now >= positionParams.expiry ? spotPricer.settledPrices(positionParams.expiry) : 0;
       uint[] memory strikes = listOfStrikes(account, positionParams.expiry);
-      for (uint j; j < strikes.length; ++j) {
+      uint strikesLength = strikes.length;
+      for (uint j; j < strikesLength;) {
         positionParams.strike = strikes[j];
         getPositionInfoSub(txCache, account, settledPrice, positionParams, positionInfo, true);
         getPositionInfoSub(txCache, account, settledPrice, positionParams, positionInfo, false);
+        unchecked { ++j; }
       }
+      unchecked { ++i; }
     }
   }
 
@@ -669,11 +686,11 @@ contract Vault is IVault, Ledger, Timestamp {
   function getTradeTypeSettledValue(uint exerciseFeeRate, uint profitFeeRate, uint strike, uint settledPrice, bool isCall, int size) private pure returns (int value, int fee) {
     if (isCall) {
       if (settledPrice > strike) {
-        value = int(settledPrice - strike).decimalMul(size);
+        unchecked { value = int(settledPrice - strike).decimalMul(size); }
       }
     } else {
       if (settledPrice < strike) {
-        value = int(strike - settledPrice).decimalMul(size);
+        unchecked { value = int(strike - settledPrice).decimalMul(size); }
       }
     }
     // settlement fee: min(settlement price * 0.015%, options value * 10%)
@@ -704,8 +721,9 @@ contract Vault is IVault, Ledger, Timestamp {
     txCache.poolProportion = config.poolProportion();
     txCache.now = getTimestamp();
     txCache.riskFreeRate = config.riskFreeRate();
-    for (uint i; i < txCache.poolLength; ++i) {
+    for (uint i; i < txCache.poolLength;) {
       txCache.pools[i] = pools[i];
+      unchecked { ++i; }
     }
   }
 
@@ -719,9 +737,12 @@ contract Vault is IVault, Ledger, Timestamp {
   function getTradingPoolsInfo(TxCache memory txCache, PositionParams memory positionParams, bool isClose, address excludedPool) private view returns(TradingPoolsInfo memory tradingPoolsInfo) {
     bool isBuy = positionParams.size > 0;
     tradingPoolsInfo.isClose = isClose;
-    for (uint i; i < txCache.poolLength; ++i) {
+    uint poolLength = txCache.poolLength;
+    uint length;
+    for (uint i; i < poolLength;) {
       address pool = txCache.pools[i];
       if (excludedPool == pool) {
+        unchecked { ++i; }
         continue;
       }
 
@@ -729,6 +750,7 @@ contract Vault is IVault, Ledger, Timestamp {
       if (isClose) {
         int size = positionSizeOf(pool, positionParams.expiry, positionParams.strike, positionParams.isCall);
         if (!(isBuy && size > 0 || !isBuy && size < 0)) {
+          unchecked { ++i; }
           continue;
         }
         tradingPoolsInfo.rates[i] = size;
@@ -746,26 +768,32 @@ contract Vault is IVault, Ledger, Timestamp {
         if (txCache.adjustedAvailable[i] > 0) {
           tradingPoolsInfo.rates[i] = txCache.adjustedAvailable[i];
           tradingPoolsInfo.totalAvailable += txCache.available[i];
-          tradingPoolsInfo.totalAdjustedAvailable += txCache.adjustedAvailable[i];
+          unchecked { tradingPoolsInfo.totalAdjustedAvailable += txCache.adjustedAvailable[i]; }
         }
         tradingPoolsInfo.totalEquity += txCache.equity[i];
       }
       if (tradingPoolsInfo.rates[i] != 0) {
-        tradingPoolsInfo.indexes[tradingPoolsInfo.length++] = i;
+        tradingPoolsInfo.indexes[length++] = i;
       }
+      unchecked { ++i; }
     }
 
-    if (tradingPoolsInfo.length > 0) {
-      int remaining = SignedSafeDecimalMath.UNIT;
+    if (length > 0) {
+      int remaining = int(ONE);
       int base = isClose ? tradingPoolsInfo.totalSize : tradingPoolsInfo.totalAdjustedAvailable;
       uint index;
-      for (uint i; i < tradingPoolsInfo.length - 1; ++i) {
-        index = tradingPoolsInfo.indexes[i];
-        tradingPoolsInfo.rates[index] = tradingPoolsInfo.rates[index].decimalDivRound(base);
-        remaining -= tradingPoolsInfo.rates[index];
+      uint lastIndex;
+      unchecked {
+        lastIndex = length - 1;
+        for (uint i; i < lastIndex; ++i) {
+          index = tradingPoolsInfo.indexes[i];
+          tradingPoolsInfo.rates[index] = tradingPoolsInfo.rates[index].decimalDivRound(base);
+          remaining -= tradingPoolsInfo.rates[index];
+        }
       }
-      index = tradingPoolsInfo.indexes[tradingPoolsInfo.length - 1];
+      index = tradingPoolsInfo.indexes[lastIndex];
       tradingPoolsInfo.rates[index] = remaining;
+      tradingPoolsInfo.length = length;
     }
   }
 
@@ -780,7 +808,8 @@ contract Vault is IVault, Ledger, Timestamp {
   *                                    It means pay out premium when buy, and receive when sell.
   */
   function trade(int[] calldata data) public {
-    if (data.length == 0 || data.length % 5 != 0) {
+    uint length = data.length;
+    if (length == 0 || length % 5 != 0) {
       revert InvalidInput();
     }
     if (optionMarket.tradeDisabled()) {
@@ -792,8 +821,11 @@ contract Vault is IVault, Ledger, Timestamp {
     }
     txCache.isTraderClosing = true;
     int platformFee;
-    for (uint i;i < data.length; i += 5) {
-      platformFee += internalTrade(txCache, uint(data[i]), uint(data[i + 1]), data[i + 2] == 1, data[i + 3], uint(data[i + 4]));
+    for (uint i;i < length;) {
+      int fee;
+      unchecked { fee = internalTrade(txCache, uint(data[i]), uint(data[i + 1]), data[i + 2] == 1, data[i + 3], uint(data[i + 4])); }
+      platformFee += fee;
+      unchecked { i += 5; }
     }
     if (!txCache.isTraderClosing && internalGetAvailable(txCache, msg.sender) < 0) {
       revert Unavailable(2);
@@ -958,8 +990,10 @@ contract Vault is IVault, Ledger, Timestamp {
     uint exerciseFeeRate = config.exerciseFeeRate();
     uint profitFeeRate = config.profitFeeRate();
     uint[] memory strikes = listOfStrikes(account, expiry);
-    for (uint i; i < strikes.length; ++i) {
+    uint strikesLength = strikes.length;
+    for (uint i; i < strikesLength;) {
       settleStrike(exerciseFeeRate, profitFeeRate, settledPrice, account, expiry, strikes[i], settleInfo);
+      unchecked { ++i; }
     }
   }
 
@@ -1073,7 +1107,7 @@ contract Vault is IVault, Ledger, Timestamp {
       if (insuranceFee != 0) {
         updateBalance(config.insuranceAccount(), insuranceFee, fundType);
       }
-      fee -= insuranceFee;
+      unchecked { fee -= insuranceFee; }
       if (fee != 0) {
         updateBalance(config.stakeholderAccount(), fee, fundType);
       }
@@ -1098,18 +1132,21 @@ contract Vault is IVault, Ledger, Timestamp {
     TxCache memory txCache = initTxCache();
     LiquidateInfo memory liquidateInfo = getLiquidateInfo(txCache, account);
     uint[] memory expiries = listOfExpiries(account);
-    if (!(liquidateInfo.healthFactor < int(liquidateInfo.clearRate) || expiries.length == 0 && liquidateInfo.marginBalance < 0)) {
+    uint expiriesLength = expiries.length;
+    if (!(liquidateInfo.healthFactor < int(liquidateInfo.clearRate) || expiriesLength == 0 && liquidateInfo.marginBalance < 0)) {
       revert CannotClear();
     }
-
-    for (uint i; i < expiries.length; ++i) {
+    for (uint i; i < expiriesLength;) {
       uint expiry = expiries[i];
       uint[] memory strikes = listOfStrikes(account, expiry);
-      for (uint j; j < strikes.length; ++j) {
+      uint strikesLength = strikes.length;
+      for (uint j; j < strikesLength;) {
         uint strike = strikes[j];
         internalClear(insuranceAccount, account, expiry, strike, true);
         internalClear(insuranceAccount, account, expiry, strike, false);
+        unchecked { ++j; }
       }
+      unchecked { ++i; }
     }
     int balance = balanceOf[account];
     updateBalance(account, -balance, FundType.Clear);

@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "../black-scholes/BlackScholes.sol";
 import "../libraries/SafeDecimalMath.sol";
@@ -11,7 +11,8 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   using SignedSafeDecimalMath for int;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  int256 private constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  uint private constant ONE = 1 ether;
 
   /**
   * @dev Calculate and get premium and fee.
@@ -48,17 +49,17 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     uint utilizationAdjust;
     if (utilization < params.priceRatioUtilization && utilizationAfter > params.priceRatioUtilization) {
       uint area1 = getArea(0, 0, params.priceRatioUtilization, params.priceRatio, (utilization + params.priceRatioUtilization) / 2, params.priceRatioUtilization - utilization);
-      uint area2 = getArea(params.priceRatioUtilization, params.priceRatio, SafeDecimalMath.UNIT, params.priceRatio2, (params.priceRatioUtilization + utilizationAfter) / 2, utilizationAfter - params.priceRatioUtilization);
+      uint area2 = getArea(params.priceRatioUtilization, params.priceRatio, ONE, params.priceRatio2, (params.priceRatioUtilization + utilizationAfter) / 2, utilizationAfter - params.priceRatioUtilization);
       utilizationAdjust = (area1 + area2).decimalDiv(utilizationAfter - utilization);
     } else {
       utilization = (utilization + utilizationAfter) / 2;
       if (utilization >= params.priceRatioUtilization) {
-        utilizationAdjust = getY(params.priceRatioUtilization, params.priceRatio, SafeDecimalMath.UNIT, params.priceRatio2, utilization);
+        utilizationAdjust = getY(params.priceRatioUtilization, params.priceRatio, ONE, params.priceRatio2, utilization);
       } else {
         utilizationAdjust = getY(0, 0, params.priceRatioUtilization, params.priceRatio, utilization);
       }
     }
-    utilizationAdjust += SafeDecimalMath.UNIT;
+    utilizationAdjust += ONE;
     return isBuy ? price.decimalMul(utilizationAdjust) : price.decimalDiv(utilizationAdjust);
   }
 
@@ -69,7 +70,7 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     }
     require(available > 0, "available must be greater than 0");
 
-    utilization = SafeDecimalMath.UNIT - uint(available.decimalDiv(params.equity));
+    utilization = ONE - uint(available.decimalDiv(params.equity));
     int availableAfter;
     // pool sell
     if (isBuy) {
@@ -80,7 +81,7 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
       int value = int(price).decimalMul(params.size);
       availableAfter = available + value;
     }
-    utilizationAfter = availableAfter >= 0 ? SafeDecimalMath.UNIT - uint(availableAfter.decimalDiv(params.equity)) : SafeDecimalMath.UNIT;
+    utilizationAfter = availableAfter >= 0 ? ONE - uint(availableAfter.decimalDiv(params.equity)) : ONE;
   }
 
   // x: utilization

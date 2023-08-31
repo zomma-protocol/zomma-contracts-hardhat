@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./libraries/SafeDecimalMath.sol";
@@ -219,12 +219,13 @@ contract Config is OwnableUpgradeable {
     require(poolAdded[pool], "pool not found");
     uint length = pools.length;
     bool found;
-    for (uint i; i < length; i++) {
+    for (uint i; i < length;) {
       if (found) {
-        pools[i - 1] = pools[i];
+        unchecked { pools[i - 1] = pools[i]; }
       } else if (pools[i] == pool) {
         found = true;
       }
+      unchecked { ++i; }
     }
     pools.pop();
     poolAdded[pool] = false;

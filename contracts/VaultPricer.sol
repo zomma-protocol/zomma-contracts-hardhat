@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./libraries/SafeDecimalMath.sol";
@@ -17,7 +17,8 @@ contract VaultPricer is IVault, Timestamp, Ownable {
   using SignedSafeDecimalMath for int;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 internal constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  int256 private constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  uint private constant ONE = 1 ether;
 
   Vault public vault;
   Config public config;
@@ -95,23 +96,28 @@ contract VaultPricer is IVault, Timestamp, Ownable {
     txCache.poolProportion = config.poolProportion();
     txCache.now = getTimestamp();
     txCache.riskFreeRate = config.riskFreeRate();
-    for (uint i; i < txCache.poolLength; ++i) {
+    for (uint i; i < txCache.poolLength;) {
       txCache.pools[i] = pools[i];
+      unchecked { ++i; }
     }
   }
 
   function getTradingPoolsInfo(TxCache memory txCache, PositionParams memory positionParams, bool isClose, address excludedPool) private view returns(TradingPoolsInfo memory tradingPoolsInfo) {
     bool isBuy = positionParams.size > 0;
     tradingPoolsInfo.isClose = isClose;
-    for (uint i; i < txCache.poolLength; ++i) {
+    uint poolLength = txCache.poolLength;
+    uint length;
+    for (uint i; i < poolLength;) {
       address pool = txCache.pools[i];
       if (excludedPool == pool) {
+        unchecked { ++i; }
         continue;
       }
 
       if (isClose) {
         int size = vault.positionSizeOf(pool, positionParams.expiry, positionParams.strike, positionParams.isCall);
         if (!(isBuy && size > 0 || !isBuy && size < 0)) {
+          unchecked { ++i; }
           continue;
         }
         tradingPoolsInfo.rates[i] = size;
@@ -128,26 +134,32 @@ contract VaultPricer is IVault, Timestamp, Ownable {
         if (txCache.adjustedAvailable[i] > 0) {
           tradingPoolsInfo.rates[i] = txCache.adjustedAvailable[i];
           tradingPoolsInfo.totalAvailable += txCache.available[i];
-          tradingPoolsInfo.totalAdjustedAvailable += txCache.adjustedAvailable[i];
+          unchecked { tradingPoolsInfo.totalAdjustedAvailable += txCache.adjustedAvailable[i]; }
         }
         tradingPoolsInfo.totalEquity += txCache.equity[i];
       }
       if (tradingPoolsInfo.rates[i] != 0) {
-        tradingPoolsInfo.indexes[tradingPoolsInfo.length++] = i;
+        tradingPoolsInfo.indexes[length++] = i;
       }
+      unchecked { ++i; }
     }
 
-    if (tradingPoolsInfo.length > 0) {
-      int remaining = SignedSafeDecimalMath.UNIT;
+    if (length > 0) {
+      int remaining = int(ONE);
       int base = isClose ? tradingPoolsInfo.totalSize : tradingPoolsInfo.totalAdjustedAvailable;
       uint index;
-      for (uint i; i < tradingPoolsInfo.length - 1; ++i) {
-        index = tradingPoolsInfo.indexes[i];
-        tradingPoolsInfo.rates[index] = tradingPoolsInfo.rates[index].decimalDivRound(base);
-        remaining -= tradingPoolsInfo.rates[index];
+      uint lastIndex;
+      unchecked {
+        lastIndex = length - 1;
+        for (uint i; i < lastIndex; ++i) {
+          index = tradingPoolsInfo.indexes[i];
+          tradingPoolsInfo.rates[index] = tradingPoolsInfo.rates[index].decimalDivRound(base);
+          remaining -= tradingPoolsInfo.rates[index];
+        }
       }
-      index = tradingPoolsInfo.indexes[tradingPoolsInfo.length - 1];
+      index = tradingPoolsInfo.indexes[lastIndex];
       tradingPoolsInfo.rates[index] = remaining;
+      tradingPoolsInfo.length = length;
     }
   }
 

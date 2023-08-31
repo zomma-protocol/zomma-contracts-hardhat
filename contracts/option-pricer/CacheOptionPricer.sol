@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "../black-scholes/SqrtTsAndPvs.sol";
 import "../black-scholes/CacheBlackScholes.sol";
@@ -19,8 +19,10 @@ contract CacheOptionPricer is OptionPricer, CacheBlackScholes {
   function updateLookup(uint[] calldata expiries) external {
     int riskFreeRate = config.riskFreeRate();
     uint time = getTimestamp();
-    for (uint i; i < expiries.length; ++i) {
+    uint length = expiries.length;
+    for (uint i; i < length; ) {
       internalUpdateLookup(time, expiries[i], riskFreeRate);
+      unchecked { ++i; }
     }
   }
 

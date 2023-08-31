@@ -1,9 +1,9 @@
 //SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 library SignedSafeDecimalMath {
-  uint8 public constant PRECISION = 18;
-  int public constant UNIT = int(10**uint(PRECISION));
+  uint8 private constant PRECISION = 18;
+  int private constant UNIT = int(10**uint(PRECISION));
 
   function decimalMul(int x, int y) internal pure returns (int) {
     return x * y / UNIT;

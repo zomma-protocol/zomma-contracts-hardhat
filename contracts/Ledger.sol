@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "./libraries/SafeDecimalMath.sol";
 import "./libraries/SignedSafeDecimalMath.sol";
@@ -113,24 +113,26 @@ contract Ledger {
   function removeStrike(address account, uint expiry, uint strike) internal {
     uint[] memory strikes = listOfStrikes(account, expiry);
     uint length = strikes.length;
-    for (uint i; i < length; i++) {
+    for (uint i; i < length;) {
       if (strikes[i] == strike) {
-        accountStrikes[account][expiry][i] = strikes[length - 1];
+        unchecked { accountStrikes[account][expiry][i] = strikes[length - 1]; }
         accountStrikes[account][expiry].pop();
         return;
       }
+      unchecked { ++i; }
     }
   }
 
   function removeExpiry(address account, uint expiry) internal {
     uint[] memory expiries = listOfExpiries(account);
     uint length = expiries.length;
-    for (uint i; i < length; i++) {
+    for (uint i; i < length;) {
       if (expiries[i] == expiry) {
-        accountExpiries[account][i] = expiries[length - 1];
+        unchecked { accountExpiries[account][i] = expiries[length - 1]; }
         accountExpiries[account].pop();
         return;
       }
+      unchecked { ++i; }
     }
   }
 

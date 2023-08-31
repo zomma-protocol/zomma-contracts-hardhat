@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 contract CdfLookup {
   bool public frozenCdf;
@@ -14,8 +14,9 @@ contract CdfLookup {
     require(!frozenCdf, "frozen");
     require(keys.length == values.length, "incorrect length");
     uint length = keys.length;
-    for (uint i; i < length; ++i) {
+    for (uint i; i < length;) {
       CDF[keys[i]] = values[i];
+      unchecked { ++i; }
     }
   }
 

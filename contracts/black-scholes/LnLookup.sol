@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 contract LnLookup {
   bool public frozenLn;
@@ -14,8 +14,9 @@ contract LnLookup {
     require(!frozenLn, "frozen");
     require(keys.length == values.length, "incorrect length");
     uint length = keys.length;
-    for (uint i; i < length; ++i) {
+    for (uint i; i < length;) {
       LN[keys[i]] = values[i];
+      unchecked { ++i; }
     }
   }
 

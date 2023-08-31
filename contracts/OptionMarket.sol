@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.11;
+pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./utils/Timestamp.sol";
@@ -55,13 +55,15 @@ contract OptionMarket is OwnableUpgradeable, Timestamp {
   function internalSetIv(uint[] calldata data) internal {
     uint length = data.length;
     require(length % 2 == 0, 'invalid length');
-    for (uint i; i < length; i += 2) {
-      uint datum = data[i];
-      uint market = data[i + 1];
-      uint expiry = datum & EXPIRY_MASK;
-      uint strike = (datum & STRIKE_MASK) >> 40;
-      markets[expiry][strike] = market;
-      emit SetIv(expiry, strike, market);
+    unchecked {
+      for (uint i; i < length; i +=2) {
+        uint datum = data[i];
+        uint market = data[i + 1];
+        uint expiry = datum & EXPIRY_MASK;
+        uint strike = (datum & STRIKE_MASK) >> 40;
+        markets[expiry][strike] = market;
+        emit SetIv(expiry, strike, market);
+      }
     }
   }
 
