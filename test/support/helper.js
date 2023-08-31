@@ -1,7 +1,6 @@
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 const BigNumber = require('bigNumber.js');
-const _ = require('lodash');
 const { keccak256 } = require('js-sha3');
 const bs = require('black-scholes');
 const ln = require('../../scripts/ln');
@@ -102,8 +101,8 @@ function mergeIv(ivs) {
 
 function buildMarket({ expiry, strike, buyCallIv, sellCallIv, buyPutIv, sellPutIv, buyCallDisabled, sellCallDisabled, buyPutDisabled, sellPutDisabled }) {
   let temp = '0x';
-  temp += _.padStart(new BigNumber(strike).toString(16), 54, '0');
-  temp += _.padStart(new BigNumber(expiry).toString(16), 10, '0');
+  temp += new BigNumber(strike).toString(16).padStart(54, '0');
+  temp += new BigNumber(expiry).toString(16).padStart(10, '0');
 
   let temp2 = '0x';
   temp2 += sellPutDisabled ? '1': '0';
@@ -121,7 +120,7 @@ function buildMarket({ expiry, strike, buyCallIv, sellCallIv, buyPutIv, sellPutI
 function formetIv(iv) {
   iv = new BigNumber(new BigNumber(iv).div(10**10).toFixed(0, BigNumber.ROUND_DOWN));
   iv = iv.gt(MAX_IV) ? MAX_IV : iv;
-  return _.padStart(iv.toString(16), 14, '0');
+  return iv.toString(16).padStart(14, '0');
 }
 
 function toBigNumber(value) {
@@ -145,13 +144,13 @@ function strFromDecimal(value, decimal = 18) {
 }
 
 function buildData(ivs, spot, ttl) {
-  let data = _.padStart(new BigNumber(ttl).toString(16), 64, '0');
+  let data = new BigNumber(ttl).toString(16).padStart(64, '0');
   const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
   mergedIvs.forEach((iv) => {
     data += iv.replace('0x', '');
   });
-  data += _.padStart(new BigNumber(spot).toString(16), 64, '0');
-  data += _.padStart(new BigNumber(mergedIvs.length + 6).toString(16), 64, '0');
+  data += new BigNumber(spot).toString(16).padStart(64, '0');
+  data += new BigNumber(mergedIvs.length + 6).toString(16).padStart(64, '0');
   return data;
 }
 
@@ -161,7 +160,7 @@ async function signData(signer, ivs, spot, ttl) {
   const messageHashBytes = ethers.utils.arrayify(`0x${hash}`);
   const sig = await signer.signMessage(messageHashBytes);
   const vrs = ethers.utils.splitSignature(sig);
-  return _.padStart(new BigNumber(vrs.v).toString(16), 64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
+  return new BigNumber(vrs.v).toString(16).padStart(64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
 }
 
 function ivsToPrices(ivs, spot, now, rate = 0.06) {
@@ -236,7 +235,12 @@ async function watchBalance(contract, addresses, func) {
   return balanceChanges;
 }
 
+let i = 0;
 async function createPool(poolFactory, ...args) {
+  if (args.length === 3) {
+    const salt = (i++).toString(16).padStart(64, '0');
+    args.push(`0x${salt}`);
+  }
   if (ZKSYNC) {
     return await zkSyncCreatePool(poolFactory, ...args);
   }

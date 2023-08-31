@@ -18,9 +18,10 @@ contract PoolFactory {
     poolToken = new PoolToken();
   }
 
-  function create(address _vault, string calldata name, string calldata symbol) external returns(address clonedPool, address clonedPoolToken) {
-    clonedPoolToken = address(poolToken).clone();
-    clonedPool = address(pool).clone();
+  function create(address _vault, string calldata name, string calldata symbol, bytes32 salt) external returns(address clonedPool, address clonedPoolToken) {
+    bytes32 hash = keccak256(abi.encodePacked(msg.sender, salt));
+    clonedPoolToken = address(poolToken).cloneDeterministic(hash);
+    clonedPool = address(pool).cloneDeterministic(hash);
 
     PoolToken(clonedPoolToken).initialize(clonedPool, name, symbol);
     Pool(clonedPool).initialize(_vault, clonedPoolToken, msg.sender);

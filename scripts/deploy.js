@@ -175,7 +175,8 @@ async function createPools(vault, config, poolFactory) {
   const addedPools = await config.getPools();
   for (let i = addedPools.length; i < 4; ++i) {
     console.log(`create pool ${i}...`);
-    let result = await (await poolFactory.create(vault.address, `Pool ${i} Share`, `P${i}-SHARE`)).wait();
+    const salt = i.toString(16).padStart(64, '0');
+    let result = await (await poolFactory.create(vault.address, `Pool ${i} Share`, `P${i}-SHARE`, `0x${salt}`)).wait();
     const create = result.events.find((e) => e.event === 'Create').args;
     console.log(create.pool);
     console.log('addPool...')
