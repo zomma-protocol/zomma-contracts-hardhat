@@ -141,7 +141,7 @@ contract Vault is IVault, Ledger, Timestamp {
   * @param _optionPricer: Should be OptionPricer address.
   * @param _optionMarket: Should be OptionMarket address.
   */
-  function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket) public {
+  function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket) public payable {
     checkOwner();
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
@@ -153,7 +153,7 @@ contract Vault is IVault, Ledger, Timestamp {
   * @dev Change owner address. Can call by owner only.
   * @param _owner: New owner address
   */
-  function changeOwner(address _owner) external {
+  function changeOwner(address _owner) external payable {
     checkOwner();
     owner = _owner;
   }
@@ -448,7 +448,7 @@ contract Vault is IVault, Ledger, Timestamp {
       return;
     }
     unchecked {
-      int pivot = arr[uint(left + (right - left) / 2)].notional;
+      int pivot = arr[uint(left + (right - left) >> 1)].notional;
       while (i <= j) {
         while (arr[uint(i)].notional < pivot) {
           ++i;

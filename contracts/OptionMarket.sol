@@ -35,17 +35,17 @@ contract OptionMarket is OwnableUpgradeable, Timestamp {
 
   // owner methods
 
-  function setIv(uint[] calldata data) external onlyOwner {
+  function setIv(uint[] calldata data) external payable onlyOwner {
     internalSetIv(data);
     lastUpdatedAt = getTimestamp();
   }
 
-  function setTradeDisabled(bool _tradeDisabled) external onlyOwner {
+  function setTradeDisabled(bool _tradeDisabled) external payable onlyOwner {
     tradeDisabled = _tradeDisabled;
     emit TradeDisabled(_tradeDisabled);
   }
 
-  function setExpiryDisabled(uint expiry, bool _disabled) external onlyOwner {
+  function setExpiryDisabled(uint expiry, bool _disabled) external payable onlyOwner {
     expiryDisabled[expiry] = _disabled;
     emit ExpiryDisabled(expiry, _disabled);
   }

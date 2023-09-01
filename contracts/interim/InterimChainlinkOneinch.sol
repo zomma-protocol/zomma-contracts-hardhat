@@ -20,14 +20,14 @@ contract InterimChainlinkOneinch is IChainlink, Ownable {
     decimals = _decimals;
   }
 
-  function setAddresses(uint _offset, address _oracle, address _srcToken, address _dstToken) external onlyOwner {
+  function setAddresses(uint _offset, address _oracle, address _srcToken, address _dstToken) external payable onlyOwner {
     offset = _offset;
     oracle = _oracle;
     srcToken = _srcToken;
     dstToken = _dstToken;
   }
 
-  function setHistory(int256 _submission, uint _roundId, uint _updatedAt) public onlyOwner {
+  function setHistory(int256 _submission, uint _roundId, uint _updatedAt) public payable onlyOwner {
     require(histories[_roundId] == 0, 'submitted');
     histories[_roundId] = (_updatedAt << 216) | uint(_submission);
   }

@@ -21,7 +21,7 @@ contract BlackScholes is LnLookup, CdfLookup, SqrtTsAndPvs {
   ) public view returns (int d1, int d2) {
     int vtSqrt = int(volatility.decimalMul(sqrtTs));
     int log = ln(spot.decimalDiv(strike));
-    int v2t = (int(volatility.decimalMul(volatility) / 2) + rate).decimalMul(int(tAnnualised));
+    int v2t = (int(volatility.decimalMul(volatility) >> 1) + rate).decimalMul(int(tAnnualised));
     d1 = (log + v2t).decimalDiv(vtSqrt);
     d2 = d1 - vtSqrt;
   }

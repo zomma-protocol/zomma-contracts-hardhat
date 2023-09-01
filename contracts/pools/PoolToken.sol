@@ -22,11 +22,11 @@ contract PoolToken is ERC20("", "") {
     _symbol2 = symbol_;
   }
 
-  function mint(address account, uint amount) external onlyPool {
+  function mint(address account, uint amount) external payable onlyPool {
     _mint(account, amount);
   }
 
-  function burn(address account, uint amount) external onlyPool {
+  function burn(address account, uint amount) external payable onlyPool {
     _burn(account, amount);
   }
 

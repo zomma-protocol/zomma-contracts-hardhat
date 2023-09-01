@@ -10,11 +10,11 @@ contract InterimChainlinkProxy is Ownable {
 
   uint256 private constant PHASE_OFFSET = 64;
 
-  function setChainlink(address _aggregator) external onlyOwner {
+  function setChainlink(address _aggregator) external payable onlyOwner {
     aggregator = InterimChainlink(_aggregator);
   }
 
-  function setPhaseId(uint16 _phaseId) external onlyOwner {
+  function setPhaseId(uint16 _phaseId) external payable onlyOwner {
     phaseId = _phaseId;
   }
 

@@ -16,7 +16,7 @@ contract EscrowedZMA is TimeDistributedPool {
     internalStake(beneficiary, amount, false);
   }
 
-  function setRewardCollector(address addr, bool value) external onlyOwner() {
+  function setRewardCollector(address addr, bool value) external payable onlyOwner() {
     isRewardCollector[addr] = value;
   }
 

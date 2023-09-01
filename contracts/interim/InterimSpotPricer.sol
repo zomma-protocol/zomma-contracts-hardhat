@@ -13,7 +13,7 @@ contract InterimSpotPricer is SpotPricer, OwnableUpgradeable {
   }
 
   // should be chainlink proxy
-  function migrate(address _oracle) external onlyOwner {
+  function migrate(address _oracle) external payable onlyOwner {
     require(!migrated, "already migrated");
     require(_oracle != address(oracle), "unchanged");
     oracle = IChainlink(_oracle);

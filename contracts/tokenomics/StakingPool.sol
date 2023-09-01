@@ -33,13 +33,13 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     decimals_ = _decimals;
   }
 
-  function addRewardItem(address rewardItem) external onlyOwner {
+  function addRewardItem(address rewardItem) external payable onlyOwner {
     require(!rewardItemAdded[rewardItem], "rewardItem already exists");
     rewardItems.push(rewardItem);
     rewardItemAdded[rewardItem] = true;
   }
 
-  function removeRewardItem(address rewardItem) external onlyOwner {
+  function removeRewardItem(address rewardItem) external payable onlyOwner {
     require(rewardItemAdded[rewardItem], "rewardItem not found");
     distribute(rewardItem);
     uint length = rewardItems.length;
@@ -56,7 +56,7 @@ abstract contract StakingPool is ERC20, Ownable, Timestamp {
     rewardItemAdded[rewardItem] = false;
   }
 
-  function setUnstakeLockTime(uint _unstakeLockTime) external onlyOwner() {
+  function setUnstakeLockTime(uint _unstakeLockTime) external payable onlyOwner() {
     unstakeLockTime = _unstakeLockTime;
   }
 

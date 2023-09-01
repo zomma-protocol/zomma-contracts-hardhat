@@ -48,11 +48,11 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     (uint utilization, uint utilizationAfter) = getUtilizations(params, price, isBuy);
     uint utilizationAdjust;
     if (utilization < params.priceRatioUtilization && utilizationAfter > params.priceRatioUtilization) {
-      uint area1 = getArea(0, 0, params.priceRatioUtilization, params.priceRatio, (utilization + params.priceRatioUtilization) / 2, params.priceRatioUtilization - utilization);
-      uint area2 = getArea(params.priceRatioUtilization, params.priceRatio, ONE, params.priceRatio2, (params.priceRatioUtilization + utilizationAfter) / 2, utilizationAfter - params.priceRatioUtilization);
+      uint area1 = getArea(0, 0, params.priceRatioUtilization, params.priceRatio, (utilization + params.priceRatioUtilization) >> 1, params.priceRatioUtilization - utilization);
+      uint area2 = getArea(params.priceRatioUtilization, params.priceRatio, ONE, params.priceRatio2, (params.priceRatioUtilization + utilizationAfter) >> 1, utilizationAfter - params.priceRatioUtilization);
       utilizationAdjust = (area1 + area2).decimalDiv(utilizationAfter - utilization);
     } else {
-      utilization = (utilization + utilizationAfter) / 2;
+      utilization = (utilization + utilizationAfter) >> 1;
       if (utilization >= params.priceRatioUtilization) {
         utilizationAdjust = getY(params.priceRatioUtilization, params.priceRatio, ONE, params.priceRatio2, utilization);
       } else {

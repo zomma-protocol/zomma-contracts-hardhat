@@ -14,7 +14,7 @@ contract TimeDistributedPool is StakingPool {
   ) {
   }
 
-  function setDistributionPerDay(address rewardItem, uint _distributionPerDay) external onlyOwner() {
+  function setDistributionPerDay(address rewardItem, uint _distributionPerDay) external payable onlyOwner() {
     distribute(rewardItem);
     distributionPerDay[rewardItem] = _distributionPerDay;
   }

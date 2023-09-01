@@ -96,41 +96,41 @@ contract Config is OwnableUpgradeable {
     insuranceProportion = 300000000000000000; // 30%
   }
 
-  function setInitialMarginRiskRate(uint _initialMarginRiskRate) external onlyOwner {
+  function setInitialMarginRiskRate(uint _initialMarginRiskRate) external payable onlyOwner {
     require(_initialMarginRiskRate <= MAX_INITIAL_MARGIN_RISK_RATE, "exceed the limit");
     initialMarginRiskRate = _initialMarginRiskRate;
     emit Change(ChangeType.initialMarginRiskRate, abi.encodePacked(_initialMarginRiskRate));
   }
 
-  function setLiquidateRate(uint _liquidateRate) external onlyOwner {
+  function setLiquidateRate(uint _liquidateRate) external payable onlyOwner {
     require(_liquidateRate <= MAX_LIQUIDATE_RATE && clearRate <= _liquidateRate, "exceed the limit");
     liquidateRate = _liquidateRate;
     emit Change(ChangeType.liquidateRate, abi.encodePacked(_liquidateRate));
   }
 
-  function setClearRate(uint _clearRate) external onlyOwner {
+  function setClearRate(uint _clearRate) external payable onlyOwner {
     require(_clearRate <= MAX_CLEAR_RATE && _clearRate <= liquidateRate, "exceed the limit");
     clearRate = _clearRate;
     emit Change(ChangeType.clearRate, abi.encodePacked(_clearRate));
   }
 
-  function setLiquidationReward(uint _liquidationReward) external onlyOwner {
+  function setLiquidationReward(uint _liquidationReward) external payable onlyOwner {
     require(_liquidationReward <= MAX_LIQUIDATION_REWARD, "exceed the limit");
     liquidationReward = _liquidationReward;
     emit Change(ChangeType.liquidateRate, abi.encodePacked(_liquidationReward));
   }
 
-  function setMinLiquidation(uint _minLiquidation) external onlyOwner {
+  function setMinLiquidation(uint _minLiquidation) external payable onlyOwner {
     minLiquidation = _minLiquidation;
     emit Change(ChangeType.minLiquidation, abi.encodePacked(_minLiquidation));
   }
 
-  function setRiskFreeRate(int _riskFreeRate) external onlyOwner {
+  function setRiskFreeRate(int _riskFreeRate) external payable onlyOwner {
     riskFreeRate = _riskFreeRate;
     emit Change(ChangeType.riskFreeRate, abi.encodePacked(_riskFreeRate));
   }
 
-  function setPriceRatio(uint _priceRatio, uint _priceRatio2) external onlyOwner {
+  function setPriceRatio(uint _priceRatio, uint _priceRatio2) external payable onlyOwner {
     require(_priceRatio <= _priceRatio2, "invalid price ratio");
     priceRatio = _priceRatio;
     priceRatio2 = _priceRatio2;
@@ -138,60 +138,60 @@ contract Config is OwnableUpgradeable {
     emit Change(ChangeType.priceRatio2, abi.encodePacked(_priceRatio2));
   }
 
-  function setPriceRatioUtilization(uint _priceRatioUtilization) external onlyOwner {
+  function setPriceRatioUtilization(uint _priceRatioUtilization) external payable onlyOwner {
     require(_priceRatioUtilization <= MAX_PRICE_RATIO_UTILIZATION, "exceed the limit");
     priceRatioUtilization = _priceRatioUtilization;
     emit Change(ChangeType.priceRatioUtilization, abi.encodePacked(_priceRatioUtilization));
   }
 
-  function setSpotFee(uint _spotFee) external onlyOwner {
+  function setSpotFee(uint _spotFee) external payable onlyOwner {
     require(_spotFee <= MAX_SPOT_FEE, "exceed the limit");
     spotFee = _spotFee;
     emit Change(ChangeType.spotFee, abi.encodePacked(_spotFee));
   }
 
-  function setOptionFee(uint _optionFee) external onlyOwner {
+  function setOptionFee(uint _optionFee) external payable onlyOwner {
     require(_optionFee <= MAX_OPTION_FEE, "exceed the limit");
     optionFee = _optionFee;
     emit Change(ChangeType.optionFee, abi.encodePacked(_optionFee));
   }
 
-  function setMinPremium(uint _minPremium) external onlyOwner {
+  function setMinPremium(uint _minPremium) external payable onlyOwner {
     minPremium = _minPremium;
     emit Change(ChangeType.minPremium, abi.encodePacked(_minPremium));
   }
 
-  function setExerciseFeeRate(uint _exerciseFeeRate) external onlyOwner {
+  function setExerciseFeeRate(uint _exerciseFeeRate) external payable onlyOwner {
     require(_exerciseFeeRate <= MAX_EXERCISE_FEE_RATE, "exceed the limit");
     exerciseFeeRate = _exerciseFeeRate;
     emit Change(ChangeType.exerciseFeeRate, abi.encodePacked(_exerciseFeeRate));
   }
 
-  function setProfitFeeRate(uint _profitFeeRate) external onlyOwner {
+  function setProfitFeeRate(uint _profitFeeRate) external payable onlyOwner {
     require(_profitFeeRate <= MAX_PROFIT_FEE_RATE, "exceed the limit");
     profitFeeRate = _profitFeeRate;
     emit Change(ChangeType.profitFeeRate, abi.encodePacked(_profitFeeRate));
   }
 
-  function setPoolProportion(uint _poolProportion) external onlyOwner {
+  function setPoolProportion(uint _poolProportion) external payable onlyOwner {
     require(_poolProportion <= MAX_POOL_PROPORTION, "exceed the limit");
     poolProportion = _poolProportion;
     emit Change(ChangeType.poolProportion, abi.encodePacked(_poolProportion));
   }
 
-  function setInsuranceProportion(uint _insuranceProportion) external onlyOwner {
+  function setInsuranceProportion(uint _insuranceProportion) external payable onlyOwner {
     require(_insuranceProportion <= MAX_INSURANCE_PROPORTION, "exceed the limit");
     insuranceProportion = _insuranceProportion;
     emit Change(ChangeType.insuranceProportion, abi.encodePacked(_insuranceProportion));
   }
 
-  function setInsuranceAccount(address _insuranceAccount) external onlyOwner {
+  function setInsuranceAccount(address _insuranceAccount) external payable onlyOwner {
     require(_insuranceAccount != address(0), "can't be zero address");
     insuranceAccount = _insuranceAccount;
     emit Change(ChangeType.insuranceAccount, abi.encodePacked(_insuranceAccount));
   }
 
-  function setStakeholderAccount(address _stakeholderAccount) external onlyOwner {
+  function setStakeholderAccount(address _stakeholderAccount) external payable onlyOwner {
     require(_stakeholderAccount != address(0), "can't be zero address");
     stakeholderAccount = _stakeholderAccount;
     emit Change(ChangeType.stakeholderAccount, abi.encodePacked(_stakeholderAccount));
@@ -200,7 +200,7 @@ contract Config is OwnableUpgradeable {
   /**
   * @dev Add an account as pool. Account should enable to be a pool first.
   */
-  function addPool(address pool) external onlyOwner {
+  function addPool(address pool) external payable onlyOwner {
     require(poolEnabled[pool], "need to enable pool");
     require(vault.listOfExpiries(pool).length == 0, "position not empty");
     uint length = pools.length;
@@ -214,7 +214,7 @@ contract Config is OwnableUpgradeable {
   /**
   * @dev Remove an account from pools.
   */
-  function removePool(address pool) external onlyOwner {
+  function removePool(address pool) external payable onlyOwner {
     require(vault.listOfExpiries(pool).length == 0, "position not empty");
     require(poolAdded[pool], "pool not found");
     uint length = pools.length;

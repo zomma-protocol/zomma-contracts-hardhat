@@ -67,29 +67,29 @@ contract Pool is Ownable {
     config.enablePool();
   }
 
-  function setReservedRate(uint reservedRate) external onlyOwner {
+  function setReservedRate(uint reservedRate) external payable onlyOwner {
     config.setPoolReservedRate(reservedRate);
   }
 
-  function setZlmRate(uint _zlmRate) external onlyOwner {
+  function setZlmRate(uint _zlmRate) external payable onlyOwner {
     require(_zlmRate <= MAX_ZLM_RATE, "exceed the limit");
     zlmRate = _zlmRate;
     emit ConfigChange(ChangeType.zlmRate, abi.encodePacked(_zlmRate));
   }
 
-  function setBonusRate(uint _bonusRate) external onlyOwner {
+  function setBonusRate(uint _bonusRate) external payable onlyOwner {
     require(_bonusRate <= MAX_BONUS_RATE, "exceed the limit");
     bonusRate = _bonusRate;
     emit ConfigChange(ChangeType.bonusRate, abi.encodePacked(_bonusRate));
   }
 
-  function setWithdrawFeeRate(uint _withdrawFeeRate) external onlyOwner {
+  function setWithdrawFeeRate(uint _withdrawFeeRate) external payable onlyOwner {
     require(_withdrawFeeRate <= MAX_WITHDRAW_FEE_RATE, "exceed the limit");
     withdrawFeeRate = _withdrawFeeRate;
     emit ConfigChange(ChangeType.withdrawFeeRate, abi.encodePacked(_withdrawFeeRate));
   }
 
-  function setFreeWithdrawableRate(uint _freeWithdrawableRate) external onlyOwner {
+  function setFreeWithdrawableRate(uint _freeWithdrawableRate) external payable onlyOwner {
     require(_freeWithdrawableRate <= MAX_FREE_WITHDRAWABLE_RATE, "exceed the limit");
     freeWithdrawableRate = _freeWithdrawableRate;
     emit ConfigChange(ChangeType.freeWithdrawableRate, abi.encodePacked(_freeWithdrawableRate));

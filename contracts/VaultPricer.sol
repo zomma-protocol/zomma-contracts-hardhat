@@ -26,7 +26,7 @@ contract VaultPricer is IVault, Timestamp, Ownable {
   IOptionPricer public optionPricer;
   OptionMarket public optionMarket;
 
-  function initialize(address _vault, address _config, address _spotPricer, address _optionPricer, address _optionMarket) external onlyOwner {
+  function initialize(address _vault, address _config, address _spotPricer, address _optionPricer, address _optionMarket) external payable onlyOwner {
     vault = Vault(_vault);
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);

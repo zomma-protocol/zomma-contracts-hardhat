@@ -20,11 +20,11 @@ contract InterimChainlink is IChainlink, Ownable {
     decimals = _decimals;
   }
 
-  function setOutdatedPeriod(uint _outdatedPeriod) external onlyOwner {
+  function setOutdatedPeriod(uint _outdatedPeriod) external payable onlyOwner {
     outdatedPeriod = _outdatedPeriod;
   }
 
-  function submit(int256 _submission, uint80 _roundId, uint _updatedAt, bool addToHistory) external onlyOwner {
+  function submit(int256 _submission, uint80 _roundId, uint _updatedAt, bool addToHistory) external payable onlyOwner {
     if (_roundId > latestRound()) {
       latest = (_updatedAt << 208) | (uint(_roundId) << 128) | uint(_submission);
     }
@@ -34,7 +34,7 @@ contract InterimChainlink is IChainlink, Ownable {
     emit AnswerUpdated(_submission, _roundId, _updatedAt);
   }
 
-  function setHistory(int256 _submission, uint80 _roundId, uint _updatedAt) public onlyOwner {
+  function setHistory(int256 _submission, uint80 _roundId, uint _updatedAt) public payable onlyOwner {
     require(histories[_roundId] == 0, 'submitted');
     histories[_roundId] = (_updatedAt << 208) | uint(_submission);
   }
