@@ -11,7 +11,7 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   using SignedSafeDecimalMath for int;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 private constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  int256 private constant INT256_MAX = type(int).max;
   uint private constant ONE = 1 ether;
 
   /**

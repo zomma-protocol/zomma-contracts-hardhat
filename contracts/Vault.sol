@@ -103,7 +103,7 @@ contract Vault is IVault, Ledger, Timestamp {
   address public owner;
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 private constant INT256_MAX = int256((uint256(1) << 255) - 1);
+  int256 private constant INT256_MAX = type(int).max;
   int private constant OTM_WEIGHT = 10**40;
   int private constant EXPIRY_WEIGHT = 10**28;
   uint private constant OUTDATED_PERIOD = 1 hours;
@@ -442,13 +442,13 @@ contract Vault is IVault, Ledger, Timestamp {
   }
 
   function quickSort(PositionParams[50] memory arr, int left, int right) private view {
-    int i = left;
-    int j = right;
-    if (i == j) {
+    if (right <= left) {
       return;
     }
+    int i = left;
+    int j = right;
     unchecked {
-      int pivot = arr[uint(left + (right - left) >> 1)].notional;
+      int pivot = arr[uint((left + right) >> 1)].notional;
       while (i <= j) {
         while (arr[uint(i)].notional < pivot) {
           ++i;
@@ -463,12 +463,8 @@ contract Vault is IVault, Ledger, Timestamp {
         }
       }
     }
-    if (left < j) {
-      quickSort(arr, left, j);
-    }
-    if (i < right) {
-      quickSort(arr, i, right);
-    }
+    quickSort(arr, left, j);
+    quickSort(arr, i, right);
   }
 
   /**
