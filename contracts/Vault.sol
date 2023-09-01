@@ -755,10 +755,12 @@ contract Vault is IVault, Ledger, Timestamp {
         // count by available liquidity when opening
         if (!txCache.loaded[i]) {
           AccountInfo memory accountInfo = internalGetAccountInfo(txCache, pool);
-          uint reservedRate = config.poolReservedRate(pool);
-          txCache.available[i] = accountInfo.available;
-          txCache.adjustedAvailable[i] = accountInfo.available - accountInfo.marginBalance.decimalMul(int(reservedRate));
-          txCache.equity[i] = accountInfo.equity;
+          (uint paused, uint reservedRate) = config.getPoolReservedRateForTrade(pool);
+          if (paused != 1) {
+            txCache.available[i] = accountInfo.available;
+            txCache.adjustedAvailable[i] = accountInfo.available - accountInfo.marginBalance.decimalMul(int(reservedRate));
+            txCache.equity[i] = accountInfo.equity;
+          }
           txCache.loaded[i] = true;
         }
         if (txCache.adjustedAvailable[i] > 0) {

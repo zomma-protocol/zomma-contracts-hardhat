@@ -720,6 +720,28 @@ describe('Config', () => {
     });
   });
 
+  describe('#setPoolPaused', () => {
+    context('when owner', () => {
+      before(async () => {
+        await config.setPoolPaused(account1.address, 1);
+      });
+
+      after(async () => {
+        await config.setPoolPaused(account1.address, 2);
+      });
+
+      it('should pass', async () => {
+        assert.equal(await config.poolPaused(account1.address), 1);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(config.connect(account1).setPoolPaused(account1.address, 1), 'Ownable: caller is not the owner');
+      });
+    });
+  });
+
   describe('#addPool', () => {
     context('when owner', () => {
       context('when pool does not enable', () => {
@@ -913,6 +935,47 @@ describe('Config', () => {
     context('when set 1.000000000000000001', () => {
       it('should revert with "exceed the limit"', async () => {
         await expectRevert(config.connect(account1).setPoolReservedRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+      });
+    });
+  });
+
+  describe('#getPoolReservedRateForTrade', () => {
+    before(async () => {
+      await config.connect(account1).setPoolReservedRate(toDecimalStr(0.1));
+    });
+
+    context('when pool not paused', () => {
+      let result;
+
+      before(async () => {
+        result = await config.getPoolReservedRateForTrade(account1.address);
+      });
+
+      it('should not be first 1', async () => {
+        assert.notEqual(result[0],  1);
+      });
+
+      it('should be second 0.1', async () => {
+        assert.equal(strFromDecimal(result[1]),  '0.1');
+      });
+    });
+
+    context('when pool paused', () => {
+      before(async () => {
+        await config.setPoolPaused(account1.address, 1);
+        result = await config.getPoolReservedRateForTrade(account1.address);
+      });
+
+      after(async () => {
+        await config.setPoolPaused(account1.address, 2);
+      });
+
+      it('should be first 1', async () => {
+        assert.equal(result[0],  1);
+      });
+
+      it('should be second 0.1', async () => {
+        assert.equal(strFromDecimal(result[1]),  '0.1');
       });
     });
   });

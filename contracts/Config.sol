@@ -29,6 +29,7 @@ contract Config is OwnableUpgradeable {
 
   address[] public pools;
   mapping(address => bool) public poolAdded;
+  // willingness to be a pool
   mapping(address => bool) public poolEnabled;
   mapping(address => uint) public poolReservedRate;
   uint public quoteDecimal;
@@ -52,6 +53,8 @@ contract Config is OwnableUpgradeable {
   address public quote;
   address public insuranceAccount;
   address public stakeholderAccount;
+  // 1: paused, other: not paused
+  mapping(address => uint) public poolPaused;
 
   uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
   uint private constant MAX_LIQUIDATE_RATE = 1000000000000000000; // 1
@@ -70,6 +73,7 @@ contract Config is OwnableUpgradeable {
   event AddPool(address pool);
   event RemovePool(address pool);
   event SetPoolReservedRate(address pool, uint reservedRate);
+  event SetPoolPaused(address pool, uint status);
 
   function initialize(address _vault, address _stakeholderAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external initializer {
     __Ownable_init();
@@ -197,6 +201,11 @@ contract Config is OwnableUpgradeable {
     emit Change(ChangeType.stakeholderAccount, abi.encodePacked(_stakeholderAccount));
   }
 
+  function setPoolPaused(address pool, uint status) external payable onlyOwner {
+    poolPaused[pool] = status;
+    emit SetPoolPaused(pool, status);
+  }
+
   /**
   * @dev Add an account as pool. Account should enable to be a pool first.
   */
@@ -244,6 +253,10 @@ contract Config is OwnableUpgradeable {
     require(reservedRate <= MAX_RESERVED_RATE, "exceed the limit");
     poolReservedRate[msg.sender] = reservedRate;
     emit SetPoolReservedRate(msg.sender, reservedRate);
+  }
+
+  function getPoolReservedRateForTrade(address pool) external view returns(uint, uint) {
+    return (poolPaused[pool], poolReservedRate[pool]);
   }
 
   function getPools() external view returns(address[] memory) {

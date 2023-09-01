@@ -190,6 +190,8 @@ describe('Vault', () => {
                 let traderChange, poolChange, traderPosition, poolPosition;
 
                 before(async () => {
+                  await mintAndDeposit(vault, usdc, pool2, { mint: 10000000 });
+                  await config.setPoolPaused(pool2.address, 1);
                   await optionMarket.setIv(mergeIv([
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)
@@ -203,7 +205,9 @@ describe('Vault', () => {
                     buildIv(expiry, strike, true, true, toDecimalStr(0.8), false),
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
                   ]));
+                  await config.setPoolPaused(pool2.address, 2);
                   await reset();
+                  await vault.connect(pool2).withdrawPercent(toDecimalStr(1), 0, 0);
                 });
 
                 // fee: 0.428279539142218771
@@ -393,60 +397,112 @@ describe('Vault', () => {
             });
 
             context('when then size 2', () => {
-              let traderChange, poolChange, traderPosition, poolPosition;
+              context('when pool not paused', () => {
+                let traderChange, poolChange, traderPosition, poolPosition;
 
-              before(async () => {
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
-                [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX]);
+                before(async () => {
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX]);
+                  });
+                  traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
+                  poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
+                  await reset();
                 });
-                traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
-                poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                await reset();
+
+                // closePremium: -12.760791851843752114
+                // closeFee: -0.427607918518437521
+                // premium: -12.827895956752105513
+                // fee: -0.428278959567521055
+
+                // trader
+                // total premium: -25.588687808595857627
+                // total fee: -0.855886878085958576
+                // realized: -0.042116711236181049
+                // notional: -25.546571097359676578
+
+                // pool
+                // close
+                // realized: 0.008564658782004350
+                // notional: 12.752227193061747764
+                // open
+                // notional = premium = 12.827895956752105513
+
+                it('should be trader size 1', async () => {
+                  assert.equal(strFromDecimal(traderPosition.size), '1');
+                });
+
+                it('should be trader notional -12.794343904297928814', async () => {
+                  assert.equal(strFromDecimal(traderPosition.notional), '-12.794343904297928814');
+                });
+
+                it('should be pool size -1', async () => {
+                  assert.equal(strFromDecimal(poolPosition.size), '-1');
+                });
+
+                it('should be pool notional 12.827895956752105513', async () => {
+                  assert.equal(strFromDecimal(poolPosition.notional), '12.827895956752105513');
+                });
+
+                // realized + total fee
+                it('should change trader balance -0.898003589322139625', async () => {
+                  assert.equal(strFromDecimal(traderChange), '-0.898003589322139625');
+                });
+
+                // realized + total fee
+                it('should change pool balance 0.864451536867962926', async () => {
+                  assert.equal(strFromDecimal(poolChange), '0.864451536867962926');
+                });
               });
 
-              // closePremium: -12.760791851843752114
-              // closeFee: -0.427607918518437521
-              // premium: -12.827895956752105513
-              // fee: -0.428278959567521055
+              context('when pool paused', () => {
+                before(async() => {
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await config.setPoolPaused(pool.address, 1);
+                });
 
-              // trader
-              // total premium: -25.588687808595857627
-              // total fee: -0.855886878085958576
-              // realized: -0.042116711236181049
-              // notional: -25.546571097359676578
+                after(async() => {
+                  await config.setPoolPaused(pool.address, 2);
+                  await reset();
+                });
 
-              // pool
-              // close
-              // realized: 0.008564658782004350
-              // notional: 12.752227193061747764
-              // open
-              // notional = premium = 12.827895956752105513
-
-              it('should be trader size 1', async () => {
-                assert.equal(strFromDecimal(traderPosition.size), '1');
+                it('should revert with Unavailable(1)', async () => {
+                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX]), Vault, 'Unavailable').withArgs(1);
+                });
               });
+            });
 
-              it('should be trader notional -12.794343904297928814', async () => {
-                assert.equal(strFromDecimal(traderPosition.notional), '-12.794343904297928814');
-              });
+            context('when then size 1', () => {
+              context('when pool paused', () => {
+                let traderChange, poolChange, traderPosition, poolPosition;
 
-              it('should be pool size -1', async () => {
-                assert.equal(strFromDecimal(poolPosition.size), '-1');
-              });
+                before(async () => {
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await config.setPoolPaused(pool.address, 1);
+                  [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+                  });
+                  traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
+                  poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
+                  await config.setPoolPaused(pool.address, 2);
+                  await reset();
+                });
 
-              it('should be pool notional 12.827895956752105513', async () => {
-                assert.equal(strFromDecimal(poolPosition.notional), '12.827895956752105513');
-              });
+                it('should be trader size 0', async () => {
+                  assert.equal(strFromDecimal(traderPosition.size), '0');
+                });
 
-              // realized + total fee
-              it('should change trader balance -0.898003589322139625', async () => {
-                assert.equal(strFromDecimal(traderChange), '-0.898003589322139625');
-              });
+                it('should be trader notional 0', async () => {
+                  assert.equal(strFromDecimal(traderPosition.notional), '0');
+                });
 
-              // realized + total fee
-              it('should change pool balance 0.864451536867962926', async () => {
-                assert.equal(strFromDecimal(poolChange), '0.864451536867962926');
+                it('should be pool size 0', async () => {
+                  assert.equal(strFromDecimal(poolPosition.size), '0');
+                });
+
+                it('should be pool notional 0', async () => {
+                  assert.equal(strFromDecimal(poolPosition.notional), '0');
+                });
               });
             });
 
