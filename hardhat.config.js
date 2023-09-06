@@ -41,7 +41,7 @@ module.exports = {
     },
   },
   zksolc: {
-    version: "1.3.10",
+    version: "1.3.13",
     compilerSource: "binary",
     settings: {
       optimizer: {
@@ -51,7 +51,7 @@ module.exports = {
     }
   },
   solidity: {
-    version: '0.8.18',
+    version: '0.8.20',
     settings: {
       optimizer: {
         enabled: true,
