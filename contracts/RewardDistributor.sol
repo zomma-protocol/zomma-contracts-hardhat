@@ -21,6 +21,7 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
 
   // keccak256("Claim(uint256 id,address receiver,uint256 amount)")
   bytes32 private constant CLAIM_TYPEHASH = 0x13ed777f4e2c93099d3703a23f12c4b95cd8c3a8fb33a7f02832f607d088fb27;
+  uint private constant ONE = 1 ether;
 
   mapping(uint => uint) public claimed;
   Vault public vault;
@@ -84,7 +85,7 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
     Config config = Config(vault.config());
     address quote = config.quote();
     uint quoteDecimal = config.quoteDecimal();
-    IERC20(quote).safeTransfer(to, (amount * 10**quoteDecimal) / SafeDecimalMath.UNIT);
+    IERC20(quote).safeTransfer(to, (amount * 10**quoteDecimal) / ONE);
   }
 
   function internalWithdrawFromVault(uint amount) private {
