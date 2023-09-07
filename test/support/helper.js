@@ -143,9 +143,8 @@ function strFromDecimal(value, decimal = 18) {
   return fromDecimal(value, decimal).toString(10);
 }
 
-function buildData(ivs, spot, ttl) {
+function buildData(mergedIvs, spot, ttl) {
   let data = new BigNumber(ttl).toString(16).padStart(64, '0');
-  const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
   mergedIvs.forEach((iv) => {
     data += iv.replace('0x', '');
   });
@@ -154,12 +153,38 @@ function buildData(ivs, spot, ttl) {
   return data;
 }
 
-async function signData(signer, ivs, spot, ttl) {
-  const data = buildData(ivs, spot, ttl);
-  const hash = keccak256(Buffer.from(data, 'hex'));
-  const messageHashBytes = ethers.utils.arrayify(`0x${hash}`);
-  const sig = await signer.signMessage(messageHashBytes);
+async function signData(verifyingContract, signer, ivs, spot, ttl) {
+  const chainId = (await signer.provider.getNetwork()).chainId;
+  const domain = {
+    name: 'SignatureValidator',
+    version: '1',
+    chainId: chainId,
+    verifyingContract: verifyingContract
+  };
+
+  const types = {
+    Vault: [
+      {name: 'deadline', type: 'uint256'},
+      {name: 'data', type: 'uint256[]'},
+      {name: 'spot', type: 'uint256'},
+      {name: 'dataLength', type: 'uint256'}
+    ]
+  };
+
+  const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
+  const value = {
+    deadline: ttl,
+    data: mergedIvs,
+    spot: spot,
+    dataLength: mergedIvs.length + 6
+  };
+  const sig = await signer._signTypedData(
+    domain,
+    types,
+    value
+  );
   const vrs = ethers.utils.splitSignature(sig);
+  const data = buildData(mergedIvs, spot, ttl);
   return new BigNumber(vrs.v).toString(16).padStart(64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
 }
 

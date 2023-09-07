@@ -2,17 +2,18 @@ const assert = require('assert');
 const _ = require('lodash');
 const { signData, withSignedData, ivsToPrices, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../../support/helper');
 
-let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
+let Vault, Config, OptionMarket, TestERC20, SpotPricer, SignatureValidator, accounts;
 describe('SignedVault', () => {
   let stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
     await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.setSignatureValidator(signatureValidator.address);
     return vault;
   }
 
@@ -35,15 +36,17 @@ describe('SignedVault', () => {
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now
   } = {}) => {
-    return await signData(stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
   };
 
   before(async () => {
-    [Vault, Config, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('TestSignedVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
+    [Vault, Config, OptionMarket, TestERC20, SpotPricer, SignatureValidator] = await getContractFactories('TestSignedVault', 'Config', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer', 'TestSignatureValidator');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer('SignedOptionPricer');
+    signatureValidator = await SignatureValidator.deploy();
+    await signatureValidator.initialize();
   });
 
   describe('#withdrawPercent', () => {

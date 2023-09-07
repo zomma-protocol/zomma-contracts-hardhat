@@ -2,13 +2,13 @@ const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { signData, withSignedData, ivsToPrices, getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, INT_MAX, toBigNumber, expectRevertCustom } = require('../../support/helper');
 
-let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
+let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, SignatureValidator, accounts;
 describe('SignedPool', () => {
   let stakeholderAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, poolFactory, pool, config, signedData;
+  let spotPricer, optionPricer, poolFactory, pool, config, signatureValidator, signedData;
 
   const createDefaultPool = async (vault, config) => {
     const { pool, poolToken } = await createPool(poolFactory, vault.address, 'NAME', 'SYMBOL');
@@ -22,6 +22,7 @@ describe('SignedPool', () => {
     const optionMarket = await OptionMarket.deploy();
     const vault = await Vault.deploy();
     await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+    await vault.setSignatureValidator(signatureValidator.address);
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
     await config.setInsuranceProportion(toDecimalStr(1));
@@ -37,7 +38,7 @@ describe('SignedPool', () => {
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now
   } = {}) => {
-    return await signData(stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
   };
 
   const setupDeposit = async (pool, usdc, from, signedData, decimals = 6) => {
@@ -54,12 +55,14 @@ describe('SignedPool', () => {
   };
 
   before(async () => {
-    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('SignedPoolFactory', 'SignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer');
+    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, SignatureValidator] = await getContractFactories('SignedPoolFactory', 'SignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer', 'TestSignatureValidator');
     accounts = await ethers.getSigners();
     [stakeholderAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     poolFactory = await PoolFactory.deploy();
     optionPricer = await createOptionPricer('SignedOptionPricer');
+    signatureValidator = await SignatureValidator.deploy();
+    await signatureValidator.initialize();
     ({ pool, config } = await setup());
     signedData = await createSignedData();
   });

@@ -28,6 +28,10 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
 
   event Claim(uint id);
 
+  constructor() {
+    _disableInitializers();
+  }
+
   function initialize(address _vault) external initializer {
     __Ownable_init();
     __EIP712_init("RewardDistributor", "1");
@@ -116,7 +120,7 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
 
   function verifySignature(uint id, address receiver, uint amount, uint8 v, bytes32 r, bytes32 s) private view {
     bytes32 digest = _hashTypedDataV4(keccak256(abi.encode(CLAIM_TYPEHASH, id, receiver, amount)));
-    address signer = ECDSA.recover(digest, v ,r ,s);
+    address signer = ECDSAUpgradeable.recover(digest, v, r, s);
     if (signer != owner()) {
       revert InvalidSignature();
     }

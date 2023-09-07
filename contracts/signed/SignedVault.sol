@@ -2,6 +2,7 @@
 pragma solidity 0.8.20;
 
 import "../Vault.sol";
+import "./SignatureValidator.sol";
 
 /**
  * @dev Signed data version contract. Spot price and ivs includes in singed data.
@@ -18,9 +19,19 @@ contract SignedVault is Vault {
   uint private constant BUY_PUT_DISABLED =   0x0100000000000000000000000000000000000000000000000000000000000000;
   uint private constant SELL_PUT_DISABLED =  0x1000000000000000000000000000000000000000000000000000000000000000;
 
+  // keccak256("Vault(uint256 deadline,uint256[] data,uint256 spot,uint256 dataLength)")
+  bytes32 private constant VAULT_TYPEHASH = 0xde60323c52fb9bc4c868817d35b985f5998dc1bf542b3677f52442004183b990;
+
+  uint256[100] private __gap1;
+  SignatureValidator public signatureValidator;
+
   error SignatureExpired();
-  error InvalidSignature();
   error InvalidMarket();
+
+  function setSignatureValidator(address _signatureValidator) external {
+    checkOwner();
+    signatureValidator = SignatureValidator(_signatureValidator);
+  }
 
   function initTxCache() internal view override returns (TxCache memory) {
     TxCache memory txCache = super.initTxCache();
@@ -58,25 +69,23 @@ contract SignedVault is Vault {
   *      v: 32 bytes. Owner signature.
   *      r: 32 bytes. Owner signature.
   *      s: 32 bytes. Owner signature.
-  *      validTime: 32 bytes. When signature will expire.
+  *      deadline: 32 bytes. When signature will expire.
   *      marketData: Dynamic bytes. Market data array, including option price and disabled status. 32 bytes for each item.
   *                  One market has two items. First item includes expiry and strike. Second item includes option price and disabled status.
   *      spotPrice: 32 bytes. Spot price.
   *      dataLength: 32 bytes. How many data slot of signed data. 32 bytes for each data slot. It will be 5 + item length of marketData.
   */
   function extractData() internal view returns (uint[] memory, uint) {
-    (uint dataLength, uint v, bytes32 r, bytes32 s, uint validTime, uint[] memory data, uint spot) = getData();
-    if (getTimestamp() > validTime) {
+    (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) = getData();
+    if (getTimestamp() > deadline) {
       revert SignatureExpired();
     }
-    bytes32 hash = keccak256(abi.encodePacked(validTime, data, spot, dataLength));
-    if(ecrecover(keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", hash)), uint8(v), r, s) != owner) {
-      revert InvalidSignature();
-    }
+    bytes32 structHash = keccak256(abi.encode(VAULT_TYPEHASH, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
+    signatureValidator.verifySignature(structHash, uint8(v), r, s);
     return (data, spot);
   }
 
-  function getData() internal pure returns (uint dataLength, uint v, bytes32 r, bytes32 s, uint validTime, uint[] memory data, uint spot) {
+  function getData() internal pure returns (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) {
     dataLength = getDataLength();
     uint dataBytes = 32 * dataLength;
     data = new uint[](dataLength - 6);
@@ -84,7 +93,7 @@ contract SignedVault is Vault {
       v := calldataload(sub(calldatasize(), dataBytes))
       r := calldataload(add(sub(calldatasize(), dataBytes), 32))
       s := calldataload(add(sub(calldatasize(), dataBytes), 64))
-      validTime := calldataload(add(sub(calldatasize(), dataBytes), 96))
+      deadline := calldataload(add(sub(calldatasize(), dataBytes), 96))
       calldatacopy(add(data, 32), add(sub(calldatasize(), dataBytes), 128), sub(dataBytes, 160))
       spot := calldataload(sub(calldatasize(), 64))
     }
