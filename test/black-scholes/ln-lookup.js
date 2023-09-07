@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 const ln = require('../../scripts/ln');
 
 let LnLookup;
@@ -28,8 +28,8 @@ describe('LnLookup', () => {
       });
 
       context('when different length', () => {
-        it('should revert with "incorrect length"', async () => {
-          await expectRevert(lnLookup.setLn(ln.keys.slice(0, 1), ln.values.slice(0, 2)), 'incorrect length');
+        it('should revert with InvalidLength', async () => {
+          await expectRevertCustom(lnLookup.setLn(ln.keys.slice(0, 1), ln.values.slice(0, 2)), LnLookup, 'InvalidLength');
         });
       });
 
@@ -45,8 +45,8 @@ describe('LnLookup', () => {
     });
 
     context('when frozenLn true', () => {
-      it('should revert with "frozen"', async () => {
-        await expectRevert(lnLookup.setLn(ln.keys.slice(0, 1), ln.values.slice(0, 1)), 'frozen');
+      it('should revert with Frozen', async () => {
+        await expectRevertCustom(lnLookup.setLn(ln.keys.slice(0, 1), ln.values.slice(0, 1)), LnLookup, 'Frozen');
       });
     });
   });

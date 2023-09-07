@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX } = require('./support/helper');
 
 let PoolFactory, Config, Vault, OptionMarket, TestERC20, SpotPricer;
 async function setup(stakeholderAccount, insuranceAccount) {
@@ -94,8 +94,8 @@ describe('Config', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setInitialMarginRiskRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setInitialMarginRiskRate(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -135,8 +135,8 @@ describe('Config', () => {
         });
 
         context('when set 1.000000000000000001', () => {
-          it('should revert with "exceed the limit"', async () => {
-            await expectRevert(config.setLiquidateRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+          it('should revert with OutOfRange', async () => {
+            await expectRevertCustom(config.setLiquidateRate(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
           });
         });
       });
@@ -157,8 +157,8 @@ describe('Config', () => {
         });
 
         context('when set 0.199999999999999999', () => {
-          it('should revert with "exceed the limit"', async () => {
-            await expectRevert(config.setLiquidateRate(toDecimalStr('0.199999999999999999')), 'exceed the limit');
+          it('should revert with OutOfRange', async () => {
+            await expectRevertCustom(config.setLiquidateRate(toDecimalStr('0.199999999999999999')), Config, 'OutOfRange');
           });
         });
       });
@@ -199,8 +199,8 @@ describe('Config', () => {
         });
 
         context('when set 1.000000000000000001', () => {
-          it('should revert with "exceed the limit"', async () => {
-            await expectRevert(config.setClearRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+          it('should revert with OutOfRange', async () => {
+            await expectRevertCustom(config.setClearRate(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
           });
         });
       });
@@ -222,8 +222,8 @@ describe('Config', () => {
         });
 
         context('when set 0.500000000000000001', () => {
-          it('should revert with "exceed the limit"', async () => {
-            await expectRevert(config.setClearRate(toDecimalStr('0.500000000000000001')), 'exceed the limit');
+          it('should revert with OutOfRange', async () => {
+            await expectRevertCustom(config.setClearRate(toDecimalStr('0.500000000000000001')), Config, 'OutOfRange');
           });
         });
       });
@@ -259,8 +259,8 @@ describe('Config', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setLiquidationReward(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setLiquidationReward(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -295,8 +295,7 @@ describe('Config', () => {
       });
 
       // context('when set 1000.000000000000000001', () => {
-      //   it('should revert with "exceed the limit"', async () => {
-      //     await expectRevert(config.setMinLiquidation(toDecimalStr('1000.000000000000000001')), 'exceed the limit');
+      //   it('should revert with OutOfRange', async () => {
       //   });
       // });
     });
@@ -373,8 +372,8 @@ describe('Config', () => {
       });
 
       context('when priceRatio > priceRatio2', () => {
-        it('should revert with "invalid price ratio"', async () => {
-          await expectRevert(config.setPriceRatio(toDecimalStr('0.100000000000000001'), toDecimalStr(0.1)), 'invalid price ratio');
+        it('should revert with InvalidRatio', async () => {
+          await expectRevertCustom(config.setPriceRatio(toDecimalStr('0.100000000000000001'), toDecimalStr(0.1)), Config, 'InvalidRatio');
         });
       });
     });
@@ -409,8 +408,8 @@ describe('Config', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setPriceRatioUtilization(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setPriceRatioUtilization(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -445,8 +444,8 @@ describe('Config', () => {
       });
 
       context('when set 0.100000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setSpotFee(toDecimalStr('0.100000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setSpotFee(toDecimalStr('0.100000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -481,8 +480,8 @@ describe('Config', () => {
       });
 
       context('when set 0.200000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setOptionFee(toDecimalStr('0.200000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setOptionFee(toDecimalStr('0.200000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -547,8 +546,8 @@ describe('Config', () => {
       });
 
       context('when set 0.100000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setExerciseFeeRate(toDecimalStr('0.100000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setExerciseFeeRate(toDecimalStr('0.100000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -583,8 +582,8 @@ describe('Config', () => {
       });
 
       context('when set 0.500000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setProfitFeeRate(toDecimalStr('0.500000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setProfitFeeRate(toDecimalStr('0.500000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -619,8 +618,8 @@ describe('Config', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setPoolProportion(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setPoolProportion(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -655,8 +654,8 @@ describe('Config', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(config.setInsuranceProportion(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(config.setInsuranceProportion(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
         });
       });
     });
@@ -681,8 +680,8 @@ describe('Config', () => {
       });
 
       context('when set zero address', () => {
-        it('should revert with "can\'t be zero address"', async () => {
-          await expectRevert(config.setInsuranceAccount(ZERO_ADDRESS), 'can\'t be zero address');
+        it('should revert with ZeroAddress', async () => {
+          await expectRevertCustom(config.setInsuranceAccount(ZERO_ADDRESS), Config, 'ZeroAddress');
         });
       });
     });
@@ -707,8 +706,8 @@ describe('Config', () => {
       });
 
       context('when set zero address', () => {
-        it('should revert with "can\'t be zero address"', async () => {
-          await expectRevert(config.setStakeholderAccount(ZERO_ADDRESS), 'can\'t be zero address');
+        it('should revert with ZeroAddress', async () => {
+          await expectRevertCustom(config.setStakeholderAccount(ZERO_ADDRESS), Config, 'ZeroAddress');
         });
       });
     });
@@ -745,8 +744,8 @@ describe('Config', () => {
   describe('#addPool', () => {
     context('when owner', () => {
       context('when pool does not enable', () => {
-        it('should revert with "need to enable pool"', async () => {
-          await expectRevert(config.addPool(stakeholderAccount.address), 'need to enable pool');
+        it('should revert with PoolNotEnabled', async () => {
+          await expectRevertCustom(config.addPool(stakeholderAccount.address), Config, 'PoolNotEnabled');
         });
       });
 
@@ -765,8 +764,8 @@ describe('Config', () => {
           });
 
           context('when add twice', () => {
-            it('should revert with "pool already exists"', async () => {
-              await expectRevert(config.addPool(pool.address), 'pool already exists');
+            it('should revert with DuplicatedPool', async () => {
+              await expectRevertCustom(config.addPool(pool.address), Config, 'DuplicatedPool');
             });
           });
         });
@@ -796,8 +795,8 @@ describe('Config', () => {
               await config.connect(account2).enablePool();
             });
 
-            it('should revert with "position not empty"', async () => {
-              await expectRevert(config.addPool(account2.address), 'position not empty');
+            it('should revert with PositionNotEmpty', async () => {
+              await expectRevertCustom(config.addPool(account2.address), Config, 'PositionNotEmpty');
             });
           });
         });
@@ -813,8 +812,8 @@ describe('Config', () => {
           pool = await createDefaultPool(poolFactory, vault);
         });
 
-        it('should revert with "length >= 10"', async () => {
-          await expectRevert(config.addPool(pool.address), 'length >= 10');
+        it('should revert with TooManyPools', async () => {
+          await expectRevertCustom(config.addPool(pool.address), Config, 'TooManyPools');
         });
       });
     });
@@ -873,8 +872,8 @@ describe('Config', () => {
         });
 
         context('when pool does not exist', () => {
-          it('should revert with "pool not found"', async () => {
-            await expectRevert(config.removePool(account1.address), 'pool not found');
+          it('should revert with PoolNotFound', async () => {
+            await expectRevertCustom(config.removePool(account1.address), Config, 'PoolNotFound');
           });
         });
       });
@@ -887,8 +886,8 @@ describe('Config', () => {
           await trade(vault, optionMarket, usdc, spotPricer, optionPricer, stakeholderAccount);
         });
 
-        it('should revert with "position not empty"', async () => {
-          await expectRevert(config.removePool(pool.address), 'position not empty');
+        it('should revert with PositionNotEmpty', async () => {
+          await expectRevertCustom(config.removePool(pool.address), Config, 'PositionNotEmpty');
         });
       });
     });
@@ -933,8 +932,8 @@ describe('Config', () => {
     });
 
     context('when set 1.000000000000000001', () => {
-      it('should revert with "exceed the limit"', async () => {
-        await expectRevert(config.connect(account1).setPoolReservedRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+      it('should revert with OutOfRange', async () => {
+        await expectRevertCustom(config.connect(account1).setPoolReservedRate(toDecimalStr('1.000000000000000001')), Config, 'OutOfRange');
       });
     });
   });

@@ -1,9 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.20;
 
+import './Errors.sol';
+
 contract CdfLookup {
   bool public frozenCdf;
-
   mapping(uint => uint) public CDF;
 
   function freezeCdf() external {
@@ -11,9 +12,13 @@ contract CdfLookup {
   }
 
   function setCdf(uint[] calldata keys, uint[] calldata values) external {
-    require(!frozenCdf, "frozen");
-    require(keys.length == values.length, "incorrect length");
+    if (frozenCdf) {
+      revert Frozen();
+    }
     uint length = keys.length;
+    if (length != values.length) {
+      revert InvalidLength();
+    }
     for (uint i; i < length;) {
       CDF[keys[i]] = values[i];
       unchecked { ++i; }

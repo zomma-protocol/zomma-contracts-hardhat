@@ -30,7 +30,7 @@ contract SignedPool is Pool {
 
   function getData() internal pure returns (bytes memory) {
     uint dataLength = getDataLength();
-    uint leng = 32 * dataLength;
+    uint leng = dataLength << 5;
     bytes memory data = new bytes(leng);
     assembly {
       calldatacopy(add(data, 32), sub(calldatasize(), leng), leng)

@@ -18,7 +18,6 @@ contract SignedVault is Vault {
   uint private constant SELL_CALL_DISABLED = 0x0010000000000000000000000000000000000000000000000000000000000000;
   uint private constant BUY_PUT_DISABLED =   0x0100000000000000000000000000000000000000000000000000000000000000;
   uint private constant SELL_PUT_DISABLED =  0x1000000000000000000000000000000000000000000000000000000000000000;
-
   // keccak256("Vault(uint256 deadline,uint256[] data,uint256 spot,uint256 dataLength)")
   bytes32 private constant VAULT_TYPEHASH = 0xde60323c52fb9bc4c868817d35b985f5998dc1bf542b3677f52442004183b990;
 
@@ -87,7 +86,7 @@ contract SignedVault is Vault {
 
   function getData() internal pure returns (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) {
     dataLength = getDataLength();
-    uint dataBytes = 32 * dataLength;
+    uint dataBytes = dataLength << 5;
     data = new uint[](dataLength - 6);
     assembly {
       v := calldataload(sub(calldatasize(), dataBytes))

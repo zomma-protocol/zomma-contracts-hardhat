@@ -14,6 +14,9 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   int256 private constant INT256_MAX = type(int).max;
   uint private constant ONE = 1 ether;
 
+  error Unavailable();
+  error ZeroIv();
+
   /**
   * @dev Calculate and get premium and fee.
   * @return premium: Premium. It will be positive when sell, and negative when buy. In decimals 18.
@@ -68,7 +71,9 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
     if (available > params.equity) {
       available = params.equity;
     }
-    require(available > 0, "available must be greater than 0");
+    if (available <= 0) {
+      revert Unavailable();
+    }
 
     utilization = ONE - uint(available.decimalDiv(params.equity));
     int availableAfter;
@@ -95,7 +100,9 @@ contract OptionPricer is IOptionPricer, BlackScholes, Timestamp {
   }
 
   function checkIv(uint iv) internal pure virtual {
-    require(iv > 0, "iv is 0");
+    if (iv == 0) {
+      revert ZeroIv();
+    }
   }
 
   uint256[50] private __gap;

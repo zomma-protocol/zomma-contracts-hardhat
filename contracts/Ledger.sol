@@ -8,12 +8,12 @@ contract Ledger {
   using SafeDecimalMath for uint;
   using SignedSafeDecimalMath for int;
 
-  enum ChangeType{ Trade, Settle, Liquidate, Clear }
-
   struct Position {
     int size;
     int notional;
   }
+
+  enum ChangeType{ Trade, Settle, Liquidate, Clear }
 
   mapping(address => int) public balanceOf;
   mapping(address => uint[]) internal accountExpiries;

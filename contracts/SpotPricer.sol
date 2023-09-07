@@ -14,12 +14,18 @@ contract SpotPricer is Timestamp {
 
   event SettlePrice(uint expiry, uint price, uint roundId);
 
+  error AlreadyInitialized();
+  error Settled();
+  error InvalidRoundId();
+
   /**
   * @dev Initalize method. Can call only once.
   * @param _oracle: Should be chainlink proxy address.
   */
   function initialize(address _oracle) public virtual {
-    require(!initialized, "already initialized");
+    if (initialized) {
+      revert AlreadyInitialized();
+    }
     initialized = true;
     oracle = IChainlink(_oracle);
   }
@@ -30,8 +36,12 @@ contract SpotPricer is Timestamp {
   * @param roundId: The roundId is most close to this expiry. It must be last roundId before expired.
   */
   function settle(uint expiry, uint80 roundId) external {
-    require(settledPrices[expiry] == 0, "settled");
-    require(checkRoundId(expiry, roundId), "invalid roundId");
+    if (settledPrices[expiry] != 0) {
+      revert Settled();
+    }
+    if (!checkRoundId(expiry, roundId)) {
+      revert InvalidRoundId();
+    }
     (, int256 answer, , , ) = oracle.getRoundData(roundId);
     uint price = uint(answer) * 10**18 / 10**oracle.decimals();
     settledPrices[expiry] = price;

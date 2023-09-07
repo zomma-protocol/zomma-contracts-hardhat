@@ -10,14 +10,14 @@ contract VaultFeeCollector is IRewardCollector {
   address public esZma;
   Vault public vault;
 
-  constructor(address _esZma, address _vault) {
-    esZma = _esZma;
-    vault = Vault(_vault);
-  }
-
   modifier onlyEsZma() {
     require(esZma == msg.sender, "only esZMA");
     _;
+  }
+
+  constructor(address _esZma, address _vault) {
+    esZma = _esZma;
+    vault = Vault(_vault);
   }
 
   function rewards() external view returns (uint) {

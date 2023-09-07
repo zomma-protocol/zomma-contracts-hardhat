@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, buildIv, mergeIv } = require('./support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, strFromDecimal, buildIv, mergeIv } = require('./support/helper');
 
 let OptionMarket, accounts;
 describe('OptionMarket', () => {
@@ -38,8 +38,8 @@ describe('OptionMarket', () => {
   describe('#setIv', () => {
     context('when owner', () => {
       context('when invalid data', () => {
-        it('should revert with "invalid length"', async () => {
-          await expectRevert(optionMarket.setIv([1]), 'invalid length');
+        it('should revert with InvalidLength', async () => {
+          await expectRevertCustom(optionMarket.setIv([1]), OptionMarket, 'InvalidLength');
         });
       });
 

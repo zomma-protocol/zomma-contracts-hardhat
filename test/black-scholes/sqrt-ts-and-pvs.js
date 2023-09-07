@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 
 let SqrtTsAndPvs;
 describe('SqrtTsAndPvs', () => {
@@ -75,8 +75,8 @@ describe('SqrtTsAndPvs', () => {
     });
 
     context('when exp(100.000000000000000001)', () => {
-      it('should revert with "cannot handle exponents greater than 100"', async () => {
-        await expectRevert(sqrtTsAndPvs.exp(toDecimalStr('100.000000000000000001')), 'cannot handle exponents greater than 100');
+      it('should revert with OutOfRange', async () => {
+        await expectRevertCustom(sqrtTsAndPvs.exp(toDecimalStr('100.000000000000000001')), SqrtTsAndPvs, 'OutOfRange');
       });
     });
   });

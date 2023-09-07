@@ -21,31 +21,6 @@ contract Vault is IVault, Ledger, Timestamp {
   using SignedSafeDecimalMath for int;
   using SafeERC20 for IERC20;
 
-  enum FundType { Trade, Deposit, Withdraw, Settle, Liquidate, Clear, Dust }
-
-  error AlreadyInitialized();
-  error ZeroAmount(uint index);
-  error InvalidRate();
-  error InvalidFreeWithdrawableRate();
-  error UnacceptableAmount();
-  error InsufficientEquity(uint index);
-  error WithdrawTooMuch();
-  error Unavailable(uint index);
-  error InvalidSize(uint index);
-  error InvalidTime(uint index);
-  error TradeDisabled();
-  error IvOutdated();
-  error ZeroPrice();
-  error UnacceptablePrice();
-  error Unsettled();
-  error ZeroPosition();
-  error CannotLiquidate();
-  error SellPositionFirst();
-  error InvalidAccount();
-  error CannotClear();
-  error NotOwner();
-  error InvalidInput();
-
   struct PositionInfo {
     int buyNotional;
     int buyValue;
@@ -95,12 +70,7 @@ contract Vault is IVault, Ledger, Timestamp {
     int fee;
   }
 
-  Config public config;
-  SpotPricer public spotPricer;
-  IOptionPricer public optionPricer;
-  OptionMarket public optionMarket;
-  bool public initialized;
-  address public owner;
+  enum FundType { Trade, Deposit, Withdraw, Settle, Liquidate, Clear, Dust }
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
   int256 private constant INT256_MAX = type(int).max;
@@ -110,7 +80,37 @@ contract Vault is IVault, Ledger, Timestamp {
   uint private constant MAX_REMOVE_POSITION = 50;
   uint private constant ONE = 1 ether;
 
+  Config public config;
+  SpotPricer public spotPricer;
+  IOptionPricer public optionPricer;
+  OptionMarket public optionMarket;
+  bool public initialized;
+  address public owner;
+
   event Fund(address account, int amount, FundType fundType);
+
+  error AlreadyInitialized();
+  error ZeroAmount(uint index);
+  error InvalidRate();
+  error InvalidFreeWithdrawableRate();
+  error UnacceptableAmount();
+  error InsufficientEquity(uint index);
+  error WithdrawTooMuch();
+  error Unavailable(uint index);
+  error InvalidSize(uint index);
+  error InvalidTime(uint index);
+  error TradeDisabled();
+  error IvOutdated();
+  error ZeroPrice();
+  error UnacceptablePrice();
+  error Unsettled();
+  error ZeroPosition();
+  error CannotLiquidate();
+  error SellPositionFirst();
+  error InvalidAccount();
+  error CannotClear();
+  error NotOwner();
+  error InvalidInput();
 
   /**
   * @dev Initalize method. Can call only once.

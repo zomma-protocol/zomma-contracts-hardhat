@@ -10,11 +10,6 @@ import "./libraries/SafeDecimalMath.sol";
 import "./Vault.sol";
 import "./Config.sol";
 
-error InvalidLength();
-error Claimed();
-error InvalidReceiver();
-error InvalidSignature();
-
 contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
   using SafeERC20 for IERC20;
   using Address for address;
@@ -27,6 +22,11 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
   Vault public vault;
 
   event Claim(uint id);
+
+  error InvalidLength();
+  error Claimed();
+  error InvalidReceiver();
+  error InvalidSignature();
 
   constructor() {
     _disableInitializers();

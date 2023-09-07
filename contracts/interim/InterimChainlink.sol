@@ -11,7 +11,6 @@ contract InterimChainlink is IChainlink, Ownable {
   uint8 public decimals;
   uint public outdatedPeriod = 3600;
   uint private latest;
-
   mapping(uint80 => uint) private histories;
 
   event AnswerUpdated(int256 indexed current, uint256 indexed roundId, uint256 updatedAt);

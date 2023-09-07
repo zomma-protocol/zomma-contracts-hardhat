@@ -9,8 +9,12 @@ contract PoolToken is ERC20("", "") {
   address public pool;
   bool public initialized;
 
+  error NotPool();
+
   modifier onlyPool() {
-    require(msg.sender == pool, "only pool");
+    if (msg.sender != pool) {
+      revert NotPool();
+    }
     _;
   }
 

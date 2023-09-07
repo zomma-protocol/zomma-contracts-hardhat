@@ -1,9 +1,10 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.20;
 
+import './Errors.sol';
+
 contract LnLookup {
   bool public frozenLn;
-
   mapping(uint => int) public LN;
 
   function freezeLn() external {
@@ -11,9 +12,13 @@ contract LnLookup {
   }
 
   function setLn(uint[] calldata keys, int[] calldata values) external {
-    require(!frozenLn, "frozen");
-    require(keys.length == values.length, "incorrect length");
+    if (frozenLn) {
+      revert Frozen();
+    }
     uint length = keys.length;
+    if (length != values.length) {
+      revert InvalidLength();
+    }
     for (uint i; i < length;) {
       LN[keys[i]] = values[i];
       unchecked { ++i; }

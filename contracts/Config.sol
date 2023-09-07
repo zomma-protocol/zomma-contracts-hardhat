@@ -27,6 +27,19 @@ contract Config is OwnableUpgradeable {
     stakeholderAccount
   }
 
+  uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
+  uint private constant MAX_LIQUIDATE_RATE = 1000000000000000000; // 1
+  uint private constant MAX_CLEAR_RATE = 1000000000000000000; // 1
+  uint private constant MAX_LIQUIDATION_REWARD = 1000000000000000000; // 100%
+  uint private constant MAX_PRICE_RATIO_UTILIZATION = 1000000000000000000; // 100%
+  uint private constant MAX_SPOT_FEE = 100000000000000000; // 10%
+  uint private constant MAX_OPTION_FEE = 200000000000000000; // 20%
+  uint private constant MAX_EXERCISE_FEE_RATE = 100000000000000000; // 10%
+  uint private constant MAX_PROFIT_FEE_RATE = 500000000000000000; // 50%
+  uint private constant MAX_RESERVED_RATE = 1000000000000000000; // 100%
+  uint private constant MAX_POOL_PROPORTION = 1000000000000000000; // 100%
+  uint private constant MAX_INSURANCE_PROPORTION = 1000000000000000000; // 100%
+
   address[] public pools;
   mapping(address => bool) public poolAdded;
   // willingness to be a pool
@@ -56,24 +69,20 @@ contract Config is OwnableUpgradeable {
   // 1: paused, other: not paused
   mapping(address => uint) public poolPaused;
 
-  uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
-  uint private constant MAX_LIQUIDATE_RATE = 1000000000000000000; // 1
-  uint private constant MAX_CLEAR_RATE = 1000000000000000000; // 1
-  uint private constant MAX_LIQUIDATION_REWARD = 1000000000000000000; // 100%
-  uint private constant MAX_PRICE_RATIO_UTILIZATION = 1000000000000000000; // 100%
-  uint private constant MAX_SPOT_FEE = 100000000000000000; // 10%
-  uint private constant MAX_OPTION_FEE = 200000000000000000; // 20%
-  uint private constant MAX_EXERCISE_FEE_RATE = 100000000000000000; // 10%
-  uint private constant MAX_PROFIT_FEE_RATE = 500000000000000000; // 50%
-  uint private constant MAX_RESERVED_RATE = 1000000000000000000; // 100%
-  uint private constant MAX_POOL_PROPORTION = 1000000000000000000; // 100%
-  uint private constant MAX_INSURANCE_PROPORTION = 1000000000000000000; // 100%
-
   event Change(ChangeType changeType, bytes value);
   event AddPool(address pool);
   event RemovePool(address pool);
   event SetPoolReservedRate(address pool, uint reservedRate);
   event SetPoolPaused(address pool, uint status);
+
+  error ZeroAddress();
+  error OutOfRange();
+  error InvalidRatio();
+  error PoolNotEnabled();
+  error PositionNotEmpty();
+  error TooManyPools();
+  error DuplicatedPool();
+  error PoolNotFound();
 
   function initialize(address _vault, address _stakeholderAccount, address _insuranceAccount, address _quote, uint _quoteDecimal) external initializer {
     __Ownable_init();
@@ -101,25 +110,33 @@ contract Config is OwnableUpgradeable {
   }
 
   function setInitialMarginRiskRate(uint _initialMarginRiskRate) external payable onlyOwner {
-    require(_initialMarginRiskRate <= MAX_INITIAL_MARGIN_RISK_RATE, "exceed the limit");
+    if (_initialMarginRiskRate > MAX_INITIAL_MARGIN_RISK_RATE) {
+      revert OutOfRange();
+    }
     initialMarginRiskRate = _initialMarginRiskRate;
     emit Change(ChangeType.initialMarginRiskRate, abi.encodePacked(_initialMarginRiskRate));
   }
 
   function setLiquidateRate(uint _liquidateRate) external payable onlyOwner {
-    require(_liquidateRate <= MAX_LIQUIDATE_RATE && clearRate <= _liquidateRate, "exceed the limit");
+    if (_liquidateRate > MAX_LIQUIDATE_RATE || clearRate > _liquidateRate) {
+      revert OutOfRange();
+    }
     liquidateRate = _liquidateRate;
     emit Change(ChangeType.liquidateRate, abi.encodePacked(_liquidateRate));
   }
 
   function setClearRate(uint _clearRate) external payable onlyOwner {
-    require(_clearRate <= MAX_CLEAR_RATE && _clearRate <= liquidateRate, "exceed the limit");
+    if (_clearRate > MAX_CLEAR_RATE || _clearRate > liquidateRate) {
+      revert OutOfRange();
+    }
     clearRate = _clearRate;
     emit Change(ChangeType.clearRate, abi.encodePacked(_clearRate));
   }
 
   function setLiquidationReward(uint _liquidationReward) external payable onlyOwner {
-    require(_liquidationReward <= MAX_LIQUIDATION_REWARD, "exceed the limit");
+    if (_liquidationReward > MAX_LIQUIDATION_REWARD) {
+      revert OutOfRange();
+    }
     liquidationReward = _liquidationReward;
     emit Change(ChangeType.liquidateRate, abi.encodePacked(_liquidationReward));
   }
@@ -135,7 +152,9 @@ contract Config is OwnableUpgradeable {
   }
 
   function setPriceRatio(uint _priceRatio, uint _priceRatio2) external payable onlyOwner {
-    require(_priceRatio <= _priceRatio2, "invalid price ratio");
+    if (_priceRatio > _priceRatio2) {
+      revert InvalidRatio();
+    }
     priceRatio = _priceRatio;
     priceRatio2 = _priceRatio2;
     emit Change(ChangeType.priceRatio, abi.encodePacked(_priceRatio));
@@ -143,19 +162,25 @@ contract Config is OwnableUpgradeable {
   }
 
   function setPriceRatioUtilization(uint _priceRatioUtilization) external payable onlyOwner {
-    require(_priceRatioUtilization <= MAX_PRICE_RATIO_UTILIZATION, "exceed the limit");
+    if (_priceRatioUtilization > MAX_PRICE_RATIO_UTILIZATION) {
+      revert OutOfRange();
+    }
     priceRatioUtilization = _priceRatioUtilization;
     emit Change(ChangeType.priceRatioUtilization, abi.encodePacked(_priceRatioUtilization));
   }
 
   function setSpotFee(uint _spotFee) external payable onlyOwner {
-    require(_spotFee <= MAX_SPOT_FEE, "exceed the limit");
+    if (_spotFee > MAX_SPOT_FEE) {
+      revert OutOfRange();
+    }
     spotFee = _spotFee;
     emit Change(ChangeType.spotFee, abi.encodePacked(_spotFee));
   }
 
   function setOptionFee(uint _optionFee) external payable onlyOwner {
-    require(_optionFee <= MAX_OPTION_FEE, "exceed the limit");
+    if (_optionFee > MAX_OPTION_FEE) {
+      revert OutOfRange();
+    }
     optionFee = _optionFee;
     emit Change(ChangeType.optionFee, abi.encodePacked(_optionFee));
   }
@@ -166,37 +191,49 @@ contract Config is OwnableUpgradeable {
   }
 
   function setExerciseFeeRate(uint _exerciseFeeRate) external payable onlyOwner {
-    require(_exerciseFeeRate <= MAX_EXERCISE_FEE_RATE, "exceed the limit");
+    if (_exerciseFeeRate > MAX_EXERCISE_FEE_RATE) {
+      revert OutOfRange();
+    }
     exerciseFeeRate = _exerciseFeeRate;
     emit Change(ChangeType.exerciseFeeRate, abi.encodePacked(_exerciseFeeRate));
   }
 
   function setProfitFeeRate(uint _profitFeeRate) external payable onlyOwner {
-    require(_profitFeeRate <= MAX_PROFIT_FEE_RATE, "exceed the limit");
+    if (_profitFeeRate > MAX_PROFIT_FEE_RATE) {
+      revert OutOfRange();
+    }
     profitFeeRate = _profitFeeRate;
     emit Change(ChangeType.profitFeeRate, abi.encodePacked(_profitFeeRate));
   }
 
   function setPoolProportion(uint _poolProportion) external payable onlyOwner {
-    require(_poolProportion <= MAX_POOL_PROPORTION, "exceed the limit");
+    if (_poolProportion > MAX_POOL_PROPORTION) {
+      revert OutOfRange();
+    }
     poolProportion = _poolProportion;
     emit Change(ChangeType.poolProportion, abi.encodePacked(_poolProportion));
   }
 
   function setInsuranceProportion(uint _insuranceProportion) external payable onlyOwner {
-    require(_insuranceProportion <= MAX_INSURANCE_PROPORTION, "exceed the limit");
+    if (_insuranceProportion > MAX_INSURANCE_PROPORTION) {
+      revert OutOfRange();
+    }
     insuranceProportion = _insuranceProportion;
     emit Change(ChangeType.insuranceProportion, abi.encodePacked(_insuranceProportion));
   }
 
   function setInsuranceAccount(address _insuranceAccount) external payable onlyOwner {
-    require(_insuranceAccount != address(0), "can't be zero address");
+    if (_insuranceAccount == address(0)) {
+      revert ZeroAddress();
+    }
     insuranceAccount = _insuranceAccount;
     emit Change(ChangeType.insuranceAccount, abi.encodePacked(_insuranceAccount));
   }
 
   function setStakeholderAccount(address _stakeholderAccount) external payable onlyOwner {
-    require(_stakeholderAccount != address(0), "can't be zero address");
+    if (_stakeholderAccount == address(0)) {
+      revert ZeroAddress();
+    }
     stakeholderAccount = _stakeholderAccount;
     emit Change(ChangeType.stakeholderAccount, abi.encodePacked(_stakeholderAccount));
   }
@@ -210,11 +247,18 @@ contract Config is OwnableUpgradeable {
   * @dev Add an account as pool. Account should enable to be a pool first.
   */
   function addPool(address pool) external payable onlyOwner {
-    require(poolEnabled[pool], "need to enable pool");
-    require(vault.listOfExpiries(pool).length == 0, "position not empty");
-    uint length = pools.length;
-    require(length < 10, "length >= 10");
-    require(!poolAdded[pool], "pool already exists");
+    if (!poolEnabled[pool]) {
+      revert PoolNotEnabled();
+    }
+    if (vault.listOfExpiries(pool).length > 0) {
+      revert PositionNotEmpty();
+    }
+    if (pools.length >= 10) {
+      revert TooManyPools();
+    }
+    if (poolAdded[pool]) {
+      revert DuplicatedPool();
+    }
     pools.push(pool);
     poolAdded[pool] = true;
     emit AddPool(pool);
@@ -224,8 +268,12 @@ contract Config is OwnableUpgradeable {
   * @dev Remove an account from pools.
   */
   function removePool(address pool) external payable onlyOwner {
-    require(vault.listOfExpiries(pool).length == 0, "position not empty");
-    require(poolAdded[pool], "pool not found");
+    if (vault.listOfExpiries(pool).length > 0) {
+      revert PositionNotEmpty();
+    }
+    if (!poolAdded[pool]) {
+      revert PoolNotFound();
+    }
     uint length = pools.length;
     bool found;
     for (uint i; i < length;) {
@@ -250,7 +298,9 @@ contract Config is OwnableUpgradeable {
   }
 
   function setPoolReservedRate(uint reservedRate) external {
-    require(reservedRate <= MAX_RESERVED_RATE, "exceed the limit");
+    if (reservedRate > MAX_RESERVED_RATE) {
+      revert OutOfRange();
+    }
     poolReservedRate[msg.sender] = reservedRate;
     emit SetPoolReservedRate(msg.sender, reservedRate);
   }
@@ -262,4 +312,14 @@ contract Config is OwnableUpgradeable {
   function getPools() external view returns(address[] memory) {
     return pools;
   }
+
+  // function checkZeroAddress(address addr) internal pure {
+  //   assembly {
+  //     if iszero(addr) {
+  //       let ptr := mload(0x40)
+  //       mstore(ptr, 0xd92e233d00000000000000000000000000000000000000000000000000000000) // selector for `ZeroAddress()`
+  //       revert(ptr, 0x4)
+  //     }
+  //   }
+  // }
 }

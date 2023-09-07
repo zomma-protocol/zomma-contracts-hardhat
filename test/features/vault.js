@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, expectRevertCustom } = require('../support/helper');
+const { getContractFactories, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, expectRevertCustom } = require('../support/helper');
 
 let PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 const initVault = async (owner) => {
@@ -259,7 +259,7 @@ describe('Vault', () => {
 
     it('should not be trade if valut has no specific strike', async () => {
       let expiry = 1668153600;
-      await expectRevert(vault.connect(trader).trade([expiry, toDecimalStr(100), 1, toDecimalStr(10), INT_MAX]), 'iv is 0')
+      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(100), 1, toDecimalStr(10), INT_MAX]), optionPricer, 'ZeroIv');
     });
 
     it('should not be trade if trader has no enough money', async () => {
@@ -436,7 +436,7 @@ describe('Vault', () => {
       const strikes = Array.from(await vault.listOfStrikes(liquidator.address, expire));
       strike = strikes[0]
       position = await vault.positionOf(liquidator.address, expire, strike.toString(), true)
-      console.log(strFromDecimal(await vault.balanceOf(liquidator.address)));
+      // console.log(strFromDecimal(await vault.balanceOf(liquidator.address)));
     })
 
     it('should have exactly more 10% balanceOf after liquidate', async() => {

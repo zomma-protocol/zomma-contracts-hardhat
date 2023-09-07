@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 const cdf = require('../../scripts/cdf');
 
 let CdfLookup;
@@ -31,8 +31,8 @@ describe('CdfLookup', () => {
       });
 
       context('when different length', () => {
-        it('should revert with "incorrect length"', async () => {
-          await expectRevert(cdfLookup.setCdf(cdf.keys.slice(0, 1), cdf.values.slice(0, 2)), 'incorrect length');
+        it('should revert with InvalidLength', async () => {
+          await expectRevertCustom(cdfLookup.setCdf(cdf.keys.slice(0, 1), cdf.values.slice(0, 2)), CdfLookup, 'InvalidLength');
         });
       });
 
@@ -48,8 +48,8 @@ describe('CdfLookup', () => {
     });
 
     context('when frozenCdf true', () => {
-      it('should revert with "frozen"', async () => {
-        await expectRevert(cdfLookup.setCdf(cdf.keys.slice(0, 1), cdf.values.slice(0, 1)), 'frozen');
+      it('should revert with Frozen', async () => {
+        await expectRevertCustom(cdfLookup.setCdf(cdf.keys.slice(0, 1), cdf.values.slice(0, 1)), CdfLookup, 'Frozen');
       });
     });
   });

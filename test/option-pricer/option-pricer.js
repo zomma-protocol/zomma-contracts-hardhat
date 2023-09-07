@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { expectRevert, toDecimalStr, strFromDecimal, INT_MAX, createOptionPricer } = require('../support/helper');
+const { expectRevertCustom, toDecimalStr, strFromDecimal, INT_MAX, createOptionPricer } = require('../support/helper');
 
 let accounts;
 describe('OptionPricer', () => {
@@ -160,8 +160,8 @@ describe('OptionPricer', () => {
             const available = toDecimalStr(0);
             const equity = toDecimalStr(100000);
 
-            it('should revert with "available must be greater than 0"', async () => {
-              await expectRevert(getPremium({ ...subParams, available, equity }), 'available must be greater than 0');
+            it('should revert with Unavailable', async () => {
+              await expectRevertCustom(getPremium({ ...subParams, available, equity }), optionPricer, 'Unavailable');
             });
           });
 
@@ -194,8 +194,8 @@ describe('OptionPricer', () => {
             });
 
             context('when iv 0', () => {
-              it('should revert with "iv is 0"', async () => {
-                await expectRevert(getPremium({ iv: '0' }), 'iv is 0');
+              it('should revert with ZeroIv', async () => {
+                await expectRevertCustom(getPremium({ iv: '0' }), optionPricer, 'ZeroIv');
               });
             });
           });

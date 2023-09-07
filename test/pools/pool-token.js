@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 
 let PoolToken, accounts;
 describe('PoolToken', async () => {
@@ -40,8 +40,8 @@ describe('PoolToken', async () => {
     });
 
     context('when not pool', () => {
-      it('should revert with "only pool"', async () => {
-        await expectRevert(poolToken.connect(accounts[1]).mint(accounts[1].address, toDecimalStr(1000)), 'only pool');
+      it('should revert with NotPool', async () => {
+        await expectRevertCustom(poolToken.connect(accounts[1]).mint(accounts[1].address, toDecimalStr(1000)), PoolToken, 'NotPool');
       });
     });
   });
@@ -62,8 +62,8 @@ describe('PoolToken', async () => {
     });
 
     context('when not pool', () => {
-      it('should revert with "only pool"', async () => {
-        await expectRevert(poolToken.connect(accounts[1]).burn(accounts[2].address, toDecimalStr(100)), 'only pool');
+      it('should revert with NotPool', async () => {
+        await expectRevertCustom(poolToken.connect(accounts[1]).burn(accounts[2].address, toDecimalStr(100)), PoolToken, 'NotPool');
       });
     });
   });

@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber, expectRevertCustom } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
@@ -97,8 +97,8 @@ describe('Pool', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(pool.setReservedRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(pool.setReservedRate(toDecimalStr('1.000000000000000001')), Pool, 'OutOfRange');
         });
       });
     });
@@ -133,8 +133,8 @@ describe('Pool', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(pool.setZlmRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(pool.setZlmRate(toDecimalStr('1.000000000000000001')), Pool, 'OutOfRange');
         });
       });
     });
@@ -169,8 +169,8 @@ describe('Pool', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(pool.setBonusRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(pool.setBonusRate(toDecimalStr('1.000000000000000001')), Pool, 'OutOfRange');
         });
       });
     });
@@ -205,8 +205,8 @@ describe('Pool', () => {
       });
 
       context('when set 0.100000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(pool.setWithdrawFeeRate(toDecimalStr('0.100000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(pool.setWithdrawFeeRate(toDecimalStr('0.100000000000000001')), Pool, 'OutOfRange');
         });
       });
     });
@@ -241,8 +241,8 @@ describe('Pool', () => {
       });
 
       context('when set 1.000000000000000001', () => {
-        it('should revert with "exceed the limit"', async () => {
-          await expectRevert(pool.setFreeWithdrawableRate(toDecimalStr('1.000000000000000001')), 'exceed the limit');
+        it('should revert with OutOfRange', async () => {
+          await expectRevertCustom(pool.setFreeWithdrawableRate(toDecimalStr('1.000000000000000001')), Pool, 'OutOfRange');
         });
       });
     });
@@ -276,14 +276,14 @@ describe('Pool', () => {
         });
 
         context('when deposit 0', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(pool.connect(accounts[1]).deposit(toDecimalStr(0)), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr(0)), Pool, 'ZeroAmount');
           });
         });
 
         context('when deposit 0.0000001', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(pool.connect(accounts[1]).deposit(toDecimalStr(0.0000001)), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr(0.0000001)), Pool, 'ZeroAmount');
           });
         });
 
@@ -315,8 +315,8 @@ describe('Pool', () => {
         });
 
         context('when deposit 0.0000000000000000001', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(pool.connect(accounts[1]).deposit(toDecimalStr('0.0000000000000000001')), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr('0.0000000000000000001')), Pool, 'ZeroAmount');
           });
         });
 
@@ -452,8 +452,8 @@ describe('Pool', () => {
           });
 
           context('when deposit 0.000000000000000001', () => {
-            it('should revert with "shares is 0"', async () => {
-              await expectRevert(pool.connect(accounts[2]).deposit(toDecimalStr('0.000000000000000001')), 'shares is 0');
+            it('should revert with ZeroShare', async () => {
+              await expectRevertCustom(pool.connect(accounts[2]).deposit(toDecimalStr('0.000000000000000001')), Pool, 'ZeroShare');
             });
           });
         });
@@ -471,8 +471,8 @@ describe('Pool', () => {
       });
 
       context('when before clear', () => {
-        it('should revert with "pool bankruptcy"', async () => {
-          await expectRevert(pool.connect(accounts[1]).deposit(toDecimalStr(1000)), 'pool bankruptcy');
+        it('should revert with Bankruptcy', async () => {
+          await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr(1000)), Pool, 'Bankruptcy');
         });
       });
 
@@ -481,8 +481,8 @@ describe('Pool', () => {
           await vault.clear(pool.address);
         });
 
-        it('should revert with "pool bankruptcy"', async () => {
-          await expectRevert(pool.connect(accounts[1]).deposit(toDecimalStr(1000)), 'pool bankruptcy');
+        it('should revert with Bankruptcy', async () => {
+          await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr(1000)), Pool, 'Bankruptcy');
         });
       });
     });
@@ -562,8 +562,8 @@ describe('Pool', () => {
         });
 
         context('when other pool not available', () => {
-          it('should revert with "available must be greater than 0"', async () => {
-            await expectRevert(pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0'), 'available must be greater than 0');
+          it('should revert with Unavailable', async () => {
+            await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0'), optionPricer, 'Unavailable');
           });
         });
 

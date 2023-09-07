@@ -5,10 +5,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./InterimChainlink.sol";
 
 contract InterimChainlinkProxy is Ownable {
+  uint256 private constant PHASE_OFFSET = 64;
+
   uint16 public phaseId = 1;
   InterimChainlink public aggregator;
-
-  uint256 private constant PHASE_OFFSET = 64;
 
   function setChainlink(address _aggregator) external payable onlyOwner {
     aggregator = InterimChainlink(_aggregator);

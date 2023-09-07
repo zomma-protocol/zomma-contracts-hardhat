@@ -23,6 +23,12 @@ contract Pool is Ownable {
     freeWithdrawableRate
   }
 
+  uint private constant ONE = 1 ether;
+  uint private constant MAX_ZLM_RATE = 1000000000000000000; // 1
+  uint private constant MAX_BONUS_RATE = 1000000000000000000; // 100%
+  uint private constant MAX_WITHDRAW_FEE_RATE = 100000000000000000; // 10%
+  uint private constant MAX_FREE_WITHDRAWABLE_RATE = 1000000000000000000; // 100%
+
   IERC20 public quoteAsset;
   Vault public vault;
   PoolToken public token;
@@ -34,15 +40,14 @@ contract Pool is Ownable {
   uint public freeWithdrawableRate;
   bool public initialized;
 
-  uint private constant ONE = 1 ether;
-  uint private constant MAX_ZLM_RATE = 1000000000000000000; // 1
-  uint private constant MAX_BONUS_RATE = 1000000000000000000; // 100%
-  uint private constant MAX_WITHDRAW_FEE_RATE = 100000000000000000; // 10%
-  uint private constant MAX_FREE_WITHDRAWABLE_RATE = 1000000000000000000; // 100%
-
   event ConfigChange(ChangeType changeType, bytes value);
   event Deposit(address account, uint amount, uint shares);
   event Withdraw(address account, uint amount, uint shares, uint fee);
+
+  error OutOfRange();
+  error ZeroAmount();
+  error ZeroShare();
+  error Bankruptcy();
 
   /**
   * @dev Initalize method. Can call only once.
@@ -72,25 +77,33 @@ contract Pool is Ownable {
   }
 
   function setZlmRate(uint _zlmRate) external payable onlyOwner {
-    require(_zlmRate <= MAX_ZLM_RATE, "exceed the limit");
+    if (_zlmRate > MAX_ZLM_RATE) {
+      revert OutOfRange();
+    }
     zlmRate = _zlmRate;
     emit ConfigChange(ChangeType.zlmRate, abi.encodePacked(_zlmRate));
   }
 
   function setBonusRate(uint _bonusRate) external payable onlyOwner {
-    require(_bonusRate <= MAX_BONUS_RATE, "exceed the limit");
+    if (_bonusRate > MAX_BONUS_RATE) {
+      revert OutOfRange();
+    }
     bonusRate = _bonusRate;
     emit ConfigChange(ChangeType.bonusRate, abi.encodePacked(_bonusRate));
   }
 
   function setWithdrawFeeRate(uint _withdrawFeeRate) external payable onlyOwner {
-    require(_withdrawFeeRate <= MAX_WITHDRAW_FEE_RATE, "exceed the limit");
+    if (_withdrawFeeRate > MAX_WITHDRAW_FEE_RATE) {
+      revert OutOfRange();
+    }
     withdrawFeeRate = _withdrawFeeRate;
     emit ConfigChange(ChangeType.withdrawFeeRate, abi.encodePacked(_withdrawFeeRate));
   }
 
   function setFreeWithdrawableRate(uint _freeWithdrawableRate) external payable onlyOwner {
-    require(_freeWithdrawableRate <= MAX_FREE_WITHDRAWABLE_RATE, "exceed the limit");
+    if (_freeWithdrawableRate > MAX_FREE_WITHDRAWABLE_RATE) {
+      revert OutOfRange();
+    }
     freeWithdrawableRate = _freeWithdrawableRate;
     emit ConfigChange(ChangeType.freeWithdrawableRate, abi.encodePacked(_freeWithdrawableRate));
   }
@@ -101,7 +114,9 @@ contract Pool is Ownable {
   */
   function deposit(uint256 amount) external {
     amount = amount.truncate(quoteDecimal);
-    require(amount > 0, 'amount is 0');
+    if (amount == 0) {
+      revert ZeroAmount();
+    }
     transferFrom(msg.sender, address(this), amount);
     IVault.AccountInfo memory accountInfo = getAccountInfo(address(this));
     uint256 totalSupply = token.totalSupply();
@@ -109,7 +124,9 @@ contract Pool is Ownable {
     if (totalSupply == 0) {
       shares = amount;
     } else {
-      require(accountInfo.equity > 0, "pool bankruptcy");
+      if (accountInfo.equity <= 0) {
+        revert Bankruptcy();
+      }
       uint adjustedAmount = amount;
       // zlm
       if (accountInfo.healthFactor < int(zlmRate)) {
@@ -121,7 +138,9 @@ contract Pool is Ownable {
         adjustedAmount = (amount - bonusPart) + bonusPart.decimalMul(ONE + bonusRate);
       }
       shares = adjustedAmount * totalSupply / uint(accountInfo.equity);
-      require(shares > 0, 'shares is 0');
+      if (shares == 0) {
+        revert ZeroShare();
+      }
     }
 
     token.mint(msg.sender, shares);

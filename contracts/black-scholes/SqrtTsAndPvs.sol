@@ -14,11 +14,15 @@ contract SqrtTsAndPvs {
   int private constant MIN_EXP = -42 * int(ONE);
   uint private constant MAX_EXP = 100 * ONE;
 
+  error OutOfRange();
+
   function exp(uint x) public pure returns (uint) {
     if (x == 0) {
       return ONE;
     }
-    require(x <= MAX_EXP, "cannot handle exponents greater than 100");
+    if (x > MAX_EXP) {
+      revert OutOfRange();
+    }
 
     uint k = x / LN_2;
     uint p = 2**k;

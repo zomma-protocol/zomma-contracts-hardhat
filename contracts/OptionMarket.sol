@@ -8,12 +8,6 @@ import "./utils/Timestamp.sol";
  * @dev Market status. Markets will be useless if using SignedVault, only tradeDisabled and expiryDisabled are used in SignedVault.
  */
 contract OptionMarket is OwnableUpgradeable, Timestamp {
-  // [expiry][strike]
-  mapping(uint => mapping(uint => uint)) internal markets;
-  mapping(uint => bool) public expiryDisabled;
-  bool public tradeDisabled;
-  uint public lastUpdatedAt;
-
   uint private constant EXPIRY_MASK =        0x000000000000000000000000000000000000000000000000000000ffffffffff;
   uint private constant STRIKE_MASK =        0xffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000;
   uint private constant BUY_CALL_IV_MASK =   0x00000000000000000000000000000000000000000000000000ffffffffffffff;
@@ -25,9 +19,17 @@ contract OptionMarket is OwnableUpgradeable, Timestamp {
   uint private constant BUY_PUT_DISABLED =   0x0100000000000000000000000000000000000000000000000000000000000000;
   uint private constant SELL_PUT_DISABLED =  0x1000000000000000000000000000000000000000000000000000000000000000;
 
+  // [expiry][strike]
+  mapping(uint => mapping(uint => uint)) internal markets;
+  mapping(uint => bool) public expiryDisabled;
+  bool public tradeDisabled;
+  uint public lastUpdatedAt;
+
   event SetIv(uint expiry, uint strike, uint market);
   event TradeDisabled(bool disabled);
   event ExpiryDisabled(uint expiry, bool disabled);
+
+  error InvalidLength();
 
   function initialize() external initializer {
     __Ownable_init();
@@ -54,7 +56,9 @@ contract OptionMarket is OwnableUpgradeable, Timestamp {
 
   function internalSetIv(uint[] calldata data) internal {
     uint length = data.length;
-    require(length % 2 == 0, 'invalid length');
+    if (length % 2 != 0) {
+      revert InvalidLength();
+    }
     unchecked {
       for (uint i; i < length; i +=2) {
         uint datum = data[i];

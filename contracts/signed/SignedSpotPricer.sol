@@ -18,7 +18,9 @@ contract SignedSpotPricer is SpotPricer, OwnableUpgradeable {
   }
 
   function settleByOwner(uint expiry, uint price) external onlyOwner {
-    require(settledPrices[expiry] == 0, "settled");
+    if (settledPrices[expiry] != 0) {
+      revert Settled();
+    }
     settledPrices[expiry] = price;
     emit SettlePrice(expiry, price, 0);
   }

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 
 let Vault, SpotPricer, Chainlink, ChainlinkProxy, accounts;
 describe('SignedSpotPricer', () => {
@@ -29,8 +29,8 @@ describe('SignedSpotPricer', () => {
     });
 
     context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(spotPricer.initialize(other.address), 'already initialized');
+      it('should revert with AlreadyInitialized', async () => {
+        await expectRevertCustom(spotPricer.initialize(other.address), SpotPricer, 'AlreadyInitialized');
       });
     });
   });
@@ -72,8 +72,8 @@ describe('SignedSpotPricer', () => {
       });
 
       context('when settle twice', () => {
-        it('should revert with "settled"', async () => {
-          await expectRevert(spotPricer.settleByOwner(expiry, strike), 'settled');
+        it('should revert with Settled', async () => {
+          await expectRevertCustom(spotPricer.settleByOwner(expiry, strike), SpotPricer, 'Settled');
         });
       });
     });
@@ -140,8 +140,8 @@ describe('SignedSpotPricer', () => {
         await chainlink.setNow(now);
       });
 
-      it('should revert with "invalid roundId"', async () => {
-        await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
+      it('should revert with InvalidRoundId"', async () => {
+        await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'InvalidRoundId');
       });
     });
 
@@ -155,8 +155,8 @@ describe('SignedSpotPricer', () => {
         await spotPricer.settleByOwner(expiry, toDecimalStr('1300', 8));
       });
 
-      it('should revert with "settled"', async () => {
-        await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'settled');
+      it('should revert with Settled', async () => {
+        await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'Settled');
       });
     });
   });

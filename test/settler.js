@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit } = require('./support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, Settler, accounts;
 describe('Settler', () => {

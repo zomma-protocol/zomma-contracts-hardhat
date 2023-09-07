@@ -13,7 +13,6 @@ contract InterimChainlinkOneinch is IChainlink, Ownable {
   address public oracle;
   address public srcToken;
   address public dstToken;
-
   mapping(uint => uint) private histories;
 
   constructor(uint8 _decimals) {

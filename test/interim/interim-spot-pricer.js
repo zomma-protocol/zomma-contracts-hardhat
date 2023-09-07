@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { expect } = require('chai');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, strFromDecimal } = require('../support/helper');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
 let Vault, SpotPricer, Chainlink, ChainlinkProxy, accounts;
@@ -129,8 +129,8 @@ describe('InterimSpotPricer', () => {
             await vault.setTimestamp(now);
           });
 
-          it('should revert with "invalid roundId"', async () => {
-            await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
+          it('should revert with InvalidRoundId', async () => {
+            await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'InvalidRoundId');
           });
         });
 
@@ -145,8 +145,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -177,8 +177,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -194,8 +194,8 @@ describe('InterimSpotPricer', () => {
               roundId3 = (await chainlink.latestRound());
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId3), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId3), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -211,8 +211,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId + 1), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId + 1), SpotPricer, 'InvalidRoundId');
             });
           });
         });
@@ -230,8 +230,8 @@ describe('InterimSpotPricer', () => {
           await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
         });
 
-        it('should revert with "settled"', async () => {
-          await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId), 'settled');
+        it('should revert with Settled', async () => {
+          await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId), SpotPricer, 'Settled');
         });
       });
     });
@@ -272,8 +272,8 @@ describe('InterimSpotPricer', () => {
             await vault.setTimestamp(now);
           });
 
-          it('should revert with "invalid roundId"', async () => {
-            await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
+          it('should revert with InvalidRoundId', async () => {
+            await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'InvalidRoundId');
           });
         });
 
@@ -288,8 +288,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId2), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -320,8 +320,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -337,8 +337,8 @@ describe('InterimSpotPricer', () => {
               roundId3 = (await chainlink.latestRound());
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId3), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId3), SpotPricer, 'InvalidRoundId');
             });
           });
 
@@ -354,8 +354,8 @@ describe('InterimSpotPricer', () => {
               await vault.setTimestamp(now);
             });
 
-            it('should revert with "invalid roundId"', async () => {
-              await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId + 1), 'invalid roundId');
+            it('should revert with InvalidRoundId', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId + 1), SpotPricer, 'InvalidRoundId');
             });
           });
         });
@@ -373,8 +373,8 @@ describe('InterimSpotPricer', () => {
           await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
         });
 
-        it('should revert with "settled"', async () => {
-          await expectRevert(spotPricer.connect(accounts[1]).settle(expiry, roundId), 'settled');
+        it('should revert with Settled', async () => {
+          await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId), SpotPricer, 'Settled');
         });
       });
     });

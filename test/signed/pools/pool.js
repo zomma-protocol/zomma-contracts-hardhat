@@ -89,14 +89,14 @@ describe('SignedPool', () => {
         });
 
         context('when deposit 0', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr(0)), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr(0)), Pool, 'ZeroAmount');
           });
         });
 
         context('when deposit 0.0000001', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr(0.0000001)), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr(0.0000001)), Pool, 'ZeroAmount');
           });
         });
 
@@ -128,8 +128,8 @@ describe('SignedPool', () => {
         });
 
         context('when deposit 0.0000000000000000001', () => {
-          it('should revert with "amount is 0"', async () => {
-            await expectRevert(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr('0.0000000000000000001')), 'amount is 0');
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).deposit(toDecimalStr('0.0000000000000000001')), Pool, 'ZeroAmount');
           });
         });
 
@@ -268,8 +268,8 @@ describe('SignedPool', () => {
           });
 
           context('when deposit 0.000000000000000001', () => {
-            it('should revert with "shares is 0"', async () => {
-              await expectRevert(withSignedData(pool.connect(accounts[2]), signedData).deposit(toDecimalStr('0.000000000000000001')), 'shares is 0');
+            it('should revert with ZeroShare', async () => {
+              await expectRevertCustom(withSignedData(pool.connect(accounts[2]), signedData).deposit(toDecimalStr('0.000000000000000001')), Pool, 'ZeroShare');
             });
           });
         });
@@ -287,8 +287,8 @@ describe('SignedPool', () => {
       });
 
       context('when before clear', () => {
-        it('should revert with "pool bankruptcy"', async () => {
-          await expectRevert(withSignedData(pool.connect(accounts[1]), signedData2).deposit(toDecimalStr(1000)), 'pool bankruptcy');
+        it('should revert with Bankruptcy', async () => {
+          await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData2).deposit(toDecimalStr(1000)), Pool, 'Bankruptcy');
         });
       });
 
@@ -297,8 +297,8 @@ describe('SignedPool', () => {
           await withSignedData(vault, signedData2).clear(pool.address);
         });
 
-        it('should revert with "pool bankruptcy"', async () => {
-          await expectRevert(withSignedData(pool.connect(accounts[1]), signedData2).deposit(toDecimalStr(1000)), 'pool bankruptcy');
+        it('should revert with Bankruptcy', async () => {
+          await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData2).deposit(toDecimalStr(1000)), Pool, 'Bankruptcy');
         });
       });
     });
@@ -378,8 +378,8 @@ describe('SignedPool', () => {
         });
 
         context('when other pool not available', () => {
-          it('should revert with "available must be greater than 0"', async () => {
-            await expectRevert(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0'), 'available must be greater than 0');
+          it('should revert with Unavailable', async () => {
+            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0'), optionPricer, 'Unavailable');
           });
         });
 
