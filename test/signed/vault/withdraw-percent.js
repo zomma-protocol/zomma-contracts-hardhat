@@ -117,8 +117,8 @@ describe('SignedVault', () => {
     });
 
     context('when no balance', () => {
-      it('should revert with InsufficientEquity(0)', async () => {
-        await expectRevertCustom(withSignedData(vault.connect(otherAccount), signedData).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), Vault, 'InsufficientEquity').withArgs(0);
+      it('should revert with InsufficientEquity', async () => {
+        await expectRevertCustom(withSignedData(vault.connect(otherAccount), signedData).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), Vault, 'InsufficientEquity');
       });
     });
 
@@ -342,9 +342,9 @@ describe('SignedVault', () => {
                   await reset();
                 });
 
-                it('should revert with ZeroAmount(3)', async () => {
+                it('should revert with ZeroAmount', async () => {
                   const signedData = await createSignedData({ spot: toDecimalStr(1270) });
-                  await expectRevertCustom(withSignedData(vault.connect(trader), signedData).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'ZeroAmount').withArgs(3);
+                  await expectRevertCustom(withSignedData(vault.connect(trader), signedData).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'ZeroAmount');
                 });
               });
 

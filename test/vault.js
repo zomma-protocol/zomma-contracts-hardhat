@@ -126,14 +126,14 @@ describe('Vault', () => {
       });
 
       context('when deposit 0', () => {
-        it('should revert with ZeroAmount(0)', async () => {
-          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr(0)), Vault, 'ZeroAmount').withArgs(0);
+        it('should revert with ZeroAmount', async () => {
+          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr(0)), Vault, 'ZeroAmount');
         });
       });
 
       context('when deposit 0.0000001', () => {
-        it('should revert with ZeroAmount(0)', async () => {
-          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr(0.0000001)), Vault, 'ZeroAmount').withArgs(0);
+        it('should revert with ZeroAmount', async () => {
+          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr(0.0000001)), Vault, 'ZeroAmount');
         });
       });
 
@@ -164,8 +164,8 @@ describe('Vault', () => {
       });
 
       context('when deposit 0.0000000000000000001', () => {
-        it('should revert with ZeroAmount(0)', async () => {
-          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr('0.0000000000000000001')), Vault, 'ZeroAmount').withArgs(0);
+        it('should revert with ZeroAmount', async () => {
+          await expectRevertCustom(vault.connect(trader).deposit(toDecimalStr('0.0000000000000000001')), Vault, 'ZeroAmount');
         });
       });
 
@@ -201,8 +201,8 @@ describe('Vault', () => {
         });
 
         context('when withdraw 0', () => {
-          it('should revert with ZeroAmount(1)', async () => {
-            await expectRevertCustom(vault.withdraw(0), Vault, 'ZeroAmount').withArgs(1);
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(vault.withdraw(0), Vault, 'ZeroAmount');
           });
         });
 
@@ -334,8 +334,8 @@ describe('Vault', () => {
       })
 
       context('when withdraw 1', () => {
-        it('should revert with ZeroAmount(2)', async () => {
-          await expectRevertCustom(vault.connect(accounts[5]).withdraw(1), Vault, 'ZeroAmount').withArgs(2);
+        it('should revert with ZeroAmount2', async () => {
+          await expectRevertCustom(vault.connect(accounts[5]).withdraw(1), Vault, 'ZeroAmount2');
         });
       });
     });
@@ -359,8 +359,8 @@ describe('Vault', () => {
     });
 
     context('when unexpired', () => {
-      it('should revert with InvalidTime(1)', async () => {
-        await expectRevertCustom(vault.connect(settler).settle(trader.address, expiry), Vault, 'InvalidTime').withArgs(1);
+      it('should revert with InvalidTime', async () => {
+        await expectRevertCustom(vault.connect(settler).settle(trader.address, expiry), Vault, 'InvalidTime');
       });
     });
 

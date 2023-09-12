@@ -266,7 +266,7 @@ describe('Vault', () => {
 
     it('should not be trade if trader has no enough money', async () => {
       let expiry = 1668153600;
-      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(10), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(2);
+      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(10), INT_MAX], now + 120), Vault, 'Unavailable');
     });
 
     it('should be able to make a buy call', async () => {

@@ -88,8 +88,8 @@ describe('SignedVault', () => {
         await vault.setTimestamp(now);
       });
 
-      it('should revert with InvalidTime(2)', async () => {
-        await expectRevertCustom(withSignedData(vault.connect(liquidator), signedData).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InvalidTime').withArgs(2);
+      it('should revert with InvalidTime', async () => {
+        await expectRevertCustom(withSignedData(vault.connect(liquidator), signedData).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InvalidTime');
       });
     });
 
@@ -109,8 +109,8 @@ describe('SignedVault', () => {
           });
 
           context('when liquidator has no balance', () => {
-            it('should revert with InsufficientEquity(1)', async () => {
-              await expectRevertCustom(withSignedData(vault.connect(liquidator), signedData).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InsufficientEquity').withArgs(1);
+            it('should revert with InsufficientEquity', async () => {
+              await expectRevertCustom(withSignedData(vault.connect(liquidator), signedData).liquidate(trader.address, expiry, strike, true, toDecimalStr(7)), Vault, 'InsufficientEquity');
             });
           });
         });

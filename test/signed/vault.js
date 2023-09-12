@@ -61,8 +61,8 @@ describe('SignedVault', () => {
         });
 
         context('when withdraw 0', () => {
-          it('should revert with ZeroAmount(1)', async () => {
-            await expectRevertCustom(withSignedData(vault, signedData).withdraw(0), Vault, 'ZeroAmount').withArgs(1);
+          it('should revert with ZeroAmount', async () => {
+            await expectRevertCustom(withSignedData(vault, signedData).withdraw(0), Vault, 'ZeroAmount');
           });
         });
 
@@ -220,8 +220,8 @@ describe('SignedVault', () => {
       });
 
       context('when withdraw 1', () => {
-        it('should revert with ZeroAmount(2)', async () => {
-          await expectRevertCustom(withSignedData(vault.connect(accounts[5]), signedData).withdraw(1), Vault, 'ZeroAmount').withArgs(2);
+        it('should revert with ZeroAmount2', async () => {
+          await expectRevertCustom(withSignedData(vault.connect(accounts[5]), signedData).withdraw(1), Vault, 'ZeroAmount2');
         });
       });
     });

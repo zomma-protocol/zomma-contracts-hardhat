@@ -22,18 +22,14 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
     __EIP712_init("SignatureValidator", "1");
   }
 
-  function cancelNonce(uint nonce) external  {
-    if (usedNonces[msg.sender][nonce] == 0) {
-      usedNonces[msg.sender][nonce] = 1;
-    }
+  function useNonce(uint nonce) external  {
+    internalUseNonce(msg.sender, nonce);
   }
 
-  function recoverAndUseNonce(bytes32 structHash, uint8 v, bytes32 r, bytes32 s, uint nonce) external returns(address signer) {
+  function recoverAndUseNonce(bytes calldata aheadEncodedData, uint nonce, uint8 v, bytes32 r, bytes32 s) external returns(address signer) {
+    bytes32 structHash = keccak256(abi.encode(aheadEncodedData, nonce));
     signer = recover(structHash, v, r, s);
-    if (usedNonces[signer][nonce] != 0) {
-      revert UsedNonce();
-    }
-    usedNonces[signer][nonce] = 1;
+    internalUseNonce(signer, nonce);
   }
 
   function recover(bytes32 structHash, uint8 v, bytes32 r, bytes32 s) public view returns(address) {
@@ -46,5 +42,12 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
     if (signer != owner()) {
       revert InvalidSignature();
     }
+  }
+
+  function internalUseNonce(address account, uint nonce) private {
+    if (usedNonces[account][nonce] != 0) {
+      revert UsedNonce();
+    }
+    usedNonces[account][nonce] = 1;
   }
 }

@@ -144,8 +144,8 @@ describe('Vault', () => {
           await optionMarket.setIv([]);
         });
 
-        it('should revert with InvalidTime(0)', async () => {
-          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], expiry + 120), Vault, 'InvalidTime').withArgs(0);
+        it('should revert with InvalidTime', async () => {
+          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], expiry + 120), Vault, 'InvalidTime');
         });
       });
 
@@ -166,15 +166,15 @@ describe('Vault', () => {
       context('when 7 days to expire', () => {
         context('when pool available 1000', () => {
           context('when size is 0', () => {
-            it('should revert with InvalidSize(0)', async () => {
-              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0), INT_MAX], now + 120), Vault, 'InvalidSize').withArgs(0);
+            it('should revert with InvalidSize', async () => {
+              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0), INT_MAX], now + 120), Vault, 'InvalidSize');
             });
           });
 
           context('when size is 1', () => {
             context('when trader not available', () => {
-              it('should revert with Unavailable(2)', async () => {
-                await expectRevertCustom(vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(2);
+              it('should revert with Unavailable', async () => {
+                await expectRevertCustom(vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'Unavailable');
               });
             });
 
@@ -322,8 +322,8 @@ describe('Vault', () => {
                 await reset();
               });
 
-              it('should revert with Unavailable(2)', async () => {
-                await expectRevertCustom(vault.connect(pool3).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120), Vault, 'Unavailable').withArgs(2);
+              it('should revert with Unavailable', async () => {
+                await expectRevertCustom(vault.connect(pool3).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120), Vault, 'Unavailable');
               });
             });
           });
@@ -467,8 +467,8 @@ describe('Vault', () => {
                   await reset();
                 });
 
-                it('should revert with Unavailable(1)', async () => {
-                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(1);
+                it('should revert with PoolUnavailable', async () => {
+                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now + 120), Vault, 'PoolUnavailable');
                 });
               });
             });
@@ -529,8 +529,8 @@ describe('Vault', () => {
           });
 
           context('when size is 20', () => {
-            it('should revert with Unavailable(1)', async () => {
-              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(20), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(1);
+            it('should revert with PoolUnavailable', async () => {
+              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(20), INT_MAX], now + 120), Vault, 'PoolUnavailable');
             });
           });
 
@@ -620,11 +620,11 @@ describe('Vault', () => {
                   await reset();
                 });
 
-                it('should revert with Unavailable(2)', async () => {
+                it('should revert with Unavailable', async () => {
                   await expectRevertCustom(vault.connect(trader).trade([
                     expiry, strike, 1, toDecimalStr(0.1), INT_MAX,
                     expiry, strike, 0, toDecimalStr(0.1), INT_MAX,
-                  ], now + 120), Vault, 'Unavailable').withArgs(2);
+                  ], now + 120), Vault, 'Unavailable');
                 });
               });
             });

@@ -115,8 +115,8 @@ describe('Vault', () => {
     });
 
     context('when no balance', () => {
-      it('should revert with InsufficientEquity(0)', async () => {
-        await expectRevertCustom(vault.connect(otherAccount).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), Vault, 'InsufficientEquity').withArgs(0);
+      it('should revert with InsufficientEquity', async () => {
+        await expectRevertCustom(vault.connect(otherAccount).withdrawPercent(toDecimalStr(0.1), 0, toDecimalStr(0)), Vault, 'InsufficientEquity');
       });
     });
 
@@ -342,8 +342,8 @@ describe('Vault', () => {
                   await reset();
                 });
 
-                it('should revert with ZeroAmount(3)', async () => {
-                  await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'ZeroAmount').withArgs(3);
+                it('should revert with ZeroAmount', async () => {
+                  await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'ZeroAmount');
                 });
               });
 
@@ -2121,8 +2121,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with Unavailable(0)', async () => {
-                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
+                  it('should revert with PoolUnavailable', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'PoolUnavailable');
                   });
                 });
 
@@ -2188,8 +2188,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with Unavailable(0)', async () => {
-                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
+                  it('should revert with PoolUnavailable', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'PoolUnavailable');
                   });
                 });
 
@@ -2255,8 +2255,8 @@ describe('Vault', () => {
                     await reset();
                   });
 
-                  it('should revert with Unavailable(0)', async () => {
-                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'Unavailable').withArgs(0);
+                  it('should revert with PoolUnavailable', async () => {
+                    await expectRevertCustom(vault.connect(trader).withdrawPercent(rate, 0, freeWithdrawableRate), Vault, 'PoolUnavailable');
                   });
                 });
 

@@ -20,13 +20,9 @@ contract SignedVault is Vault {
   // keccak256("Vault(uint256 nonce,uint256 deadline,uint256[] data,uint256 spot,uint256 dataLength)")
   bytes32 private constant VAULT_TYPEHASH = 0x9bc49e867b82ad6fcb18e7a08457cb65341f0bab78c20923468e7bdccea855d9;
 
-  uint[100] private __gap;
-  mapping(uint => uint) public ownerUsedNonces;
-
   error SignatureExpired();
   error InvalidMarket();
   error InvalidNonce();
-  error OwnerUsedNonce();
 
   function initTxCache() internal view override returns (TxCache memory) {
     TxCache memory txCache = super.initTxCache();
@@ -64,10 +60,7 @@ contract SignedVault is Vault {
     if (nonce == 0) {
       revert InvalidNonce();
     }
-    if (ownerUsedNonces[nonce] != 0) {
-      revert OwnerUsedNonce();
-    }
-    ownerUsedNonces[nonce] = 1;
+    signatureValidator.useNonce(nonce);
     super.checkTrade(txCache);
   }
 
