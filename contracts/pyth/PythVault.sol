@@ -15,9 +15,9 @@ contract PythVault is Vault {
     return withdrawPercent(rate, acceptableAmount, freeWithdrawableRate);
   }
 
-  function pythTrade(int[] calldata data, bytes[] calldata priceUpdateData) external {
+  function pythTrade(int[] calldata data, uint deadline, bytes[] calldata priceUpdateData) external {
     updatePrice(priceUpdateData);
-    trade(data);
+    trade(data, deadline);
   }
 
   function pythLiquidate(

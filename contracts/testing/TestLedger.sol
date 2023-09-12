@@ -11,7 +11,7 @@ contract TestLedger is Ledger {
   }
 
   function updatePosition(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType) external returns (int) {
-    return internalUpdatePosition(account, expiry, strike, isCall, size, notional, fee, changeType);
+    return internalUpdatePosition(account, expiry, strike, isCall, size, notional, fee, changeType, 0);
   }
 
   function clearPosition(address account, uint expiry, uint strike, bool isCall, int realized, int fee, ChangeType changeType) external returns (int size, int notional) {

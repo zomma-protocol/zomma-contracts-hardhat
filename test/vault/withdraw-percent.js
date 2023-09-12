@@ -1,6 +1,6 @@
 const assert = require('assert');
 const _ = require('lodash');
-const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -8,11 +8,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -43,6 +43,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
   });
 
   describe('#withdrawPercent', () => {
@@ -89,7 +90,7 @@ describe('Vault', () => {
     const traderWithdrawPercent = async (vault, usdc, account, expiry, strike, isCall, size, {
       rate, freeWithdrawableRate, acceptableAmount = 0, reservedRate = 0, clear = true, vaultWatchBalance = [account.address, insuranceAccount.address], includeAccountInfo = false, beforeClear = async () => {}
     }) => {
-      await vault.connect(account).trade([expiry, strike, isCall ? 1 : 0, size, size > 0 ? INT_MAX : 0]);
+      await vault.connect(account).trade([expiry, strike, isCall ? 1 : 0, size, size > 0 ? INT_MAX : 0], now + 120);
       let position, accountInfo, accountInfoBefore;
       if (includeAccountInfo) {
         accountInfoBefore = await vault.getAccountInfo(account.address);
@@ -327,8 +328,8 @@ describe('Vault', () => {
 
               context('when equity almost 0', () => {
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1270));
                 });
 
@@ -348,7 +349,7 @@ describe('Vault', () => {
 
               context('when acceptableAmount is 997.358143677255407654', () => {
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
                 });
 
                 after(async () => {
@@ -1219,8 +1220,8 @@ describe('Vault', () => {
                 buildIv(expiry2, strike, true, false, toDecimalStr(0.8), false)
               ]));
               await optionPricer.updateLookup([expiry2]);
-              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
-              await vault.connect(trader).trade([expiry2, strike, 1, toDecimalStr(-2), 0]);
+              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
+              await vault.connect(trader).trade([expiry2, strike, 1, toDecimalStr(-2), 0], now + 120);
             });
 
             after(async () => {
@@ -1411,13 +1412,13 @@ describe('Vault', () => {
             let vaultChange, walletChange, insuranceAccountChange, position, poolPosition;
 
             before(async () => {
-              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX]);
+              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX], now + 120);
               ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
                 vault, usdc, trader, expiry, strike, true, toDecimalStr(-3), {
                   rate, freeWithdrawableRate, reservedRate,
                   beforeClear: async () => {
                     poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader2).deposit(toDecimalStr(1000));
                   }
@@ -1459,13 +1460,13 @@ describe('Vault', () => {
             let vaultChange, walletChange, insuranceAccountChange, position, poolPosition;
 
             before(async () => {
-              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX]);
+              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX], now + 120);
               ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
                 vault, usdc, trader, expiry, strike, true, toDecimalStr(-4), {
                   rate, freeWithdrawableRate, reservedRate,
                   beforeClear: async () => {
                     poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader2).deposit(toDecimalStr(1000));
                   }
@@ -1510,7 +1511,7 @@ describe('Vault', () => {
 
             before(async () => {
               await optionMarket.setIv(mergeIv([buildIv(expiry, strike2, true, true, toDecimalStr(0.8), false), buildIv(expiry, strike2, true, false, toDecimalStr(0.8), false)]));
-              await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr(-1), 0]);
+              await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr(-1), 0], now + 120);
               ({ vaultChange, walletChange, insuranceAccountChange, position } = await traderWithdrawPercent(
                 vault, usdc, trader, expiry, strike, true, toDecimalStr(-1), {
                   rate, freeWithdrawableRate, reservedRate,
@@ -2105,14 +2106,14 @@ describe('Vault', () => {
 
                 context('when other pool not available', () => {
                   before(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
                     await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
                   });
 
                   after(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).deposit(toDecimalStr(1000));
@@ -2172,14 +2173,14 @@ describe('Vault', () => {
 
                 context('when other pool not available', () => {
                   before(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
                     await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
                   });
 
                   after(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).deposit(toDecimalStr(1000));
@@ -2239,14 +2240,14 @@ describe('Vault', () => {
 
                 context('when other pool not available', () => {
                   before(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
                     await vault.connect(pool).withdrawPercent(toDecimalStr(0.9), 0, 0);
                   });
 
                   after(async () => {
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader).deposit(toDecimalStr(1000));
@@ -2527,7 +2528,7 @@ describe('Vault', () => {
 
           context('when untradable', () => {
             before(async () => {
-              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
             });
 
             after(async () => {
@@ -2576,13 +2577,13 @@ describe('Vault', () => {
             let vaultChange, walletChange, insuranceAccountChange, position, accountInfo, poolPosition;
 
             before(async () => {
-              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
               ({ vaultChange, walletChange, insuranceAccountChange, position, accountInfo } = await traderWithdrawPercent(
                 vault, usdc, trader, expiry, strike, true, toDecimalStr(4), {
                   rate, freeWithdrawableRate, reservedRate, includeAccountInfo: true,
                   beforeClear: async () => {
                     poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(3), INT_MAX], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader2).deposit(toDecimalStr(1000));
                   }
@@ -2644,13 +2645,13 @@ describe('Vault', () => {
             let vaultChange, walletChange, insuranceAccountChange, position, accountInfo, poolPosition;
 
             before(async () => {
-              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+              await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
               ({ vaultChange, walletChange, insuranceAccountChange, position, accountInfo } = await traderWithdrawPercent(
                 vault, usdc, trader, expiry, strike, true, toDecimalStr(4), {
                   rate, freeWithdrawableRate, reservedRate, includeAccountInfo: true,
                   beforeClear: async () => {
                     poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
-                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0]);
+                    await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-3), 0], now + 120);
                     await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
                     await vault.connect(trader2).deposit(toDecimalStr(1000));
                   }
@@ -2727,14 +2728,14 @@ describe('Vault', () => {
           });
           await optionMarket.setIv(mergeIv(ivs));
           await optionPricer.updateLookup([expiry, expiry2]);
-          await vault.connect(trader).trade([expiry, s1200, 0, toDecimalStr(0.1), INT_MAX]);
-          await vault.connect(trader).trade([expiry, s1200, 1, toDecimalStr(0.1), INT_MAX]);
-          await vault.connect(trader).trade([expiry2, s1200, 0, toDecimalStr(0.1), INT_MAX]);
-          await vault.connect(trader).trade([expiry2, s1200, 1, toDecimalStr(0.1), INT_MAX]);
+          await vault.connect(trader).trade([expiry, s1200, 0, toDecimalStr(0.1), INT_MAX], now + 120);
+          await vault.connect(trader).trade([expiry, s1200, 1, toDecimalStr(0.1), INT_MAX], now + 120);
+          await vault.connect(trader).trade([expiry2, s1200, 0, toDecimalStr(0.1), INT_MAX], now + 120);
+          await vault.connect(trader).trade([expiry2, s1200, 1, toDecimalStr(0.1), INT_MAX], now + 120);
           for (const e of [expiry2, expiry]) {
             for (const s of [s900_1, s1000, s1100]) {
-              await vault.connect(trader).trade([e, s, 1, toDecimalStr(-0.1), 0]);
-              await vault.connect(trader).trade([e, s, 0, toDecimalStr(-0.1), 0]);
+              await vault.connect(trader).trade([e, s, 1, toDecimalStr(-0.1), 0], now + 120);
+              await vault.connect(trader).trade([e, s, 0, toDecimalStr(-0.1), 0], now + 120);
             }
           }
           const result = await (await vault.connect(trader).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(0))).wait();

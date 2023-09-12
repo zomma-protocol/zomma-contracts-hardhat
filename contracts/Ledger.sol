@@ -22,7 +22,7 @@ contract Ledger {
   // [account][expiry][strike][isCall]
   mapping(address => mapping(uint => mapping(uint => mapping(bool => Position)))) internal accountPositions;
 
-  event PositionUpdate(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType, int realized);
+  event PositionUpdate(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType, int realized, int gasFee);
 
   function listOfExpiries(address account) public view returns (uint[] memory) {
     return accountExpiries[account];
@@ -44,7 +44,7 @@ contract Ledger {
   * @dev Adjust price by utilization.
   * @return size: Changed sold size
   */
-  function internalUpdatePosition(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType) internal returns (int) {
+  function internalUpdatePosition(address account, uint expiry, uint strike, bool isCall, int size, int notional, int fee, ChangeType changeType, int gasFee) internal returns (int) {
     Position memory position = positionOf(account, expiry, strike, isCall);
     if (position.size == 0) {
       initStrike(account, expiry, strike);
@@ -66,8 +66,8 @@ contract Ledger {
     notional -= realized;
     position.size += size;
     position.notional += notional;
-    balanceOf[account] += realized + fee;
-    emit PositionUpdate(account, expiry, strike, isCall, size, notional, fee, changeType, realized);
+    balanceOf[account] += realized + fee + gasFee;
+    emit PositionUpdate(account, expiry, strike, isCall, size, notional, fee, changeType, realized, gasFee);
     accountPositions[account][expiry][strike][isCall] = position;
     if (position.size == 0) {
       clearStrike(account, expiry, strike);
@@ -83,7 +83,7 @@ contract Ledger {
       size = position.size;
       notional = position.notional;
       accountPositions[account][expiry][strike][isCall] = Position(0, 0);
-      emit PositionUpdate(account, expiry, strike, isCall, -position.size, -position.notional, fee, changeType, realized);
+      emit PositionUpdate(account, expiry, strike, isCall, -position.size, -position.notional, fee, changeType, realized, 0);
       clearStrike(account, expiry, strike);
     }
   }

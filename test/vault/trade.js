@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getSigners, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
+const { getSigners, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -7,11 +7,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -41,6 +41,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, pool2, pool3] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
   });
 
   describe('#trade', () => {
@@ -77,7 +78,7 @@ describe('Vault', () => {
       });
 
       it('should revert with TradeDisabled', async () => {
-        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'TradeDisabled');
+        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled');
       });
     });
 
@@ -91,7 +92,7 @@ describe('Vault', () => {
       });
 
       it('should revert with TradeDisabled', async () => {
-        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'TradeDisabled');
+        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled');
       });
     });
 
@@ -109,7 +110,7 @@ describe('Vault', () => {
         });
 
         it('should revert with TradeDisabled', async () => {
-        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'TradeDisabled');
+        await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled');
         });
       });
 
@@ -126,7 +127,7 @@ describe('Vault', () => {
         });
 
         it('should revert with TradeDisabled', async () => {
-          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]), Vault, 'TradeDisabled');
+          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120), Vault, 'TradeDisabled');
         });
       });
     });
@@ -144,7 +145,7 @@ describe('Vault', () => {
         });
 
         it('should revert with InvalidTime(0)', async () => {
-          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'InvalidTime').withArgs(0);
+          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], expiry + 120), Vault, 'InvalidTime').withArgs(0);
         });
       });
 
@@ -158,7 +159,7 @@ describe('Vault', () => {
         });
 
         it('should revert with IvOutdated', async () => {
-          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'IvOutdated');
+          await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 3721), Vault, 'IvOutdated');
         });
       });
 
@@ -166,20 +167,20 @@ describe('Vault', () => {
         context('when pool available 1000', () => {
           context('when size is 0', () => {
             it('should revert with InvalidSize(0)', async () => {
-              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0), INT_MAX]), Vault, 'InvalidSize').withArgs(0);
+              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0), INT_MAX], now + 120), Vault, 'InvalidSize').withArgs(0);
             });
           });
 
           context('when size is 1', () => {
             context('when trader not available', () => {
               it('should revert with Unavailable(2)', async () => {
-                await expectRevertCustom(vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'Unavailable').withArgs(2);
+                await expectRevertCustom(vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(2);
               });
             });
 
             context('when acceptableTotal is 13.256233453364095893', () => {
               it('should revert with UnacceptablePrice', async () => {
-                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), toDecimalStr('13.256233453364095893')]), Vault, 'UnacceptablePrice');
+                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), toDecimalStr('13.256233453364095893')], now + 120), Vault, 'UnacceptablePrice');
               });
             });
 
@@ -197,7 +198,7 @@ describe('Vault', () => {
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), true)
                   ]));
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal]);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal], now + 120);
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
@@ -244,7 +245,7 @@ describe('Vault', () => {
                     await config.setPoolProportion(toDecimalStr(0.3));
                     await config.setInsuranceProportion(toDecimalStr(1));
                     [poolChange, insuranceAccountChange, stakeholderAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, stakeholderAccount.address], async () => {
-                      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal]);
+                      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal], now + 120);
                     });
                     await config.setPoolProportion(toDecimalStr(1));
                     await config.setInsuranceProportion(toDecimalStr(0.3));
@@ -271,7 +272,7 @@ describe('Vault', () => {
                   before(async () => {
                     await config.setPoolProportion(toDecimalStr(0.3));
                     [poolChange, insuranceAccountChange, stakeholderAccountChange] = await watchBalance(vault, [pool.address, insuranceAccount.address, stakeholderAccount.address], async () => {
-                      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal]);
+                      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal], now + 120);
                     });
                     await config.setPoolProportion(toDecimalStr(1));
                     await reset();
@@ -308,13 +309,13 @@ describe('Vault', () => {
               });
 
               it('should revert with ZeroPrice', async () => {
-                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]), Vault, 'ZeroPrice');
+                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'ZeroPrice');
               });
             });
 
             context('when then other no balance account size -1', () => {
               before(async () => {
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
               });
 
               after(async () => {
@@ -322,7 +323,7 @@ describe('Vault', () => {
               });
 
               it('should revert with Unavailable(2)', async () => {
-                await expectRevertCustom(vault.connect(pool3).trade([expiry, strike, 1, toDecimalStr(-1), 0]), Vault, 'Unavailable').withArgs(2);
+                await expectRevertCustom(vault.connect(pool3).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120), Vault, 'Unavailable').withArgs(2);
               });
             });
           });
@@ -331,7 +332,7 @@ describe('Vault', () => {
             context('when open only', () => {
               context('when acceptableTotal is 12.324704921131130288', () => {
                 it('should revert with UnacceptablePrice', async () => {
-                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), toDecimalStr('12.324704921131130288')]), Vault, 'UnacceptablePrice');
+                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), toDecimalStr('12.324704921131130288')], now + 120), Vault, 'UnacceptablePrice');
                 });
               });
 
@@ -344,7 +345,7 @@ describe('Vault', () => {
                     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
                   ]));
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), toDecimalStr('12.324704921131130287')]);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), toDecimalStr('12.324704921131130287')], now + 120);
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
@@ -391,7 +392,7 @@ describe('Vault', () => {
                 });
 
                 it('should revert with ZeroPrice', async () => {
-                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]), Vault, 'ZeroPrice');
+                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120), Vault, 'ZeroPrice');
                 });
               });
             });
@@ -401,9 +402,9 @@ describe('Vault', () => {
                 let traderChange, poolChange, traderPosition, poolPosition;
 
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX]);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now + 120);
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
@@ -457,7 +458,7 @@ describe('Vault', () => {
 
               context('when pool paused', () => {
                 before(async() => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
                   await config.setPoolPaused(pool.address, 1);
                 });
 
@@ -467,7 +468,7 @@ describe('Vault', () => {
                 });
 
                 it('should revert with Unavailable(1)', async () => {
-                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX]), Vault, 'Unavailable').withArgs(1);
+                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(1);
                 });
               });
             });
@@ -477,10 +478,10 @@ describe('Vault', () => {
                 let traderChange, poolChange, traderPosition, poolPosition;
 
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
                   await config.setPoolPaused(pool.address, 1);
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
-                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+                    await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
                   });
                   traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                   poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
@@ -511,10 +512,10 @@ describe('Vault', () => {
                 let accountInfoBefore, accountInfoAfter;
 
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1950));
                   accountInfoBefore = await vault.getAccountInfo(trader.address);
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now + 120);
                   accountInfoAfter = await vault.getAccountInfo(trader.address);
                   await spotPricer.setPrice(toDecimalStr(1000));
                   await reset();
@@ -529,7 +530,7 @@ describe('Vault', () => {
 
           context('when size is 20', () => {
             it('should revert with Unavailable(1)', async () => {
-              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(20), INT_MAX]), Vault, 'Unavailable').withArgs(1);
+              await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(20), INT_MAX], now + 120), Vault, 'Unavailable').withArgs(1);
             });
           });
 
@@ -545,13 +546,13 @@ describe('Vault', () => {
 
             context('when length 0', () => {
               it('should revert with InvalidInput', async () => {
-                await expectRevertCustom(vault.connect(trader).trade([]), Vault, 'InvalidInput');
+                await expectRevertCustom(vault.connect(trader).trade([], now + 120), Vault, 'InvalidInput');
               });
             });
 
             context('when length 6', () => {
               it('should revert with InvalidInput', async () => {
-                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX, 0]), Vault, 'InvalidInput');
+                await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX, 0], now + 120), Vault, 'InvalidInput');
               });
             });
 
@@ -563,7 +564,7 @@ describe('Vault', () => {
                   const tx = await vault.connect(trader).trade([
                     expiry, strike, 1, toDecimalStr(1), INT_MAX,
                     expiry, strike, 0, toDecimalStr(1), INT_MAX,
-                  ]);
+                  ], now + 120);
                 });
                 traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
                 traderPosition2 = await vault.positionOf(trader.address, expiry, strike, false);
@@ -591,13 +592,13 @@ describe('Vault', () => {
                   await vault.connect(trader).trade([
                     expiry, strike, 1, toDecimalStr(-1), 0,
                     expiry, strike, 0, toDecimalStr(-0.001), 0
-                  ]);
+                  ], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1950));
                   accountInfoBefore = await vault.getAccountInfo(trader.address);
                   await vault.connect(trader).trade([
                     expiry, strike, 1, toDecimalStr(0.1), INT_MAX,
                     expiry, strike, 0, toDecimalStr(0.001), INT_MAX
-                  ]);
+                  ], now + 120);
                   accountInfoAfter = await vault.getAccountInfo(trader.address);
                   await spotPricer.setPrice(toDecimalStr(1000));
                   await reset();
@@ -610,7 +611,7 @@ describe('Vault', () => {
 
               context('when not all close', () => {
                 before(async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1950));
                 });
 
@@ -623,7 +624,7 @@ describe('Vault', () => {
                   await expectRevertCustom(vault.connect(trader).trade([
                     expiry, strike, 1, toDecimalStr(0.1), INT_MAX,
                     expiry, strike, 0, toDecimalStr(0.1), INT_MAX,
-                  ]), Vault, 'Unavailable').withArgs(2);
+                  ], now + 120), Vault, 'Unavailable').withArgs(2);
                 });
               });
             });
@@ -654,7 +655,7 @@ describe('Vault', () => {
                 ({ vault, config, usdc } = await subSetup2());
 
                 [traderChange, poolChange, poolChange2, poolChange3] = await watchBalance(vault, [trader.address, pool.address, pool2.address, pool3.address], async () => {
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX], now + 120);
                 });
               });
 
@@ -687,10 +688,10 @@ describe('Vault', () => {
 
               before(async () => {
                 ({ vault, config, usdc } = await subSetup2());
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX]);
+                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX], now + 120);
                 await mintAndDeposit(vault, usdc, trader2);
                 [traderChange, poolChange, poolChange2, poolChange3] = await watchBalance(vault, [trader2.address, pool.address, pool2.address, pool3.address], async () => {
-                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000001'), 0]);
+                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000001'), 0], now + 120);
                 });
               });
 
@@ -729,10 +730,10 @@ describe('Vault', () => {
 
               before(async () => {
                 ({ vault, config, usdc } = await subSetup2());
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX]);
+                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX], now + 120);
                 await mintAndDeposit(vault, usdc, trader2);
                 [traderChange, poolChange, poolChange2, poolChange3] = await watchBalance(vault, [trader2.address, pool.address, pool2.address, pool3.address], async () => {
-                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000002'), 0]);
+                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000002'), 0], now + 120);
                 });
               });
 
@@ -764,10 +765,10 @@ describe('Vault', () => {
 
               before(async () => {
                 ({ vault, config, usdc } = await subSetup2());
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX]);
+                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('1.000000000000000001'), INT_MAX], now + 120);
                 await mintAndDeposit(vault, usdc, trader2);
                 [traderChange, poolChange, poolChange2, poolChange3] = await watchBalance(vault, [trader2.address, pool.address, pool2.address, pool3.address], async () => {
-                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1'), 0]);
+                  await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr('-1'), 0], now + 120);
                 });
               });
 
@@ -805,7 +806,7 @@ describe('Vault', () => {
             before(async () => {
               ({ vault, config, usdc } = await subSetup2());
               [traderChange, poolChange, poolChange2, poolChange3] = await watchBalance(vault, [trader.address, pool.address, pool2.address, pool3.address], async () => {
-                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000001'), 0]);
+                await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('-1.000000000000000001'), 0], now + 120);
               });
             });
 
@@ -839,7 +840,7 @@ describe('Vault', () => {
             before(async () => {
               ({ vault, config, usdc } = await subSetup2());
               await vault.connect(pool3).withdraw(toDecimalStr('1999.999999999999999998'));
-              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('0.000000000000000002'), INT_MAX]);
+              await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('0.000000000000000002'), INT_MAX], now + 120);
             });
 
             it('should have position"', async () => {
@@ -871,7 +872,7 @@ describe('Vault', () => {
             await mintAndDeposit(vault, usdc, pool3, { mint: 10000000 });
             await mintAndDeposit(vault, usdc, trader, { mint: 10000000 });
             await vault.connect(pool2).withdraw(toDecimalStr('0.000000999999999999'));
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('-1'), 0]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr('-1'), 0], now + 120);
           });
 
           it('should pool2 have no position"', async () => {

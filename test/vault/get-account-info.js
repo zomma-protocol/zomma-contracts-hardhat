@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -7,11 +7,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -40,6 +40,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
   });
 
   describe('#getAccountInfo', () => {
@@ -140,7 +141,7 @@ describe('Vault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
           accountInfo = await vault.getAccountInfo(trader2.address);
         });
 
@@ -331,7 +332,7 @@ describe('Vault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+          await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
           accountInfo = await vault.getAccountInfo(trader2.address);
         });
 
@@ -536,7 +537,7 @@ describe('Vault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, trader2);
-        await vault.connect(trader2).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
+        await vault.connect(trader2).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX], now + 120);
       });
 
       context('when settled price is 900', () => {

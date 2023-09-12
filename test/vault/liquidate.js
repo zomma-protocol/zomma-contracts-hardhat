@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -7,11 +7,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -41,6 +41,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, pool, liquidator, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
   });
 
   describe('#liquidate', () => {
@@ -61,9 +62,9 @@ describe('Vault', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, liquidator);
-      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-7), 0]);
-      await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0]);
-      await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-7), 0], now + 120);
+      await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0], now + 120);
+      await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX], now + 120);
       return { vault, config, usdc, optionMarket };
     }
 
@@ -182,9 +183,9 @@ describe('Vault', () => {
                   await mintAndDeposit(vault, usdc, pool, { amount: 10000 });
                   await mintAndDeposit(vault, usdc, trader);
                   await mintAndDeposit(vault, usdc, liquidator, { amount: 10000 });
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                  await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr('0.000000000000000001'), INT_MAX]);
-                  await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('6.000000000000000001'), INT_MAX]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                  await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr('0.000000000000000001'), INT_MAX], now + 120);
+                  await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('6.000000000000000001'), INT_MAX], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1200));
                   await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
                   await optionMarket.setTradeDisabled(true);
@@ -335,9 +336,9 @@ describe('Vault', () => {
                   await mintAndDeposit(vault, usdc, pool, { amount: 10000 });
                   await mintAndDeposit(vault, usdc, trader);
                   await mintAndDeposit(vault, usdc, liquidator, { amount: 10000 });
-                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0]);
-                  await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr('1'), INT_MAX]);
-                  await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('6.000000000000000001'), INT_MAX]);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-6), 0], now + 120);
+                  await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr('1'), INT_MAX], now + 120);
+                  await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('6.000000000000000001'), INT_MAX], now + 120);
                   await spotPricer.setPrice(toDecimalStr(1200));
                   await config.setLiquidateRate(toDecimalStr('0.825126626102922853'));
                   await vault.connect(liquidator).liquidate(trader.address, expiry, strike, true, toDecimalStr(6));
@@ -521,7 +522,7 @@ describe('Vault', () => {
             await mintAndDeposit(vault, usdc, pool);
             await mintAndDeposit(vault, usdc, trader, { amount: 100 });
             await mintAndDeposit(vault, usdc, liquidator);
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-0.7), 0]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-0.7), 0], now + 120);
             await spotPricer.setPrice(toDecimalStr(1200));
 
             [traderBalanceChange, liquidatorBalanceChange, insuranceAccountBalanceChange] = await watchBalance(vault, [trader.address, liquidator.address, insuranceAccount.address], async () => {

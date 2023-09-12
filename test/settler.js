@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit } = require('./support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, addPool, mintAndDeposit } = require('./support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, Settler, accounts;
 describe('Settler', () => {
@@ -7,11 +7,11 @@ describe('Settler', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, vault, config, optionMarket, usdc, settler;
+  let spotPricer, optionPricer, vault, config, optionMarket, usdc, settler, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -40,6 +40,7 @@ describe('Settler', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, otherAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
     ({ vault, config, usdc, optionMarket } = await setup());
     settler = await Settler.deploy();
   });
@@ -53,8 +54,8 @@ describe('Settler', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, trader2);
-      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
-      await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
+      await vault.connect(trader2).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
       await vault.setTimestamp(expiry);
       await spotPricer.setSettledPrice(expiry, toDecimalStr(1050));
       await settler.settle(vault.address, expiry, [trader.address, trader2.address]);

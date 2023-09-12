@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert } = require('../support/helper');
+const { getContractFactories, expectRevert } = require('./support/helper');
 
 let SignatureValidator, accounts;
 describe('SignatureValidator', () => {

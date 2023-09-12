@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
 
 let VaultPricer, Vault, Config, TestERC20, SpotPricer, OptionMarket, accounts;
 describe('VaultPricer', () => {
@@ -7,11 +7,11 @@ describe('VaultPricer', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let vaultPricer, spotPricer, optionPricer, vault, config, usdc, optionMarket;
+  let vaultPricer, spotPricer, optionPricer, vault, config, usdc, optionMarket, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -42,6 +42,7 @@ describe('VaultPricer', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
     ({ vaultPricer, vault, config, usdc, optionMarket } = await setup());
   });
 
@@ -198,7 +199,7 @@ describe('VaultPricer', () => {
 
       context('when position can close', () => {
         before(async () => {
-          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
         });
 
         context('when partial close', () => {
@@ -241,10 +242,10 @@ describe('VaultPricer', () => {
           let premium, fee;
 
           before(async () => {
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
             await addPool(config, pool2);
             await mintAndDeposit(vault, usdc, pool2);
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
             [premium, fee] = await vaultPricer.getPremium(expiry, strike, true, toDecimalStr(2));
           });
 

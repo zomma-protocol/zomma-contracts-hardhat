@@ -10,6 +10,7 @@ import "./Ledger.sol";
 import "./OptionMarket.sol";
 import "./SpotPricer.sol";
 import "./Config.sol";
+import "./SignatureValidator.sol";
 import "./interfaces/IOptionPricer.sol";
 import "./interfaces/IVault.sol";
 
@@ -70,15 +71,24 @@ contract Vault is IVault, Ledger, Timestamp {
     int fee;
   }
 
-  enum FundType { Trade, Deposit, Withdraw, Settle, Liquidate, Clear, Dust }
+  struct TradeInfo {
+    address account;
+    uint acceptableTotal;
+    int gasFee;
+  }
+
+  enum FundType { Trade, Deposit, Withdraw, Settle, Liquidate, Clear, Dust, Gas }
 
   // 57896044618658097711785492504343953926634992332820282019728792003956564819967
-  int256 private constant INT256_MAX = type(int).max;
+  int private constant INT256_MAX = type(int).max;
   int private constant OTM_WEIGHT = 10**40;
   int private constant EXPIRY_WEIGHT = 10**28;
   uint private constant OUTDATED_PERIOD = 1 hours;
   uint private constant MAX_REMOVE_POSITION = 50;
   uint private constant ONE = 1 ether;
+
+  // keccak256("Trade(int256[] data,uint256 deadline,uint256 gasFee,uint256 nonce)")
+  bytes32 private constant TRADE_TYPEHASH = 0x24b94e75dc12bacfb3efc705fe8e2061a19c206860e13b35b1000c4dfd4e577c;
 
   Config public config;
   SpotPricer public spotPricer;
@@ -86,6 +96,7 @@ contract Vault is IVault, Ledger, Timestamp {
   OptionMarket public optionMarket;
   bool public initialized;
   address public owner;
+  SignatureValidator public signatureValidator;
 
   event Fund(address account, int amount, FundType fundType);
 
@@ -111,6 +122,8 @@ contract Vault is IVault, Ledger, Timestamp {
   error CannotClear();
   error NotOwner();
   error InvalidInput();
+  error Expired();
+  error OutOfRange();
 
   /**
   * @dev Initalize method. Can call only once.
@@ -119,13 +132,13 @@ contract Vault is IVault, Ledger, Timestamp {
   * @param _optionPricer: Should be OptionPricer address.
   * @param _optionMarket: Should be OptionMarket address.
   */
-  function initialize(address _config, address _spotPricer, address _optionPricer, address _optionMarket) external {
+  function initialize(address _config, address _spotPricer, address _optionPricer, address _optionMarket, address _signatureValidator) external {
     if (initialized) {
       revert AlreadyInitialized();
     }
     initialized = true;
     owner = msg.sender;
-    setAddresses(_config, _spotPricer, _optionPricer, _optionMarket);
+    setAddresses(_config, _spotPricer, _optionPricer, _optionMarket, _signatureValidator);
   }
 
   function checkOwner() internal view {
@@ -141,12 +154,13 @@ contract Vault is IVault, Ledger, Timestamp {
   * @param _optionPricer: Should be OptionPricer address.
   * @param _optionMarket: Should be OptionMarket address.
   */
-  function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket) public payable {
+  function setAddresses(address _config, address _spotPricer, address _optionPricer, address _optionMarket, address _signatureValidator) public payable {
     checkOwner();
     config = Config(_config);
     spotPricer = SpotPricer(_spotPricer);
     optionPricer = IOptionPricer(_optionPricer);
     optionMarket = OptionMarket(_optionMarket);
+    signatureValidator = SignatureValidator(_signatureValidator);
   }
 
   /**
@@ -413,7 +427,7 @@ contract Vault is IVault, Ledger, Timestamp {
     }
     reducePositionParams.amountChange = premium + closePremium;
     reducePositionParams.sizeChange = internalUpdatePosition(
-      reducePositionParams.account, position.expiry, position.strike, position.isCall, reducePositionParams.sizeChange, reducePositionParams.amountChange, fee + closeFee, ChangeType.Trade
+      reducePositionParams.account, position.expiry, position.strike, position.isCall, reducePositionParams.sizeChange, reducePositionParams.amountChange, fee + closeFee, ChangeType.Trade, 0
     );
     reducePositionParams.amountChange += fee + closeFee;
   }
@@ -566,7 +580,7 @@ contract Vault is IVault, Ledger, Timestamp {
       notional = info.remainNotional;
       subFee = info.remainFee;
       sellSizeChange = internalUpdatePosition(
-        txCache.pools[index], positionParams.expiry, positionParams.strike, positionParams.isCall, info.remainSize, info.remainNotional, info.remainFee, ChangeType.Trade
+        txCache.pools[index], positionParams.expiry, positionParams.strike, positionParams.isCall, info.remainSize, info.remainNotional, info.remainFee, ChangeType.Trade, 0
       );
       updateAvailableCache(tradingPoolsInfo, txCache, index, sellSizeChange, notional, subFee);
     }
@@ -588,7 +602,7 @@ contract Vault is IVault, Ledger, Timestamp {
     info.remainNotional -= notional;
     info.remainFee -= subFee;
     sellSizeChange = internalUpdatePosition(
-      account, positionParams.expiry, positionParams.strike, positionParams.isCall, sellSizeChange, notional, subFee, ChangeType.Trade
+      account, positionParams.expiry, positionParams.strike, positionParams.isCall, sellSizeChange, notional, subFee, ChangeType.Trade, 0
     );
   }
 
@@ -795,6 +809,15 @@ contract Vault is IVault, Ledger, Timestamp {
     }
   }
 
+  function tradeBySignature(int[] calldata data, uint deadline, uint gasFee, uint nonce, uint8 v, bytes32 r, bytes32 s) external {
+    if (int(gasFee) < 0) {
+      revert OutOfRange();
+    }
+    bytes32 structHash = keccak256(abi.encode(TRADE_TYPEHASH, keccak256(abi.encodePacked(data)), deadline, gasFee, nonce));
+    address signer = signatureValidator.recoverAndUseNonce(structHash, v, r, s, nonce);
+    internalTrade(signer, data, deadline, int(gasFee), msg.sender);
+  }
+
   /**
   * @dev Batch trade. Can only trade not expired, tradable and available enough except closing positions. (After trade available should be >= 0)
   * @param data: Trade data. Should be multiples of 5. It means following arguments.
@@ -805,7 +828,11 @@ contract Vault is IVault, Ledger, Timestamp {
   *              uint acceptableTotal: Acceptable amount after slippage, including fee. In decimals 18.
   *                                    It means pay out premium when buy, and receive when sell.
   */
-  function trade(int[] calldata data) public {
+  function trade(int[] calldata data, uint deadline) public {
+    internalTrade(msg.sender, data, deadline, 0, msg.sender);
+  }
+
+  function internalTrade(address account, int[] calldata data, uint deadline, int gasFee, address gasReceiver) internal {
     uint length = data.length;
     if (length == 0 || length % 5 != 0) {
       revert InvalidInput();
@@ -814,41 +841,54 @@ contract Vault is IVault, Ledger, Timestamp {
       revert TradeDisabled();
     }
     TxCache memory txCache = initTxCache();
+    if (txCache.now > deadline) {
+      revert Expired();
+    }
     if (isIvOutdated(txCache.now)) {
       revert IvOutdated();
     }
+    checkTrade(txCache);
     txCache.isTraderClosing = true;
+    if (gasFee > 0) {
+      updateBalance(gasReceiver, gasFee, FundType.Gas);
+      gasFee = -gasFee;
+    }
     int platformFee;
     for (uint i;i < length;) {
       int fee;
-      unchecked { fee = internalTrade(txCache, uint(data[i]), uint(data[i + 1]), data[i + 2] == 1, data[i + 3], uint(data[i + 4])); }
+      unchecked { fee = internalTradeSub(txCache, PositionParams(uint(data[i]), uint(data[i + 1]), data[i + 2] == 1, data[i + 3], 0), TradeInfo(account, uint(data[i + 4]), gasFee)); }
+      gasFee = 0;
       platformFee += fee;
       unchecked { i += 5; }
     }
-    if (!txCache.isTraderClosing && internalGetAvailable(txCache, msg.sender) < 0) {
+    if (!txCache.isTraderClosing && internalGetAvailable(txCache, account) < 0) {
       revert Unavailable(2);
     }
     chargeFee(platformFee, FundType.Trade);
   }
 
-  function internalTrade(TxCache memory txCache, uint expiry, uint strike, bool isCall, int size, uint acceptableTotal) internal returns(int platformFee) {
+  function checkTrade(TxCache memory txCache) internal virtual {
+  }
+
+  function internalTradeSub(TxCache memory txCache, PositionParams memory positionParams, TradeInfo memory tradeInfo) internal returns(int platformFee) {
+    int size = positionParams.size;
     if (size == 0) {
       revert InvalidSize(0);
     }
-    if (getTimestamp() >= expiry) {
+    if (getTimestamp() >= positionParams.expiry) {
       revert InvalidTime(0);
     }
-    if (optionMarket.expiryDisabled(expiry) || isMarketDisabled(txCache, expiry, strike ,isCall, size > 0)) {
+    if (optionMarket.expiryDisabled(positionParams.expiry) || isMarketDisabled(txCache, positionParams.expiry, positionParams.strike ,positionParams.isCall, size > 0)) {
       revert TradeDisabled();
     }
 
+    address account = tradeInfo.account;
     int premium;
     int fee;
-    int closePremium;
-    int closeFee;
-    PositionParams memory positionParams = PositionParams(expiry, strike, isCall, size, 0);
-    TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, msg.sender);
+    TradingPoolsInfo memory tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, true, account);
     {
+      int closePremium;
+      int closeFee;
       int remainSize = size;
       // check available closing size, three possible cases
       // 1. open: no available closing size
@@ -856,22 +896,24 @@ contract Vault is IVault, Ledger, Timestamp {
       // 3. close and open: available closing size is less than required
       if (tradingPoolsInfo.totalSize.abs() < size.abs()) {
         if (tradingPoolsInfo.totalSize != 0) {
-          (closePremium, closeFee) = internalGetPremium(txCache, expiry, strike, isCall, tradingPoolsInfo.totalSize, INT256_MAX, 0);
+          (closePremium, closeFee) = internalGetPremium(txCache, positionParams.expiry, positionParams.strike, positionParams.isCall, tradingPoolsInfo.totalSize, INT256_MAX, 0);
           positionParams.size = -tradingPoolsInfo.totalSize;
           positionParams.notional = -closePremium;
           platformFee = internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -closeFee);
           remainSize -= tradingPoolsInfo.totalSize;
           positionParams.size = size;
         }
-        tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, false, msg.sender);
+        tradingPoolsInfo = getTradingPoolsInfo(txCache, positionParams, false, account);
       }
-      (premium, fee) = internalGetPremium(txCache, expiry, strike, isCall, remainSize, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
+      (premium, fee) = internalGetPremium(txCache, positionParams.expiry, positionParams.strike, positionParams.isCall, remainSize, tradingPoolsInfo.isClose ? INT256_MAX : tradingPoolsInfo.totalAvailable, tradingPoolsInfo.totalEquity);
       positionParams.size = -remainSize;
       positionParams.notional = -premium;
       platformFee += internalPoolUpdatePosition(positionParams, txCache, tradingPoolsInfo, -fee);
+      fee += closeFee;
+      premium += closePremium;
     }
     {
-      int total = premium + closePremium + fee + closeFee;
+      int total = premium + fee;
       if (!tradingPoolsInfo.isClose) {
         if (tradingPoolsInfo.totalAdjustedAvailable < 0) {
           revert Unavailable(1);
@@ -880,13 +922,13 @@ contract Vault is IVault, Ledger, Timestamp {
           revert ZeroPrice();
         }
       }
-      if (total < (size > 0 ? -int(acceptableTotal) : int(acceptableTotal))) {
+      if (total < (size > 0 ? -int(tradeInfo.acceptableTotal) : int(tradeInfo.acceptableTotal))) {
         revert UnacceptablePrice();
       }
     }
-    txCache.isTraderClosing = txCache.isTraderClosing && traderClosing(msg.sender, expiry, strike, isCall, size);
+    txCache.isTraderClosing = txCache.isTraderClosing && traderClosing(account, positionParams.expiry, positionParams.strike, positionParams.isCall, size);
     internalUpdatePosition(
-      msg.sender, expiry, strike, isCall, size, premium + closePremium, fee + closeFee, ChangeType.Trade
+      account, positionParams.expiry, positionParams.strike, positionParams.isCall, size, premium, fee, ChangeType.Trade, tradeInfo.gasFee
     );
   }
 
@@ -1068,10 +1110,10 @@ contract Vault is IVault, Ledger, Timestamp {
     }
     int reward = int(premium.abs()).decimalMul(int(liquidateInfo.liquidationReward));
     internalUpdatePosition(
-      account, expiry, strike, isCall, -size, premium, fee - reward, ChangeType.Liquidate
+      account, expiry, strike, isCall, -size, premium, fee - reward, ChangeType.Liquidate, 0
     );
     internalUpdatePosition(
-      msg.sender, expiry, strike, isCall, size, -premium, reward, ChangeType.Liquidate
+      msg.sender, expiry, strike, isCall, size, -premium, reward, ChangeType.Liquidate, 0
     );
     if (internalGetAccountInfo(txCache, account).equity < 0) {
       revert InsufficientEquity(1);
@@ -1154,7 +1196,7 @@ contract Vault is IVault, Ledger, Timestamp {
   function internalClear(address insuranceAccount, address account, uint expiry, uint strike, bool isCall) internal {
     (int size, int notional) = internalClearPosition(account, expiry, strike, isCall, 0, 0, ChangeType.Clear);
     if (size != 0) {
-      internalUpdatePosition(insuranceAccount, expiry, strike, isCall, size, notional, 0, ChangeType.Clear);
+      internalUpdatePosition(insuranceAccount, expiry, strike, isCall, size, notional, 0, ChangeType.Clear, 0);
     }
   }
 
@@ -1170,5 +1212,5 @@ contract Vault is IVault, Ledger, Timestamp {
     return spotPricer.getPrice();
   }
 
-  uint256[44] private __gap;
+  uint[43] private __gap;
 }

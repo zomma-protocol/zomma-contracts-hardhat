@@ -1,6 +1,6 @@
 const assert = require('assert');
 const BigNumber = require('bigNumber.js');
-const { getContractFactories, createPool, buildIv, mergeIv, toDecimal, toDecimalStr, strFromDecimal, createOptionPricer, toBigNumber, INT_MAX } = require('../support/helper');
+const { getContractFactories, createPool, buildIv, mergeIv, toDecimal, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, toBigNumber, INT_MAX } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer;
 const initPool = async (owner) => {
@@ -17,6 +17,7 @@ const initPool = async (owner) => {
 
   // Option Pricer
   const optionPricer = await createOptionPricer();
+  const signatureValidator = await createSignatureValidator();
 
   // Config
   const config = await Config.connect(owner).deploy();
@@ -26,7 +27,7 @@ const initPool = async (owner) => {
 
   const vault = await Vault.connect(owner).deploy();
 
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
   await config.initialize(vault.address, owner.address, owner.address, usdc.address, 6);
   await optionMarket.initialize();
   await optionMarket.setVault(vault.address);
@@ -51,6 +52,7 @@ const initPool = async (owner) => {
 
 describe('Pool', () => {
   let owner, trader;
+  let now = 1667548800;
 
   before(async () => {
     [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
@@ -78,7 +80,7 @@ describe('Pool', () => {
       await usdc.connect(trader).approve(vault.address, toDecimalStr(100000000000));
 
       // Prepare current Time is Fri Nov 04 2022 08:00:00 GMT+0000
-      await vault.setTimestamp(1667548800);
+      await vault.setTimestamp(now);
 
       error = null;
     });
@@ -178,7 +180,7 @@ describe('Pool', () => {
       await usdc.connect(trader).approve(vault.address, toDecimalStr(100000000000));
 
       // Prepare current Time is Fri Nov 04 2022 08:00:00 GMT+0000
-      await vault.setTimestamp(1667548800);
+      await vault.setTimestamp(now);
 
       let expiry = 1669968000; //Fri Dec 02 2022 08:00:00 GMT+0000
 
@@ -231,14 +233,14 @@ describe('Pool', () => {
       assert.equal(toDecimal(poolInfo.healthFactor).gt(toBigNumber(0.8)), true);
 
       await vault.connect(trader).deposit(toDecimalStr(10000));
-      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(15), INT_MAX]);
-      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(15), INT_MAX]);
-      await vault.connect(trader).trade([expiry, toDecimalStr(1200), 1, toDecimalStr(15), INT_MAX]);
-      await vault.connect(trader).trade([expiry, toDecimalStr(1300), 1, toDecimalStr(15), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(15), INT_MAX], now + 120);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(15), INT_MAX], now + 120);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1200), 1, toDecimalStr(15), INT_MAX], now + 120);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1300), 1, toDecimalStr(15), INT_MAX], now + 120);
 
       expiry += 86400 * 7;
-      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1.5), INT_MAX]);
-      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(2), INT_MAX]);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1.5), INT_MAX], now + 120);
+      await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(2), INT_MAX], now + 120);
 
       poolInfo = await vault.getAccountInfo(pools[0]);
 

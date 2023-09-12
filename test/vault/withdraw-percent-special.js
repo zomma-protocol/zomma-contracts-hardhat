@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, addPool, mintAndDeposit, toBigNumber, INT_MAX, expectRevertCustom } = require('../support/helper');
+const { getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, addPool, mintAndDeposit, toBigNumber, INT_MAX, expectRevertCustom } = require('../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('Vault', () => {
@@ -7,11 +7,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer;
+  let spotPricer, optionPricer, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -40,6 +40,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, pool, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
   });
 
   describe('#withdrawPercent', () => {
@@ -79,7 +80,7 @@ describe('Vault', () => {
 
       before(async () => {
         for (let i = 0; i < positionCount; ++i) {
-          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX]);
+          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX], now + 120);
         }
       });
 
@@ -120,7 +121,7 @@ describe('Vault', () => {
 
       before(async () => {
         for (let i = 0; i < positionCount; ++i) {
-          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX]);
+          await vault.connect(trader).trade([expiry, toDecimalStr(1100 + i), 1, toDecimalStr(0.002), INT_MAX], now + 120);
         }
       });
 

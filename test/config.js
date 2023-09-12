@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX } = require('./support/helper');
 
 let PoolFactory, Config, Vault, OptionMarket, TestERC20, SpotPricer;
 async function setup(stakeholderAccount, insuranceAccount) {
@@ -10,8 +10,9 @@ async function setup(stakeholderAccount, insuranceAccount) {
   const optionPricer = await createOptionPricer();
   const config = await Config.deploy();
   const optionMarket = await OptionMarket.deploy();
+  const signatureValidator = await createSignatureValidator();
   const vault = await Vault.deploy();
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
   await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, 6);
   await optionMarket.initialize();
   await optionMarket.setVault(vault.address);
@@ -38,7 +39,7 @@ async function trade(vault, optionMarket, usdc, spotPricer, optionPricer, trader
     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
   ]));
   await optionPricer.updateLookup([expiry]);
-  await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX]);
+  await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now + 120);
 }
 
 describe('Config', () => {

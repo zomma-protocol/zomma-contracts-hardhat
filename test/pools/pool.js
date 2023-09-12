@@ -1,13 +1,13 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
 
 let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, poolFactory, pool, config;
+  let spotPricer, optionPricer, poolFactory, pool, config, signatureValidator;
 
   const createDefaultPool = async (vault, config) => {
     const { pool, poolToken } = await createPool(poolFactory, vault.address, 'NAME', 'SYMBOL');
@@ -20,7 +20,7 @@ describe('Pool', () => {
     const config = await Config.deploy();
     const optionMarket = await OptionMarket.deploy();
     const vault = await Vault.deploy();
-    await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+    await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
     await config.setInsuranceProportion(toDecimalStr(1));
@@ -48,7 +48,7 @@ describe('Pool', () => {
       buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
     ]));
     await optionPricer.updateLookup([expiry]);
-    await vault.trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX]);
+    await vault.trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now + 120);
   };
 
   before(async () => {
@@ -57,6 +57,7 @@ describe('Pool', () => {
     spotPricer = await SpotPricer.deploy();
     poolFactory = await PoolFactory.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
     ({ pool, config } = await setup());
   });
 

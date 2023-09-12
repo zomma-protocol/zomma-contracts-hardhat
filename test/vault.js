@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal, createOptionPricer, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
+const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX } = require('./support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, OptionMarket, accounts;
 describe('Vault', () => {
@@ -7,11 +7,11 @@ describe('Vault', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, vault, config, usdc, optionMarket;
+  let spotPricer, optionPricer, vault, config, usdc, optionMarket, signatureValidator;
 
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
-    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress);
+    await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
     return vault;
   }
 
@@ -40,6 +40,7 @@ describe('Vault', () => {
     [stakeholderAccount, insuranceAccount, trader, trader2, pool, settler, liquidator, otherAccount, otherAccount2, pool2] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
+    signatureValidator = await createSignatureValidator();
     ({ vault, config, usdc, optionMarket } = await setup());
   });
 
@@ -55,7 +56,7 @@ describe('Vault', () => {
 
     context('when initialize twice', () => {
       it('should revert with AlreadyInitialized', async () => {
-        await expectRevertCustom(vault.initialize(trader.address, spotPricer.address, optionPricer.address, optionMarket.address), Vault, 'AlreadyInitialized');
+        await expectRevertCustom(vault.initialize(trader.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address), Vault, 'AlreadyInitialized');
       });
     });
   });
@@ -63,11 +64,11 @@ describe('Vault', () => {
   describe('#setAddresses', () => {
     context('when owner', () => {
       before(async () => {
-        await vault.setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address);
+        await vault.setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
       });
 
       after(async () => {
-        await vault.setAddresses(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+        await vault.setAddresses(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
       });
 
       it('should pass', async () => {
@@ -79,7 +80,7 @@ describe('Vault', () => {
 
     context('when not owner', () => {
       it('should revert with NotOwner', async () => {
-        await expectRevertCustom(vault.connect(trader).setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address), Vault, 'NotOwner');
+        await expectRevertCustom(vault.connect(trader).setAddresses(trader.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address), Vault, 'NotOwner');
       });
     });
   });
@@ -324,7 +325,7 @@ describe('Vault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, accounts[5]);
-        await vault.connect(accounts[5]).trade([expiry, strike, 1, toDecimalStr(-8), 0]);
+        await vault.connect(accounts[5]).trade([expiry, strike, 1, toDecimalStr(-8), 0], now + 60);
         await spotPricer.setPrice(toDecimalStr(1300));
       });
 
@@ -349,7 +350,7 @@ describe('Vault', () => {
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
-      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 60);
       return { vault, config, usdc };
     };
 
@@ -517,9 +518,9 @@ describe('Vault', () => {
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
       await mintAndDeposit(vault, usdc, liquidator);
-      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-7), 0]);
-      await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0]);
-      await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX]);
+      await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-7), 0], now + 60);
+      await vault.connect(trader).trade([expiry, strike2, 1, toDecimalStr('-0.000000000000000001'), 0], now + 60);
+      await vault.connect(trader).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX], now + 60);
       return { vault, config, usdc };
     }
 
@@ -779,7 +780,7 @@ describe('Vault', () => {
 
       context('when position can close', () => {
         before(async () => {
-          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 60);
         });
 
         context('when partial close', () => {
@@ -822,10 +823,10 @@ describe('Vault', () => {
           let premium, fee;
 
           before(async () => {
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 60);
             await addPool(config, pool2);
             await mintAndDeposit(vault, usdc, pool2);
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0]);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 60);
             [premium, fee] = await vault.getPremium(expiry, strike, true, toDecimalStr(2));
           });
 
