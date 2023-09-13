@@ -5,6 +5,7 @@ module.exports = {
     'tokenomics',
     'pyth',
     'zksync',
-    'VaultPricer.sol'
+    'VaultPricer.sol',
+    'RewardDistributor.sol'
   ]
 };

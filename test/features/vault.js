@@ -136,18 +136,18 @@ describe('Vault', () => {
       await vault.connect(trader).deposit(toDecimalStr(10000));
       assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), "10000");
 
-      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled')
+      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now), Vault, 'TradeDisabled')
 
-      await expectRevertCustom(vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled')
+      await expectRevertCustom(vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now), Vault, 'TradeDisabled')
 
 
       await optionMarket.setTradeDisabled(false);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
 
       assert.equal(result.status, true);
 
-      result = await (await vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
 
       assert.equal(result.status, true);
     });
@@ -172,21 +172,21 @@ describe('Vault', () => {
       await optionPricer.updateLookup([expiry]);
       await optionPricer.updateLookup([expiry2]);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
 
       assert.equal(result.status, true)
 
-      result = await (await vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
 
       assert.equal(result.status, true)
 
       await optionMarket.setExpiryDisabled(expiry2, true);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
 
       assert.equal(result.status, true)
 
-      await expectRevertCustom(vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120), Vault, 'TradeDisabled')
+      await expectRevertCustom(vault.connect(trader).trade([expiry2, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now), Vault, 'TradeDisabled')
     });
   });
 
@@ -261,12 +261,12 @@ describe('Vault', () => {
 
     it('should not be trade if valut has no specific strike', async () => {
       let expiry = 1668153600;
-      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(100), 1, toDecimalStr(10), INT_MAX], now + 120), optionPricer, 'ZeroIv');
+      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(100), 1, toDecimalStr(10), INT_MAX], now), optionPricer, 'ZeroIv');
     });
 
     it('should not be trade if trader has no enough money', async () => {
       let expiry = 1668153600;
-      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(10), INT_MAX], now + 120), Vault, 'Unavailable');
+      await expectRevertCustom(vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(10), INT_MAX], now), Vault, 'Unavailable');
     });
 
     it('should be able to make a buy call', async () => {
@@ -275,7 +275,7 @@ describe('Vault', () => {
       await vault.connect(trader).deposit(toDecimalStr(199996));
       assert.equal(strFromDecimal(await vault.balanceOf(trader.address)), '200000');
 
-      const result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)).wait();
+      const result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)).wait();
       assert.equal(result.status, true);
     })
 
@@ -369,7 +369,7 @@ describe('Vault', () => {
       // Prepare expiry Fri Nov 11 2022 08:00:00 GMT+0000
       const expiry = 1668153600;
 
-      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now + 120)
+      await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(1), INT_MAX], now)
 
       // console.log(fromDecimal(await vault.balanceOf(trader)));
       const accountInfo = await vault.getAccountInfo(trader.address)
@@ -380,19 +380,19 @@ describe('Vault', () => {
       // Prepare expiry Fri Nov 11 2022 08:00:00 GMT+0000
       const expiry = 1668153600;
 
-      let result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(-4), 0], now + 120)).wait();
+      let result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1000), 1, toDecimalStr(-4), 0], now)).wait();
       assert.equal(result.status, true);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1200), 1, toDecimalStr(-3), 0], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1200), 1, toDecimalStr(-3), 0], now)).wait();
       assert.equal(result.status, true);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(-1), 0], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(-1), 0], now)).wait();
       assert.equal(result.status, true);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1300), 1, toDecimalStr(-1), 0], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1300), 1, toDecimalStr(-1), 0], now)).wait();
       assert.equal(result.status, true);
 
-      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(2), INT_MAX], now + 120)).wait();
+      result = await (await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(2), INT_MAX], now)).wait();
       assert.equal(result.status, true);
     })
 

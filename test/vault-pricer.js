@@ -199,7 +199,7 @@ describe('VaultPricer', () => {
 
       context('when position can close', () => {
         before(async () => {
-          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
+          await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
         });
 
         context('when partial close', () => {
@@ -242,10 +242,10 @@ describe('VaultPricer', () => {
           let premium, fee;
 
           before(async () => {
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now + 120);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now);
             await addPool(config, pool2);
             await mintAndDeposit(vault, usdc, pool2);
-            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now + 120);
+            await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
             [premium, fee] = await vaultPricer.getPremium(expiry, strike, true, toDecimalStr(2));
           });
 

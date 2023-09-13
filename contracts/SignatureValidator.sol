@@ -10,6 +10,8 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable
 contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
   mapping(address => mapping(uint => uint)) public usedNonces;
 
+  event UseNonce(address account, uint nonce);
+
   error InvalidSignature();
   error UsedNonce();
 
@@ -22,12 +24,12 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
     __EIP712_init("SignatureValidator", "1");
   }
 
-  function useNonce(uint nonce) external  {
+  function useNonce(uint nonce) external {
     internalUseNonce(msg.sender, nonce);
   }
 
   function recoverAndUseNonce(bytes calldata aheadEncodedData, uint nonce, uint8 v, bytes32 r, bytes32 s) external returns(address signer) {
-    bytes32 structHash = keccak256(abi.encode(aheadEncodedData, nonce));
+    bytes32 structHash = keccak256(abi.encodePacked(aheadEncodedData, nonce));
     signer = recover(structHash, v, r, s);
     internalUseNonce(signer, nonce);
   }
@@ -49,5 +51,6 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
       revert UsedNonce();
     }
     usedNonces[account][nonce] = 1;
+    emit UseNonce(account, nonce);
   }
 }

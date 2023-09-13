@@ -39,7 +39,7 @@ async function trade(vault, optionMarket, usdc, spotPricer, optionPricer, trader
     buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
   ]));
   await optionPricer.updateLookup([expiry]);
-  await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now + 120);
+  await vault.connect(trader).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
 }
 
 describe('Config', () => {

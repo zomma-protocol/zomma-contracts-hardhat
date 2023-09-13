@@ -238,6 +238,41 @@ function withSignedData(contract, signedData) {
   return wrapFunctions;
 }
 
+const tradeNonces = {};
+async function signTrade(verifyingContract, signer, data, deadline, gasFee, nonce = null) {
+  const chainId = (await signer.provider.getNetwork()).chainId;
+  const domain = {
+    name: 'SignatureValidator',
+    version: '1',
+    chainId: chainId,
+    verifyingContract: verifyingContract
+  };
+
+  const types = {
+    Trade: [
+      {name: 'data', type: 'int256[]'},
+      {name: 'deadline', type: 'uint256'},
+      {name: 'gasFee', type: 'uint256'},
+      {name: 'nonce', type: 'uint256'}
+    ]
+  };
+  if (nonce === null) {
+    if (!tradeNonces[signer.address]) {
+      tradeNonces[signer.address] = 1;
+    }
+    nonce = tradeNonces[signer.address]++;
+  }
+
+  const value = { nonce, gasFee, data, deadline };
+  const sig = await signer._signTypedData(
+    domain,
+    types,
+    value
+  );
+  const vrs = ethers.utils.splitSignature(sig);
+  return [data, deadline, gasFee, nonce, vrs.v, vrs.r, vrs.s];
+}
+
 async function createOptionPricer(contract = 'TestCacheOptionPricer') {
   const [OptionPricer] = await getContractFactories(contract);
   const optionPricer = await OptionPricer.deploy();
@@ -316,7 +351,7 @@ async function getSigners() {
 
 module.exports = {
   getSigners, signData, withSignedData, ivsToPrices, expectRevertWithoutReason,
-  expectRevert, expectRevertCustom, getContractFactories, createPool,
+  expectRevert, expectRevertCustom, getContractFactories, createPool, signTrade,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, createSignatureValidator
 };

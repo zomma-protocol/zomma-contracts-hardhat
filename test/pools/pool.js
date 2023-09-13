@@ -48,7 +48,7 @@ describe('Pool', () => {
       buildIv(expiry, strike, true, false, toDecimalStr(0.8), false)
     ]));
     await optionPricer.updateLookup([expiry]);
-    await vault.trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now + 120);
+    await vault.trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
   };
 
   before(async () => {

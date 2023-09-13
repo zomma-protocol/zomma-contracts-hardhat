@@ -81,7 +81,7 @@ contract SignedVault is Vault {
     if (getTimestamp() > deadline) {
       revert SignatureExpired();
     }
-    bytes32 structHash = keccak256(abi.encode(VAULT_TYPEHASH, nonce, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
+    bytes32 structHash = keccak256(abi.encodePacked(VAULT_TYPEHASH, nonce, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
     signatureValidator.verifySignature(structHash, uint8(v), r, s);
     return (data, spot, nonce);
   }
