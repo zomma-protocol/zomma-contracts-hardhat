@@ -31,9 +31,12 @@ describe('SignedVault', () => {
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now,
-    isTrade = false
+    nonce = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, isTrade);
+    if (typeof nonce === 'string') {
+      nonce = await signatureValidator.nonces(nonce);
+    }
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
   };
 
   before(async () => {
@@ -144,7 +147,7 @@ describe('SignedVault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await withSignedData(vault.connect(trader2), await createSignedData({ isTrade: true })).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now);
+          await withSignedData(vault.connect(trader2), await createSignedData({ nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now);
           accountInfo = await withSignedData(vault, signedData).getAccountInfo(trader2.address);
         });
 
@@ -334,7 +337,7 @@ describe('SignedVault', () => {
           await addPool(config, pool);
           await mintAndDeposit(vault, usdc, pool);
           await mintAndDeposit(vault, usdc, trader2);
-          await withSignedData(vault.connect(trader2), await createSignedData({ isTrade: true })).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
+          await withSignedData(vault.connect(trader2), await createSignedData({ nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
           accountInfo = await withSignedData(vault, signedData).getAccountInfo(trader2.address);
         });
 
@@ -539,7 +542,7 @@ describe('SignedVault', () => {
         await addPool(config, pool);
         await mintAndDeposit(vault, usdc, pool);
         await mintAndDeposit(vault, usdc, trader2);
-        await withSignedData(vault.connect(trader2), await createSignedData({ ivs, isTrade: true })).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX], now);
+        await withSignedData(vault.connect(trader2), await createSignedData({ ivs, nonce: vault.address })).trade([expiry, strike, 0, toDecimalStr(1), INT_MAX], now);
       });
 
       context('when settled price is 900', () => {

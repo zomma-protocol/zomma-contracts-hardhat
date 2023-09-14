@@ -154,8 +154,7 @@ function buildData(mergedIvs, spot, ttl, nonce) {
   return data;
 }
 
-let globalNonce = 1;
-async function signData(verifyingContract, signer, ivs, spot, ttl, isTrade = false) {
+async function signData(verifyingContract, signer, ivs, spot, ttl, nonce = 0) {
   const chainId = (await signer.provider.getNetwork()).chainId;
   const domain = {
     name: 'SignatureValidator',
@@ -173,7 +172,6 @@ async function signData(verifyingContract, signer, ivs, spot, ttl, isTrade = fal
       {name: 'dataLength', type: 'uint256'}
     ]
   };
-  const nonce = isTrade ? globalNonce++ : 0;
 
   const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
   const value = {
@@ -238,14 +236,13 @@ function withSignedData(contract, signedData) {
   return wrapFunctions;
 }
 
-const tradeNonces = {};
-async function signTrade(verifyingContract, signer, data, deadline, gasFee, nonce = null) {
+async function signTrade(signatureValidator, signer, data, deadline, gasFee, nonce = null) {
   const chainId = (await signer.provider.getNetwork()).chainId;
   const domain = {
     name: 'SignatureValidator',
     version: '1',
     chainId: chainId,
-    verifyingContract: verifyingContract
+    verifyingContract: signatureValidator.address
   };
 
   const types = {
@@ -257,10 +254,7 @@ async function signTrade(verifyingContract, signer, data, deadline, gasFee, nonc
     ]
   };
   if (nonce === null) {
-    if (!tradeNonces[signer.address]) {
-      tradeNonces[signer.address] = 1;
-    }
-    nonce = tradeNonces[signer.address]++;
+    nonce = await signatureValidator.nonces(signer.address);
   }
 
   const value = { nonce, gasFee, data, deadline };

@@ -32,9 +32,12 @@ describe('SignedVault', () => {
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now,
-    isTrade = false
+    nonce = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, isTrade);
+    if (typeof nonce === 'string') {
+      nonce = await signatureValidator.nonces(nonce);
+    }
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
   };
 
   before(async () => {
@@ -48,10 +51,11 @@ describe('SignedVault', () => {
 
   describe('#trade', () => {
     let vault, config, usdc, optionMarket, signedData;
-    let tradeData = { isTrade: true };
+    let tradeData;
 
     const subSetup = async () => {
       ({ vault, config, usdc, optionMarket } = await setup());
+      tradeData = { nonce: vault.address };
       const signedData = await createSignedData();
       return { vault, config, usdc, optionMarket, signedData };
     };
@@ -104,9 +108,10 @@ describe('SignedVault', () => {
 
       context('when disable buy', () => {
         let ivs = [[expiry, strike, true, true, toDecimalStr(0.8), true]];
-        let tradeData = { ivs, isTrade: true };
+        let tradeData;
 
         beforeEach(async () => {
+          tradeData = { ivs, nonce: vault.address };
           signedData = await createSignedData({ ivs });
         });
 
@@ -117,9 +122,10 @@ describe('SignedVault', () => {
 
       context('when disable sell', () => {
         let ivs = [[expiry, strike, true, false, toDecimalStr(0.8), true]];
-        let tradeData = { ivs, isTrade: true };
+        let tradeData;
 
         beforeEach(async () => {
+          tradeData = { ivs, nonce: vault.address };
           signedData = await createSignedData({ ivs });
         });
 
@@ -153,14 +159,8 @@ describe('SignedVault', () => {
 
             context('when missing iv', () => {
               it('should revert with InvalidMarket', async () => {
-                const signedData = await createSignedData({ ivs: [], isTrade: true });
+                const signedData = await createSignedData({ ivs: [], nonce: vault.address });
                 await expectRevertCustom(withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), Vault, 'InvalidMarket');
-              });
-            });
-
-            context('when nonce is 0', () => {
-              it('should revert with InvalidNonce', async () => {
-                await expectRevertCustom(withSignedData(vault.connect(trader), await createSignedData()).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), Vault, 'InvalidNonce');
               });
             });
 
@@ -169,9 +169,10 @@ describe('SignedVault', () => {
 
               context('when reusing signature', () => {
                 let signedData;
-                let tradeData = { isTrade: true };
+                let tradeData;
 
                 before(async () => {
+                  tradeData = { nonce: await signatureValidator.nonces(vault.address) };
                   signedData = await createSignedData(tradeData);
                   await withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal], now);
                 });
@@ -180,8 +181,8 @@ describe('SignedVault', () => {
                   await reset();
                 });
 
-                it('should revert with UsedNonce', async () => {
-                  await expectRevertCustom(withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), signatureValidator, 'UsedNonce');
+                it('should revert with InvalidNonce', async () => {
+                  await expectRevertCustom(withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), signatureValidator, 'InvalidNonce');
                 });
               });
 
@@ -191,9 +192,10 @@ describe('SignedVault', () => {
                   [expiry, strike, true, true, toDecimalStr(0.8), false],
                   [expiry, strike, true, false, toDecimalStr(0.8), true]
                 ];
-                let tradeData = { ivs, isTrade: true };
+                let tradeData;
 
                 before(async () => {
+                  tradeData = { ivs, nonce: vault.address };
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
                     await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry, strike, 1, toDecimalStr(1), acceptableTotal], now);
                   });
@@ -288,9 +290,10 @@ describe('SignedVault', () => {
 
             context('when spot 500, minPremium 0 and fee 0', () => {
               let signedData;
-              let tradeData = { spot: toDecimalStr(500), isTrade: true };
+              let tradeData;
 
               beforeEach(async () => {
+                tradeData = { spot: toDecimalStr(500), nonce: vault.address };
                 await config.setMinPremium(toDecimalStr(0));
                 await config.setSpotFee(toDecimalStr(0));
               });
@@ -334,9 +337,10 @@ describe('SignedVault', () => {
                   [expiry, strike, true, true, toDecimalStr(0.8), true],
                   [expiry, strike, true, false, toDecimalStr(0.8), false]
                 ];
-                let tradeData = { ivs, isTrade: true };
+                let tradeData;
 
                 before(async () => {
+                  tradeData = { ivs, nonce: vault.address };
                   [traderChange, poolChange] = await watchBalance(vault, [trader.address, pool.address], async () => {
                     await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry, strike, 1, toDecimalStr(-1), toDecimalStr('12.325109365048915061')], now);
                   });
@@ -375,7 +379,7 @@ describe('SignedVault', () => {
                 let signedData;
 
                 beforeEach(async () => {
-                  signedData = await createSignedData({ spot: toDecimalStr(500), isTrade: true });
+                  signedData = await createSignedData({ spot: toDecimalStr(500), nonce: vault.address });
                 });
 
                 it('should revert with ZeroPrice', async () => {
@@ -450,7 +454,7 @@ describe('SignedVault', () => {
                   await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
                   signedData2 = await createSignedData({ spot: toDecimalStr(1950) });
                   accountInfoBefore = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
-                  await withSignedData(vault.connect(trader), await createSignedData({ spot: toDecimalStr(1950), isTrade: true })).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now);
+                  await withSignedData(vault.connect(trader), await createSignedData({ spot: toDecimalStr(1950), nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now);
                   accountInfoAfter = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
                   await reset();
                 });

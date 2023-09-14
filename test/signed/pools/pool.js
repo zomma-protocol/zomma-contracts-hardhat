@@ -36,9 +36,12 @@ describe('SignedPool', () => {
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now,
-    isTrade = false
+    nonce = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, isTrade);
+    if (typeof nonce === 'string') {
+      nonce = await signatureValidator.nonces(nonce);
+    }
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
   };
 
   const setupDeposit = async (pool, usdc, from, signedData, decimals = 6) => {
@@ -51,7 +54,7 @@ describe('SignedPool', () => {
     await usdc.mint(stakeholderAccount.address, toDecimalStr(1000, decimals));
     await usdc.approve(vault.address, toDecimalStr(100000000000, decimals));
     await withSignedData(vault, signedData).deposit(toDecimalStr(1000));
-    await withSignedData(vault, await createSignedData({ isTrade: true })).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
+    await withSignedData(vault, await createSignedData({ nonce: vault.address })).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
   };
 
   before(async () => {

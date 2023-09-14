@@ -32,9 +32,12 @@ describe('SignedVault', () => {
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now,
-    isTrade = false
+    nonce = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, isTrade);
+    if (typeof nonce === 'string') {
+      nonce = await signatureValidator.nonces(nonce);
+    }
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
   };
 
   before(async () => {
@@ -61,7 +64,7 @@ describe('SignedVault', () => {
     const subSetup = async () => {
       ({ vault, config, usdc, optionMarket } = await setup());
       const signedData = await createSignedData({ ivs });
-      const tradeData = { ivs, isTrade: true };
+      const tradeData = { ivs, nonce: vault.address };
       await addPool(config, pool);
       await mintAndDeposit(vault, usdc, pool);
       await mintAndDeposit(vault, usdc, trader);
@@ -172,7 +175,7 @@ describe('SignedVault', () => {
 
                 before(async () => {
                   ({ vault, config, usdc, optionMarket } = await setup());
-                  const tradeData = { ivs, spot: toDecimalStr(1000), isTrade: true };
+                  const tradeData = { ivs, spot: toDecimalStr(1000), nonce: vault.address };
                   await addPool(config, pool);
                   await mintAndDeposit(vault, usdc, pool, { amount: 10000 });
                   await mintAndDeposit(vault, usdc, trader);

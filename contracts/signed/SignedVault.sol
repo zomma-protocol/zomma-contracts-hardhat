@@ -56,11 +56,7 @@ contract SignedVault is Vault {
   }
 
   function checkTrade(TxCache memory txCache) internal override {
-    uint nonce = txCache.nonce;
-    if (nonce == 0) {
-      revert InvalidNonce();
-    }
-    signatureValidator.useNonce(nonce);
+    signatureValidator.useNonce(txCache.nonce);
     super.checkTrade(txCache);
   }
 

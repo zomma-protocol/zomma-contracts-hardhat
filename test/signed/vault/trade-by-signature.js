@@ -30,9 +30,9 @@ describe('Vault', () => {
 
   const tradeBySignature = async (vault, signer, data, deadline, gasFee, signedData = null) => {
     if (!signedData) {
-      signedData = await createSignedData({ isTrade: true });
+      signedData = await createSignedData({ nonce: vault.address });
     }
-    return withSignedData(vault, signedData).tradeBySignature(...(await signTrade(signatureValidator.address, signer, data, deadline, gasFee)))
+    return withSignedData(vault, signedData).tradeBySignature(...(await signTrade(signatureValidator, signer, data, deadline, gasFee)))
   };
 
   const createSignedData = async ({
@@ -40,9 +40,12 @@ describe('Vault', () => {
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
     nowTime = now,
-    isTrade = false
+    nonce = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, isTrade);
+    if (typeof nonce === 'string') {
+      nonce = await signatureValidator.nonces(nonce);
+    }
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
   };
 
   before(async () => {
@@ -56,10 +59,11 @@ describe('Vault', () => {
 
   describe('#tradeBySignature', () => {
     let vault, config, usdc, optionMarket, signedData;
-    let tradeData = { isTrade: true };
+    let tradeData;
 
     const subSetup = async () => {
       ({ vault, config, usdc, optionMarket } = await setup());
+      tradeData = { nonce: vault.address };
       const signedData = await createSignedData();
       return { vault, config, usdc, optionMarket, signedData };
     };

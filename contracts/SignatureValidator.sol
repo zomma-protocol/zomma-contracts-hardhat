@@ -8,12 +8,12 @@ import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable
  * @dev Validate signature of SignedVault.
  */
 contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
-  mapping(address => mapping(uint => uint)) public usedNonces;
+  mapping(address => uint) public nonces;
 
   event UseNonce(address account, uint nonce);
 
   error InvalidSignature();
-  error UsedNonce();
+  error InvalidNonce();
 
   constructor() {
     _disableInitializers();
@@ -47,10 +47,9 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
   }
 
   function internalUseNonce(address account, uint nonce) private {
-    if (usedNonces[account][nonce] != 0) {
-      revert UsedNonce();
+    if (nonce != nonces[account]++) {
+      revert InvalidNonce();
     }
-    usedNonces[account][nonce] = 1;
     emit UseNonce(account, nonce);
   }
 }

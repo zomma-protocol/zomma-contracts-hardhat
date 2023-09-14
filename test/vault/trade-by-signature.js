@@ -37,7 +37,7 @@ describe('Vault', () => {
   };
 
   const tradeBySignature = async (vault, signer, data, deadline, gasFee) => {
-    return vault.tradeBySignature(...(await signTrade(signatureValidator.address, signer, data, deadline, gasFee)))
+    return vault.tradeBySignature(...(await signTrade(signatureValidator, signer, data, deadline, gasFee)))
   };
 
   before(async () => {
