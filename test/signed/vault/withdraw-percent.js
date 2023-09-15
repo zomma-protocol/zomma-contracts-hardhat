@@ -1,6 +1,6 @@
 const assert = require('assert');
 const _ = require('lodash');
-const { signData, withSignedData, ivsToPrices, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../../support/helper');
+const { signData, signTrade, withSignedData, ivsToPrices, getContractFactories, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, watchBalance, addPool, mintAndDeposit, INT_MAX, toBigNumber, expectRevertCustom } = require('../../support/helper');
 
 let Vault, Config, OptionMarket, TestERC20, SpotPricer, accounts;
 describe('SignedVault', () => {
@@ -29,17 +29,20 @@ describe('SignedVault', () => {
     return { vault, config, usdc, optionMarket };
   };
 
+  const tradeBySignature = async (vault, signer, data, deadline, gasFee, signedData = null) => {
+    if (!signedData) {
+      signedData = await createSignedData();
+    }
+    return withSignedData(vault, signedData).tradeBySignature(...(await signTrade(signatureValidator, signer, data, deadline, gasFee)))
+  };
+
   const createSignedData = async ({
     spot = toDecimalStr(1000),
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
-    nowTime = now,
-    nonce = 0
+    nowTime = now
   } = {}) => {
-    if (typeof nonce === 'string') {
-      nonce = await signatureValidator.nonces(nonce);
-    }
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, nonce);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
   };
 
   before(async () => {
@@ -95,7 +98,7 @@ describe('SignedVault', () => {
     const traderWithdrawPercent = async (vault, usdc, account, expiry, strike, isCall, size, {
       rate, freeWithdrawableRate, acceptableAmount = 0, reservedRate = 0, clear = true, vaultWatchBalance = [account.address, insuranceAccount.address], includeAccountInfo = false, beforeClear = async () => {}
     }) => {
-      await withSignedData(vault.connect(account), await createSignedData({ nonce: vault.address })).trade([expiry, strike, isCall ? 1 : 0, size, size > 0 ? INT_MAX : 0], now);
+      await tradeBySignature(vault, account, [expiry, strike, isCall ? 1 : 0, size, size > 0 ? INT_MAX : 0], now, 0);
       let position, accountInfo, accountInfoBefore;
       if (includeAccountInfo) {
         accountInfoBefore = await withSignedData(vault, signedData).getAccountInfo(account.address);
@@ -333,8 +336,8 @@ describe('SignedVault', () => {
 
               context('when equity almost 0', () => {
                 before(async () => {
-                  await withSignedData(vault.connect(trader), await createSignedData({ nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(-6), 0], now);
-                  await withSignedData(vault.connect(trader2), await createSignedData({ nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(6), INT_MAX], now);
+                  await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(-6), 0], now, 0);
+                  await tradeBySignature(vault, trader2, [expiry, strike, 1, toDecimalStr(6), INT_MAX], now, 0);
                 });
 
                 after(async () => {
@@ -353,7 +356,7 @@ describe('SignedVault', () => {
 
               context('when acceptableAmount is 997.358114251283689313', () => {
                 before(async () => {
-                  await withSignedData(vault.connect(trader), await createSignedData({ nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(-3), 0], now);
+                  await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(-3), 0], now, 0);
                 });
 
                 after(async () => {
@@ -428,15 +431,14 @@ describe('SignedVault', () => {
             });
           });
           signedData = await createSignedData({ ivs });
-          const tradeData = { ivs, nonce: vault.address };
-          await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry, s1200, 0, toDecimalStr(0.1), INT_MAX], now);
-          await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry, s1200, 1, toDecimalStr(0.1), INT_MAX], now);
-          await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry2, s1200, 0, toDecimalStr(0.1), INT_MAX], now);
-          await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([expiry2, s1200, 1, toDecimalStr(0.1), INT_MAX], now);
+          await tradeBySignature(vault, trader, [expiry, s1200, 0, toDecimalStr(0.1), INT_MAX], now, 0, signedData);
+          await tradeBySignature(vault, trader, [expiry, s1200, 1, toDecimalStr(0.1), INT_MAX], now, 0, signedData);
+          await tradeBySignature(vault, trader, [expiry2, s1200, 0, toDecimalStr(0.1), INT_MAX], now, 0, signedData);
+          await tradeBySignature(vault, trader, [expiry2, s1200, 1, toDecimalStr(0.1), INT_MAX], now, 0, signedData);
           for (const e of [expiry2, expiry]) {
             for (const s of [s900_1, s1000, s1100]) {
-              await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([e, s, 1, toDecimalStr(-0.1), 0], now);
-              await withSignedData(vault.connect(trader), await createSignedData(tradeData)).trade([e, s, 0, toDecimalStr(-0.1), 0], now);
+              await tradeBySignature(vault, trader, [e, s, 1, toDecimalStr(-0.1), 0], now, 0, signedData);
+              await tradeBySignature(vault, trader, [e, s, 0, toDecimalStr(-0.1), 0], now, 0, signedData);
             }
           }
           const result = await (await withSignedData(vault.connect(trader), signedData).withdrawPercent(toDecimalStr(1), 0, toDecimalStr(0))).wait();

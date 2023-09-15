@@ -33,7 +33,6 @@ interface IVault {
     int[10] equity;
     uint[] data;
     bool isTraderClosing;
-    uint nonce;
   }
 
   struct TradingPoolsInfo {

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevert } = require('./support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom } = require('./support/helper');
 
 let SignatureValidator, accounts;
 describe('SignatureValidator', () => {
@@ -23,6 +23,24 @@ describe('SignatureValidator', () => {
     context('when initialize twice', () => {
       it('should revert with "Initializable: contract is already initialized"', async () => {
         await expectRevert(signatureValidator.initialize(), 'Initializable: contract is already initialized');
+      });
+    });
+  });
+
+  describe('#cancelNonceBefore', () => {
+    context('when nonce 10', () => {
+      before(async () => {
+        await signatureValidator.cancelNonceBefore(10);
+      });
+
+      it('should be 10', async () => {
+        assert.equal(await signatureValidator.nonces(owner.address), 10);
+      });
+    });
+
+    context('when nonce 0', () => {
+      it('should revert with InvalidNonce', async () => {
+        await expectRevertCustom(signatureValidator.cancelNonceBefore(0), signatureValidator, 'InvalidNonce');
       });
     });
   });

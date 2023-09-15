@@ -24,8 +24,11 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
     __EIP712_init("SignatureValidator", "1");
   }
 
-  function useNonce(uint nonce) external {
-    internalUseNonce(msg.sender, nonce);
+  function cancelNonceBefore(uint nonce) external {
+    if (nonce <= nonces[msg.sender]) {
+      revert InvalidNonce();
+    }
+    nonces[msg.sender] = nonce;
   }
 
   function recoverAndUseNonce(bytes calldata aheadEncodedData, uint nonce, uint8 v, bytes32 r, bytes32 s) external returns(address signer) {

@@ -211,6 +211,24 @@ describe('Vault', () => {
           });
         });
 
+        context('when reuse signature', () => {
+          let tradeSignedData;
+
+          before(async () => {
+            const nonce = await signatureValidator.nonces(trader.address);
+            tradeSignedData = await signTrade(signatureValidator, trader, [expiry, strike, 1, toDecimalStr(1), INT_MAX], now, gasFee, nonce);
+            await vault.tradeBySignature(...tradeSignedData);
+          });
+
+          after(async () => {
+            await reset();
+          });
+
+          it('should revert with InvalidNonce', async () => {
+            await expectRevertCustom(vault.tradeBySignature(...tradeSignedData), signatureValidator, 'InvalidNonce');
+          });
+        });
+
         context('when hf < 1', () => {
           before(async () => {
             await tradeBySignature(vault.connect(trader2), trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee);

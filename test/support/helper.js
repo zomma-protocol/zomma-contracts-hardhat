@@ -143,18 +143,17 @@ function strFromDecimal(value, decimal = 18) {
   return fromDecimal(value, decimal).toString(10);
 }
 
-function buildData(mergedIvs, spot, ttl, nonce) {
-  let data = new BigNumber(nonce).toString(16).padStart(64, '0');
-  data += new BigNumber(ttl).toString(16).padStart(64, '0');
+function buildData(mergedIvs, spot, ttl) {
+  let data = new BigNumber(ttl).toString(16).padStart(64, '0');
   mergedIvs.forEach((iv) => {
     data += iv.replace('0x', '');
   });
   data += new BigNumber(spot).toString(16).padStart(64, '0');
-  data += new BigNumber(mergedIvs.length + 7).toString(16).padStart(64, '0');
+  data += new BigNumber(mergedIvs.length + 6).toString(16).padStart(64, '0');
   return data;
 }
 
-async function signData(verifyingContract, signer, ivs, spot, ttl, nonce = 0) {
+async function signData(verifyingContract, signer, ivs, spot, ttl) {
   const chainId = (await signer.provider.getNetwork()).chainId;
   const domain = {
     name: 'SignatureValidator',
@@ -165,7 +164,6 @@ async function signData(verifyingContract, signer, ivs, spot, ttl, nonce = 0) {
 
   const types = {
     Vault: [
-      {name: 'nonce', type: 'uint256'},
       {name: 'deadline', type: 'uint256'},
       {name: 'data', type: 'uint256[]'},
       {name: 'spot', type: 'uint256'},
@@ -175,11 +173,10 @@ async function signData(verifyingContract, signer, ivs, spot, ttl, nonce = 0) {
 
   const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
   const value = {
-    nonce,
     deadline: ttl,
     data: mergedIvs,
     spot: spot,
-    dataLength: mergedIvs.length + 7
+    dataLength: mergedIvs.length + 6
   };
   const sig = await signer._signTypedData(
     domain,
@@ -187,7 +184,7 @@ async function signData(verifyingContract, signer, ivs, spot, ttl, nonce = 0) {
     value
   );
   const vrs = ethers.utils.splitSignature(sig);
-  const data = buildData(mergedIvs, spot, ttl, nonce);
+  const data = buildData(mergedIvs, spot, ttl);
   return new BigNumber(vrs.v).toString(16).padStart(64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
 }
 
