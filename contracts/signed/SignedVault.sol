@@ -25,7 +25,7 @@ contract SignedVault is Vault {
 
   function initTxCache() internal view override returns (TxCache memory) {
     TxCache memory txCache = super.initTxCache();
-    (txCache.data, txCache.spot) = extractData();
+    (txCache.data, txCache.spot, txCache.isEstimatingGas) = extractData();
     txCache.spotInitialMarginRiskRate = txCache.spot.decimalMul(txCache.initialMarginRiskRate);
     return txCache;
   }
@@ -54,9 +54,10 @@ contract SignedVault is Vault {
     return 0;
   }
 
-  function checkTrade(TxCache memory txCache) internal override {
-    checkOwner();
-    super.checkTrade(txCache);
+  function afterTrade(TxCache memory txCache) internal view override {
+    if (!txCache.isEstimatingGas) {
+      checkOwner();
+    }
   }
 
   /**
@@ -70,14 +71,14 @@ contract SignedVault is Vault {
   *      spotPrice: 32 bytes. Spot price.
   *      dataLength: 32 bytes. How many data slot of signed data. 32 bytes for each data slot. It will be 5 + item length of marketData.
   */
-  function extractData() internal view returns (uint[] memory, uint) {
+  function extractData() internal view returns (uint[] memory, uint, bool) {
     (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) = getData();
     if (getTimestamp() > deadline) {
       revert SignatureExpired();
     }
-    bytes32 structHash = keccak256(abi.encodePacked(VAULT_TYPEHASH, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
+    bytes32 structHash = keccak256(abi.encode(VAULT_TYPEHASH, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
     signatureValidator.verifySignature(structHash, uint8(v), r, s);
-    return (data, spot);
+    return (data, spot, deadline == type(uint).max);
   }
 
   function getData() internal pure returns (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) {

@@ -1,24 +1,36 @@
-const { ethers, upgrades } = require('hardhat');
-const { buildIv, toDecimalStr, strFromDecimal, mergeIv } = require('../test/support/helper');
+const hre = require('hardhat');
+const { Wallet, ContractFactory } = require("zksync-web3");
+const { Deployer } = require("@matterlabs/hardhat-zksync-deploy");
 
-function nextFriday(date = new Date()) {
-  let expiry = Math.floor(date.getTime() / 1000);
-  expiry = expiry - expiry % 86400;
-  const day = new Date(expiry * 1000).getDay();
-  return expiry + (day >= 5 ? 12 - day : 5 - day) * 86400 + 3600 * 8;
+function getWallet() {
+  // Get private key from the environment variable
+  const PRIVATE_KEY = process.env.PK || "";
+  if (!PRIVATE_KEY) {
+    throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
+  }
+
+  return new Wallet(PRIVATE_KEY);
 }
 
+const wallet = getWallet();
+const deployer = new Deployer(hre, wallet);
+
 async function upgradeProxy(address, contract) {
-  const Contract = await ethers.getContractFactory(contract);
+  const artifact = await deployer.loadArtifact(contract);
   console.log(`upgrade ${contract}...`);
-  return await upgrades.upgradeProxy(address, Contract);
+  return await deployer.hre.zkUpgrades.upgradeProxy(deployer.zkWallet, address, artifact);
+}
+
+async function getContractAt(address, nameOrAbi) {
+  const artifact = await deployer.hre.artifacts.readArtifact(nameOrAbi);
+  const factory = new ContractFactory(artifact.abi, artifact.bytecode, deployer.zkWallet, deployer.deploymentType);
+  return factory.attach(address);
 }
 
 async function deploy({ contract, deployed, args = [] }) {
-  const Contract = await ethers.getContractFactory(contract);
+  const artifact = await deployer.loadArtifact(contract);
   console.log(`deploy ${contract}...`);
-  const instance = await Contract.deploy(...args);
-  await instance.deployed();
+  const instance = await deployer.deploy(artifact, args);
   console.log(instance.address.toLocaleLowerCase());
   if (deployed) {
     await deployed(instance);
@@ -28,16 +40,16 @@ async function deploy({ contract, deployed, args = [] }) {
 
 async function getOrDeploy(address, { contract, deployed, args = [] }) {
   if (address) {
-    return await ethers.getContractAt(contract, address);
+    return await getContractAt(address, contract);
   } else {
     return await deploy({ contract, deployed, args });
   }
 }
 
 async function deployProxy({ contract, deployed, args = [] }) {
-  const Contract = await ethers.getContractFactory(contract);
+  const artifact = await deployer.loadArtifact(contract);
   console.log(`deploy ${contract} Proxy...`);
-  const instance = await upgrades.deployProxy(Contract, [], { initializer: false } );
+  const instance = await deployer.hre.zkUpgrades.deployProxy(deployer.zkWallet, artifact, [], { initializer: false });
   await instance.deployed();
   console.log(instance.address.toLocaleLowerCase());
   console.log(`${contract} Admin`, (await upgrades.erc1967.getAdminAddress(instance.address)));
@@ -50,24 +62,19 @@ async function deployProxy({ contract, deployed, args = [] }) {
 
 async function getOrDeployProxy(address, { contract, deployed, args = [] }) {
   if (address) {
-    return await ethers.getContractAt(contract, address);
+    return await getContractAt(address, contract);
   } else {
     return await deployProxy({ contract, deployed, args });
   }
-}
-
-async function logProxy(label, proxy) {
-  console.log(`# ${label} Admin`, (await upgrades.erc1967.getAdminAddress(proxy.address)));
-  console.log(`# ${label} Implementation`, (await upgrades.erc1967.getImplementationAddress(proxy.address)));
 }
 
 function getEnvs() {
   const isProduction = process.env.PRODUCTION === '1';
   const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
   const vaultType = process.env.VAULT_TYPE || 'normal';
-  let oracle = process.env.ORACLE || 'chainlink';
+  let oracle = process.env.ORACLE || 'chainlink-interim';
 
-  let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
+  let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolContract;
   if (isProduction) {
     optionMarketContract = 'OptionMarket';
   } else {
@@ -87,19 +94,16 @@ function getEnvs() {
       break;
   }
 
-  let setIvs = false;
   // signed, normal
   switch (vaultType) {
     case 'signed':
       vaultContract = isProduction ? 'SignedVault' : 'TestSignedVault';
-      poolFactoryContract = 'SignedPoolFactory';
-      setIvs = false;
+      poolContract = 'SignedPool';
       oracle = 'zomma';
       break;
     default: // normal
       vaultContract = isProduction ? 'Vault' : 'TestVault';
-      poolFactoryContract = 'PoolFactory';
-      setIvs = true;
+      poolContract = 'Pool';
       break;
   }
 
@@ -122,7 +126,6 @@ function getEnvs() {
       spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
       vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
       isChainlinkSystem = false;
-      break;
     case 'zomma':
       spotPricerContract = 'SignedSpotPricer';
       isChainlinkSystem = false;
@@ -144,24 +147,19 @@ function getEnvs() {
     vaultContract,
     chainlinkContract,
     chainlinkProxyContract,
-    poolFactoryContract,
-    setIvs,
     chainlinkDeployable,
-    isChainlinkSystem
-  };
+    isChainlinkSystem,
+    poolContract
+  }
 }
 
 module.exports = {
-  buildIv,
-  nextFriday,
-  toDecimalStr,
-  strFromDecimal,
-  mergeIv,
   upgradeProxy,
+  getContractAt,
   deploy,
   getOrDeploy,
   deployProxy,
   getOrDeployProxy,
-  logProxy,
-  getEnvs
-};
+  getEnvs,
+  getWallet
+}

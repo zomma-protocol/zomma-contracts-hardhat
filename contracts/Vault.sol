@@ -817,7 +817,7 @@ contract Vault is IVault, Ledger, Timestamp {
     if (int(gasFee) < 0) {
       revert OutOfRange();
     }
-    bytes memory aheadEncodedData = abi.encodePacked(TRADE_TYPEHASH, keccak256(abi.encodePacked(data)), deadline, gasFee);
+    bytes memory aheadEncodedData = abi.encode(TRADE_TYPEHASH, keccak256(abi.encodePacked(data)), deadline, gasFee);
     address signer = signatureValidator.recoverAndUseNonce(aheadEncodedData, nonce, v, r, s);
     internalTrade(data, TradeInfo(signer, 0, int(gasFee), deadline, msg.sender));
   }
@@ -851,7 +851,6 @@ contract Vault is IVault, Ledger, Timestamp {
     if (isIvOutdated(txCache.now)) {
       revert IvOutdated();
     }
-    checkTrade(txCache);
     txCache.isTraderClosing = true;
     int availableBefore;
     int origGasFee = tradeInfo.gasFee;
@@ -884,9 +883,10 @@ contract Vault is IVault, Ledger, Timestamp {
       revert Unavailable();
     }
     chargeFee(platformFee, FundType.Trade);
+    afterTrade(txCache);
   }
 
-  function checkTrade(TxCache memory txCache) internal virtual {
+  function afterTrade(TxCache memory txCache) internal view virtual {
   }
 
   function internalTradeSub(TxCache memory txCache, PositionParams memory positionParams, TradeInfo memory tradeInfo) internal returns(int platformFee) {

@@ -5,135 +5,38 @@
 // will compile your contracts, add the Hardhat Runtime Environment's members to the
 // global scope, and execute the script.
 require('dotenv').config();
-const { ethers, upgrades } = require('hardhat');
-const { toDecimalStr, nextFriday, buildIv, mergeIv } = require('./helper');
+const { ethers } = require('hardhat');
+const {
+  toDecimalStr,
+  nextFriday,
+  buildIv,
+  mergeIv,
+  deploy,
+  getOrDeploy,
+  deployProxy,
+  getOrDeployProxy,
+  logProxy,
+  getEnvs
+} = require('./helper');
 const ln = require('./ln');
 const cdf = require('./cdf');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
-const isProduction = process.env.PRODUCTION === '1';
-const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
-const vaultType = process.env.VAULT_TYPE || 'normal';
-let oracle = process.env.ORACLE || 'chainlink';
-
-let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
-if (isProduction) {
-  optionMarketContract = 'OptionMarket';
-} else {
-  optionMarketContract = 'TestOptionMarket';
-}
-
-// signed, normal, lookup
-switch (optionPricerType) {
-  case 'signed':
-    optionPricerContract = 'SignedOptionPricer';
-    break;
-  case 'lookup':
-    optionPricerContract = isProduction ? 'CacheOptionPricer' : 'TestCacheOptionPricer';
-    break;
-  default: // normal
-    optionPricerContract = 'OptionPricer';
-    break;
-}
-
-let setIvs = false;
-// signed, normal
-switch (vaultType) {
-  case 'signed':
-    vaultContract = isProduction ? 'SignedVault' : 'TestSignedVault';
-    poolFactoryContract = 'SignedPoolFactory';
-    setIvs = false;
-    oracle = 'zomma';
-    break;
-  default: // normal
-    vaultContract = isProduction ? 'Vault' : 'TestVault';
-    poolFactoryContract = 'PoolFactory';
-    setIvs = true;
-    break;
-}
-
-let chainlinkDeployable = false, isChainlinkSystem = true;
-// chainlink, chainlink-interim, chainlink-dummy
-switch (oracle) {
-  case 'chainlink-interim':
-    spotPricerContract = isProduction ? 'InterimSpotPricer' : 'TestInterimSpotPricer';
-    chainlinkContract = 'InterimChainlink';
-    chainlinkProxyContract = 'InterimChainlinkProxy';
-    chainlinkDeployable = true;
-    break;
-  case 'chainlink-dummy':
-    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
-    chainlinkContract = 'TestChainlink';
-    chainlinkProxyContract = 'TestChainlinkProxy';
-    chainlinkDeployable = true;
-    break;
-  case 'pyth':
-    spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
-    vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
-    isChainlinkSystem = false;
-    break;
-  case 'zomma':
-    spotPricerContract = 'SignedSpotPricer';
-    isChainlinkSystem = false;
-    chainlinkDeployable = false;
-    break;
-  default: // chainlink
-    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
-    break;
-}
-
-async function upgradeProxy(address, contract) {
-  const Contract = await ethers.getContractFactory(contract);
-  console.log(`upgrade ${contract}...`);
-  return await upgrades.upgradeProxy(address, Contract);
-}
-
-async function deploy({ contract, deployed, args = [] }) {
-  const Contract = await ethers.getContractFactory(contract);
-  console.log(`deploy ${contract}...`);
-  const instance = await Contract.deploy(...args);
-  await instance.deployed();
-  console.log(instance.address.toLocaleLowerCase());
-  if (deployed) {
-    await deployed(instance);
-  }
-  return instance;
-}
-
-async function getOrDeploy(address, { contract, deployed, args = [] }) {
-  if (address) {
-    return await ethers.getContractAt(contract, address);
-  } else {
-    return await deploy({ contract, deployed, args });
-  }
-}
-
-async function deployProxy({ contract, deployed, args = [] }) {
-  const Contract = await ethers.getContractFactory(contract);
-  console.log(`deploy ${contract} Proxy...`);
-  const instance = await upgrades.deployProxy(Contract, [], { initializer: false } );
-  await instance.deployed();
-  console.log(instance.address.toLocaleLowerCase());
-  console.log(`${contract} Admin`, (await upgrades.erc1967.getAdminAddress(instance.address)).toLocaleLowerCase());
-  console.log(`${contract} Implementation`, (await upgrades.erc1967.getImplementationAddress(instance.address)).toLocaleLowerCase());
-  if (deployed) {
-    await deployed(instance);
-  }
-  return instance;
-}
-
-async function getOrDeployProxy(address, { contract, deployed, args = [] }) {
-  if (address) {
-    return await ethers.getContractAt(contract, address);
-  } else {
-    return await deployProxy({ contract, deployed, args });
-  }
-}
-
-async function logProxy(label, proxy) {
-  console.log(`# ${label} Admin`, (await upgrades.erc1967.getAdminAddress(proxy.address)).toLocaleLowerCase());
-  console.log(`# ${label} Implementation`, (await upgrades.erc1967.getImplementationAddress(proxy.address)).toLocaleLowerCase());
-}
+const {
+  isProduction,
+  optionPricerType,
+  oracle,
+  spotPricerContract,
+  optionPricerContract,
+  optionMarketContract,
+  vaultContract,
+  chainlinkContract,
+  chainlinkProxyContract,
+  poolFactoryContract,
+  setIvs,
+  chainlinkDeployable,
+  isChainlinkSystem
+} = getEnvs();
 
 async function setupIvs(optionMarket, optionPricer) {
   let expiry = nextFriday();
@@ -290,6 +193,12 @@ async function main() {
       await c.initialize();
     }
   });
+  const signatureValidator = await getOrDeployProxy(process.env.SIGNATURE_VALIDATOR, {
+    contract: 'SignatureValidator',
+    deployed: async(c) => {
+      await c.initialize();
+    }
+  });
   const config = await deployProxy({ contract: 'Config' });
   const vault = await deployProxy({ contract: vaultContract });
 
@@ -301,7 +210,7 @@ async function main() {
   });
 
   console.log('vault.initialize...');
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
 
   console.log('config.initialize...');
   await config.initialize(vault.address, process.env.STAKEHOLDER || rewardDistributor.address, process.env.INSURANCE || rewardDistributor.address, usdc.address, 6);
@@ -337,19 +246,20 @@ async function main() {
   console.log(`START_BLOCK_HASH=${block.hash}`);
   console.log(`VAULT=${vault.address.toLowerCase()}`);
   console.log(`CONFIG=${config.address.toLowerCase()}`);
+  console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
-  console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
+  console.log(`SIGNATURE_VALIDATOR=${signatureValidator.address.toLowerCase()}`);
+  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (!isProduction) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
   }
-  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (oracleAddress) {
     if (isChainlinkSystem) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
-  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
   console.log('=== fe ===');
   console.log(`quote: '${usdc.address.toLowerCase()}',`);
@@ -357,7 +267,8 @@ async function main() {
   console.log(`optionPricer: '${optionPricer.address.toLowerCase()}',`);
   console.log(`vault: '${vault.address.toLowerCase()}',`);
   console.log(`config: '${config.address.toLowerCase()}',`);
-  console.log(`rewardDistributor: '${rewardDistributor.address.toLowerCase()}'`);
+  console.log(`rewardDistributor: '${rewardDistributor.address.toLowerCase()}',`);
+  console.log(`signatureValidator: '${signatureValidator.address.toLowerCase()}'`);
 
   if (!isProduction) {
     console.log('=== contracts ===');
@@ -366,39 +277,46 @@ async function main() {
 
   console.log('=== contract ===');
   console.log(`USDC=${usdc.address.toLowerCase()}`);
+  console.log(`VAULT=${vault.address.toLowerCase()}`);
+  console.log(`CONFIG=${config.address.toLowerCase()}`);
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
   console.log(`FACTORY=${poolFactory.address.toLowerCase()}`);
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
+  console.log(`SIGNATURE_VALIDATOR=${signatureValidator.address.toLowerCase()}`);
+  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (!isProduction) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
   }
-  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (oracleAddress) {
     if (isChainlinkSystem) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
-  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
+  await logProxy('VAULT', vault);
+  await logProxy('CONFIG', config);
   await logProxy('SPOT_PRICER', spotPricer);
   await logProxy('OPTION_PRICER', optionPricer);
   await logProxy('OPTION_MARKET', optionMarket);
-  await logProxy('VAULT', vault);
-  await logProxy('CONFIG', config);
   await logProxy('REWARD_DISTRIBUTOR', rewardDistributor);
+  await logProxy('SIGNATURE_VALIDATOR', signatureValidator);
 
   console.log('=== develop ===');
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);
+  console.log(`process.env.VAULT=${vault.address.toLowerCase()}`);
+  console.log(`process.env.CONFIG=${config.address.toLowerCase()}`);
   console.log(`process.env.SPOT_PRICER='${spotPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_PRICER='${optionPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_MARKET='${optionMarket.address.toLowerCase()}'`);
   console.log(`process.env.FACTORY='${poolFactory.address.toLowerCase()}'`);
+  console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
+  console.log(`process.env.SIGNATURE_VALIDATOR='${signatureValidator.address.toLowerCase()}'`);
+  console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
   if (!isProduction) {
     console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);
   }
-  console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
-  console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

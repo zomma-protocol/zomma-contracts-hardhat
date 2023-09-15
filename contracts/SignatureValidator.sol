@@ -15,10 +15,6 @@ contract SignatureValidator is OwnableUpgradeable, EIP712Upgradeable {
   error InvalidSignature();
   error InvalidNonce();
 
-  constructor() {
-    _disableInitializers();
-  }
-
   function initialize() external initializer {
     __Ownable_init();
     __EIP712_init("SignatureValidator", "1");

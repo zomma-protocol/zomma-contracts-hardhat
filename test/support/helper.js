@@ -277,7 +277,7 @@ async function createOptionPricer(contract = 'TestCacheOptionPricer') {
   return optionPricer;
 }
 
-async function createSignatureValidator(contract = 'TestSignatureValidator') {
+async function createSignatureValidator(contract = 'SignatureValidator') {
   const [SignatureValidator] = await getContractFactories(contract);
   const signatureValidator = await SignatureValidator.deploy();
   await signatureValidator.initialize();

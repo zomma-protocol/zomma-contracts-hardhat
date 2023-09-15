@@ -3,7 +3,6 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./libraries/SafeDecimalMath.sol";
@@ -27,10 +26,6 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
   error Claimed();
   error InvalidReceiver();
   error InvalidSignature();
-
-  constructor() {
-    _disableInitializers();
-  }
 
   function initialize(address _vault) external initializer {
     __Ownable_init();

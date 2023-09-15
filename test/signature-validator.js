@@ -6,7 +6,7 @@ describe('SignatureValidator', () => {
   let signatureValidator, owner;
 
   before(async () => {
-    [SignatureValidator] = await getContractFactories('TestSignatureValidator');
+    [SignatureValidator] = await getContractFactories('SignatureValidator');
     accounts = await ethers.getSigners();
     [owner] = accounts;
     signatureValidator = await SignatureValidator.deploy();

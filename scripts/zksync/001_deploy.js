@@ -1,159 +1,33 @@
 require('dotenv').config();
 
-const { Wallet, ContractFactory } = require("zksync-web3");
-// const zk = require("zksync-web3");
-// const { HardhatRuntimeEnvironment } = require("hardhat/types");
-const { Deployer } = require("@matterlabs/hardhat-zksync-deploy");
-// const ethers = require("ethers");
-const { ethers, upgrades } = require('hardhat');
-const { toDecimalStr } = require('../scripts/helper');
-const ln = require('../scripts/ln');
-const cdf = require('../scripts/cdf');
+const { ethers } = require('hardhat');
+const {
+  deploy,
+  getOrDeploy,
+  deployProxy,
+  getOrDeployProxy,
+  getEnvs
+} = require('./helper');
+const { toDecimalStr, logProxy } = require('../helper');
+const ln = require('../ln');
+const cdf = require('../cdf');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 
-// Get private key from the environment variable
-const PRIVATE_KEY = process.env.PK || "";
-if (!PRIVATE_KEY) {
-  throw new Error("Please set ZKS_PRIVATE_KEY in the environment variables.");
-}
+const {
+  isProduction,
+  optionPricerType,
+  oracle,
+  spotPricerContract,
+  optionPricerContract,
+  optionMarketContract,
+  vaultContract,
+  chainlinkContract,
+  chainlinkProxyContract,
+  chainlinkDeployable,
+  isChainlinkSystem,
+  poolContract
+} = getEnvs();
 
-const isProduction = process.env.PRODUCTION === '1';
-const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
-const vaultType = process.env.VAULT_TYPE || 'normal';
-let oracle = process.env.ORACLE || 'chainlink-interim';
-
-let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolContract;
-if (isProduction) {
-  optionMarketContract = 'OptionMarket';
-} else {
-  optionMarketContract = 'TestOptionMarket';
-}
-
-// signed, normal, lookup
-switch (optionPricerType) {
-  case 'signed':
-    optionPricerContract = 'SignedOptionPricer';
-    break;
-  case 'lookup':
-    optionPricerContract = isProduction ? 'CacheOptionPricer' : 'TestCacheOptionPricer';
-    break;
-  default: // normal
-    optionPricerContract = 'OptionPricer';
-    break;
-}
-
-// signed, normal
-switch (vaultType) {
-  case 'signed':
-    vaultContract = isProduction ? 'SignedVault' : 'TestSignedVault';
-    poolContract = 'SignedPool';
-    oracle = 'zomma';
-    break;
-  default: // normal
-    vaultContract = isProduction ? 'Vault' : 'TestVault';
-    poolContract = 'Pool';
-    break;
-}
-
-let chainlinkDeployable = false, isChainlinkSystem = true;
-// chainlink, chainlink-interim, chainlink-dummy
-switch (oracle) {
-  case 'chainlink-interim':
-    spotPricerContract = isProduction ? 'InterimSpotPricer' : 'TestInterimSpotPricer';
-    chainlinkContract = 'InterimChainlink';
-    chainlinkProxyContract = 'InterimChainlinkProxy';
-    chainlinkDeployable = true;
-    break;
-  case 'chainlink-dummy':
-    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
-    chainlinkContract = 'TestChainlink';
-    chainlinkProxyContract = 'TestChainlinkProxy';
-    chainlinkDeployable = true;
-    break;
-  case 'pyth':
-    spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
-    vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
-    isChainlinkSystem = false;
-  case 'zomma':
-    spotPricerContract = 'SignedSpotPricer';
-    isChainlinkSystem = false;
-    chainlinkDeployable = false;
-    break;
-  default: // chainlink
-    spotPricerContract = isProduction ? 'SpotPricer' : 'TestSpotPricer';
-    break;
-}
-
-const wallet = new Wallet(PRIVATE_KEY);
-let deployer;
-
-async function upgradeProxy(address, contract) {
-  // const Contract = await ethers.getContractFactory(contract);
-  // console.log(`upgrade ${contract}...`);
-  // return await upgrades.upgradeProxy(address, Contract);
-
-  const proxy = await getContractAt('ZksyncTransparentUpgradeableProxy', address);
-  const adminAddress = await upgrades.erc1967.getAdminAddress(proxy.address)
-  const admin = await getContractAt('ZksyncProxyAdmin', adminAddress);
-  const implementation = await deploy({ contract });
-  await implementation.deployed();
-  console.log(`upgrade ${contract}...`);
-  await (await admin.upgrade(address, implementation.address)).wait();
-  return proxy;
-}
-
-async function getContractAt(nameOrAbi, address) {
-  const artifact = await deployer.hre.artifacts.readArtifact(nameOrAbi);
-  const factory = new ContractFactory(artifact.abi, artifact.bytecode, deployer.zkWallet, deployer.deploymentType);
-  return factory.attach(address);
-}
-
-async function deploy({ contract, deployed, args = [] }) {
-  const artifact = await deployer.loadArtifact(contract);
-  console.log(`deploy ${contract}...`);
-  const instance = await deployer.deploy(artifact, args);
-  console.log(instance.address.toLocaleLowerCase());
-  if (deployed) {
-    await deployed(instance);
-  }
-  return instance;
-}
-
-async function getOrDeploy(address, { contract, deployed, args = [] }) {
-  if (address) {
-    return await getContractAt(contract, address);
-  } else {
-    return await deploy({ contract, deployed, args });
-  }
-}
-
-async function deployProxy({ contract, deployed, args = [] }) {
-  const artifact = await deployer.loadArtifact(contract);
-  console.log(`deploy ${contract} Proxy...`);
-  const admin = await deploy({ contract: 'ZksyncProxyAdmin' });
-  const implementation = await deploy({ contract });
-  const proxy = await deploy({ contract: 'ZksyncTransparentUpgradeableProxy', args: [implementation.address, admin.address, '0x' ] });
-  const instance = await getContractAt(contract, proxy.address);
-  if (deployed) {
-    await deployed(instance);
-  }
-  return instance;
-}
-
-async function getOrDeployProxy(address, { contract, deployed, args = [] }) {
-  if (address) {
-    return await getContractAt(contract, address);
-  } else {
-    return await deployProxy({ contract, deployed, args });
-  }
-}
-
-async function logProxy(label, proxy) {
-  console.log(`# ${label} Admin`, (await upgrades.erc1967.getAdminAddress(proxy.address)).toLocaleLowerCase());
-  console.log(`# ${label} Implementation`, (await upgrades.erc1967.getImplementationAddress(proxy.address)).toLocaleLowerCase());
-}
-
-// async function createPools(vault, config, poolFactory) {
 async function createPools(vault, config) {
   const reservedRates = [
     toDecimalStr(0.3),
@@ -178,7 +52,6 @@ async function createPools(vault, config) {
     await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
     console.log('pool.initialize...');
     await (await pool.initialize(vault.address, poolToken.address, process.env.DEPLOYER)).wait();
-    // await pool.initialize(vault.address, poolToken.address, process.env.DEPLOYER);
     console.log('addPool...')
     await config.addPool(pool.address);
     const reservedRate = reservedRates[i] || reservedRates[0];
@@ -237,9 +110,7 @@ async function createChainlink(chainlinkContract, chainlinkProxyContract) {
 }
 
 // An example of a deploy script that will deploy and call a simple contract.
-module.exports = async function (hre) {
-  deployer = new Deployer(hre, wallet);
-
+async function main() {
   const block = await ethers.provider.getBlock('latest');
   const usdc = await getOrDeploy(process.env.USDC, {
     contract: 'TestERC20',
@@ -285,12 +156,17 @@ module.exports = async function (hre) {
     console.log('spotPricer.reinitialize...');
     await spotPricer.reinitialize(oracleAddress);
   }
-  // const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: 'PoolFactory' });
   const settler = await getOrDeploy(process.env.SETTLER, { contract: 'Settler' });
   const optionPricer = await getOrDeployProxy(process.env.OPTION_PRICER, { contract: optionPricerContract });
   const optionMarket = await getOrDeployProxy(process.env.OPTION_MARKET, {
     contract: optionMarketContract,
     deployed: async (c) => {
+      await c.initialize();
+    }
+  });
+  const signatureValidator = await getOrDeployProxy(process.env.SIGNATURE_VALIDATOR, {
+    contract: 'SignatureValidator',
+    deployed: async(c) => {
       await c.initialize();
     }
   });
@@ -305,7 +181,7 @@ module.exports = async function (hre) {
   });
 
   console.log('vault.initialize...');
-  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address);
+  await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
 
   console.log('config.initialize...');
   await config.initialize(vault.address, process.env.STAKEHOLDER || rewardDistributor.address, process.env.INSURANCE || rewardDistributor.address, usdc.address, 6);
@@ -331,7 +207,6 @@ module.exports = async function (hre) {
   }
 
   await setupCdf(optionPricer);
-  // await createPools(vault, config, poolFactory);
   await createPools(vault, config);
 
   console.log('=== api ===');
@@ -339,19 +214,20 @@ module.exports = async function (hre) {
   console.log(`START_BLOCK_HASH=${block.hash}`);
   console.log(`VAULT=${vault.address.toLowerCase()}`);
   console.log(`CONFIG=${config.address.toLowerCase()}`);
+  console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
-  console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
+  console.log(`SIGNATURE_VALIDATOR=${signatureValidator.address.toLowerCase()}`);
+  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (!isProduction) {
     console.log(`FAUCET=${faucet.address.toLowerCase()}`);
   }
-  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (oracleAddress) {
     if (isChainlinkSystem) {
       console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
     }
   }
-  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
   console.log('=== fe ===');
   console.log(`quote: '${usdc.address.toLowerCase()}',`);
@@ -359,7 +235,8 @@ module.exports = async function (hre) {
   console.log(`optionPricer: '${optionPricer.address.toLowerCase()}',`);
   console.log(`vault: '${vault.address.toLowerCase()}',`);
   console.log(`config: '${config.address.toLowerCase()}',`);
-  console.log(`rewardDistributor: '${rewardDistributor.address.toLowerCase()}'`);
+  console.log(`rewardDistributor: '${rewardDistributor.address.toLowerCase()}',`);
+  console.log(`signatureValidator: '${signatureValidator.address.toLowerCase()}'`);
 
   if (!isProduction) {
     console.log('=== contracts ===');
@@ -367,38 +244,48 @@ module.exports = async function (hre) {
   }
 
   console.log('=== contract ===');
-  console.log(`USDC=${usdc.address.toLowerCase()}`);
-  console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
-  console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
-  console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
-  // console.log(`FACTORY=${poolFactory.address.toLowerCase()}`);
+  console.log(`USDC=${usdc.address}`);
+  console.log(`VAULT=${vault.address}`);
+  console.log(`CONFIG=${config.address}`);
+  console.log(`SPOT_PRICER=${spotPricer.address}`);
+  console.log(`OPTION_PRICER=${optionPricer.address}`);
+  console.log(`OPTION_MARKET=${optionMarket.address}`);
+  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address}`);
+  console.log(`SIGNATURE_VALIDATOR=${signatureValidator.address}`);
+  console.log(`SETTLER=${settler.address}`);
   if (!isProduction) {
-    console.log(`FAUCET=${faucet.address.toLowerCase()}`);
+    console.log(`FAUCET=${faucet.address}`);
   }
-  console.log(`SETTLER=${settler.address.toLowerCase()}`);
   if (oracleAddress) {
     if (isChainlinkSystem) {
-      console.log(`CHAINLINK_PROXY=${oracleAddress.toLowerCase()}`);
+      console.log(`CHAINLINK_PROXY=${oracleAddress}`);
     }
   }
-  console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
 
+  await logProxy('VAULT', vault);
+  await logProxy('CONFIG', config);
   await logProxy('SPOT_PRICER', spotPricer);
   await logProxy('OPTION_PRICER', optionPricer);
   await logProxy('OPTION_MARKET', optionMarket);
-  await logProxy('VAULT', vault);
-  await logProxy('CONFIG', config);
   await logProxy('REWARD_DISTRIBUTOR', rewardDistributor);
+  await logProxy('SIGNATURE_VALIDATOR', signatureValidator);
 
   console.log('=== develop ===');
   console.log(`process.env.USDC='${usdc.address.toLowerCase()}'`);
+  console.log(`process.env.VAULT=${vault.address.toLowerCase()}`);
+  console.log(`process.env.CONFIG=${config.address.toLowerCase()}`);
   console.log(`process.env.SPOT_PRICER='${spotPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_PRICER='${optionPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_MARKET='${optionMarket.address.toLowerCase()}'`);
-  // console.log(`process.env.FACTORY='${poolFactory.address.toLowerCase()}'`);
+  console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
+  console.log(`process.env.SIGNATURE_VALIDATOR='${signatureValidator.address.toLowerCase()}'`);
+  console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
   if (!isProduction) {
     console.log(`process.env.FAUCET='${faucet.address.toLowerCase()}'`);
   }
-  console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);
-  console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
 }
+
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
