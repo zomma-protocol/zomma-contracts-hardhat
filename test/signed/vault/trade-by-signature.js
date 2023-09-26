@@ -39,9 +39,10 @@ describe('Vault', () => {
     spot = toDecimalStr(1000),
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
-    nowTime = now
+    nowTime = now,
+    skipCheckOwner = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, skipCheckOwner);
   };
 
   before(async () => {
@@ -134,8 +135,26 @@ describe('Vault', () => {
       });
 
       context('when sender is not owner', () => {
-        it('should revert with NotOwner', async () => {
-          await expectRevertCustom(tradeBySignature(vault.connect(trader), trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee), Vault, 'NotOwner');
+        context('when skipCheckOwner is 1', () => {
+          let traderPosition;
+
+          before(async () => {
+            const signedData = await createSignedData({ skipCheckOwner: 1 });
+            await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee, signedData);
+            traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
+            await reset();
+            await withSignedData(vault, signedData).withdrawPercent(toDecimalStr(1), 0, 0);
+          });
+
+          it('should be trader size -1', async () => {
+            assert.equal(strFromDecimal(traderPosition.size), '-1');
+          });
+        });
+
+        context('when skipCheckOwner is not 1', () => {
+          it('should revert with NotOwner', async () => {
+            await expectRevertCustom(tradeBySignature(vault.connect(trader), trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee), Vault, 'NotOwner');
+          });
         });
       });
 
@@ -150,7 +169,7 @@ describe('Vault', () => {
             traderPosition = await vault.positionOf(trader.address, expiry, strike, true);
             poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
             await reset();
-            await withSignedData(vault.connect(stakeholderAccount), signedData).withdrawPercent(toDecimalStr(1), 0, 0);
+            await withSignedData(vault, signedData).withdrawPercent(toDecimalStr(1), 0, 0);
           });
 
           // fee: 0.427526357222716313
@@ -192,7 +211,7 @@ describe('Vault', () => {
           after(async () => {
             await spotPricer.setPrice(toDecimalStr(1000));
             await reset();
-            await withSignedData(vault.connect(stakeholderAccount), signedData).withdrawPercent(toDecimalStr(1), 0, 0);
+            await withSignedData(vault, signedData).withdrawPercent(toDecimalStr(1), 0, 0);
           })
 
           context('when then size 0.1', () => {

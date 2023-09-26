@@ -17,15 +17,15 @@ contract SignedVault is Vault {
   uint private constant SELL_CALL_DISABLED = 0x0010000000000000000000000000000000000000000000000000000000000000;
   uint private constant BUY_PUT_DISABLED =   0x0100000000000000000000000000000000000000000000000000000000000000;
   uint private constant SELL_PUT_DISABLED =  0x1000000000000000000000000000000000000000000000000000000000000000;
-  // keccak256("Vault(uint256 deadline,uint256[] data,uint256 spot,uint256 dataLength)")
-  bytes32 private constant VAULT_TYPEHASH = 0xde60323c52fb9bc4c868817d35b985f5998dc1bf542b3677f52442004183b990;
+  // keccak256("Vault(uint256 deadline,uint256 skipCheckOwner,uint256[] data,uint256 spot,uint256 dataLength)")
+  bytes32 private constant VAULT_TYPEHASH = 0x93a29c072d39f9a4bf63fdf5bd0ccb46459c7bb80452d6990a6f508e317e4384;
 
   error SignatureExpired();
   error InvalidMarket();
 
   function initTxCache() internal view override returns (TxCache memory) {
     TxCache memory txCache = super.initTxCache();
-    (txCache.data, txCache.spot, txCache.isEstimatingGas) = extractData();
+    (txCache.data, txCache.spot, txCache.skipCheckOwner) = extractData();
     txCache.spotInitialMarginRiskRate = txCache.spot.decimalMul(txCache.initialMarginRiskRate);
     return txCache;
   }
@@ -55,7 +55,7 @@ contract SignedVault is Vault {
   }
 
   function afterTrade(TxCache memory txCache) internal view override {
-    if (!txCache.isEstimatingGas) {
+    if (!txCache.skipCheckOwner) {
       checkOwner();
     }
   }
@@ -66,31 +66,33 @@ contract SignedVault is Vault {
   *      r: 32 bytes. Owner signature.
   *      s: 32 bytes. Owner signature.
   *      deadline: 32 bytes. When signature will expire.
+  *      skipCheckOwner: 32 bytes. Allow trade without owner if 1.
   *      marketData: Dynamic bytes. Market data array, including option price and disabled status. 32 bytes for each item.
   *                  One market has two items. First item includes expiry and strike. Second item includes option price and disabled status.
   *      spotPrice: 32 bytes. Spot price.
   *      dataLength: 32 bytes. How many data slot of signed data. 32 bytes for each data slot. It will be 5 + item length of marketData.
   */
   function extractData() internal view returns (uint[] memory, uint, bool) {
-    (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) = getData();
+    (uint dataLength, uint skipCheckOwner, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) = getData();
     if (getTimestamp() > deadline) {
       revert SignatureExpired();
     }
-    bytes32 structHash = keccak256(abi.encode(VAULT_TYPEHASH, deadline, keccak256(abi.encodePacked(data)), spot, dataLength));
+    bytes32 structHash = keccak256(abi.encode(VAULT_TYPEHASH, deadline, skipCheckOwner, keccak256(abi.encodePacked(data)), spot, dataLength));
     signatureValidator.verifySignature(structHash, uint8(v), r, s);
-    return (data, spot, deadline == type(uint).max);
+    return (data, spot, skipCheckOwner == 1);
   }
 
-  function getData() internal pure returns (uint dataLength, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) {
+  function getData() internal pure returns (uint dataLength, uint skipCheckOwner, uint v, bytes32 r, bytes32 s, uint deadline, uint[] memory data, uint spot) {
     dataLength = getDataLength();
     uint dataBytes = dataLength << 5;
-    data = new uint[](dataLength - 6);
+    data = new uint[](dataLength - 7);
     assembly {
       v := calldataload(sub(calldatasize(), dataBytes))
       r := calldataload(add(sub(calldatasize(), dataBytes), 32))
       s := calldataload(add(sub(calldatasize(), dataBytes), 64))
       deadline := calldataload(add(sub(calldatasize(), dataBytes), 96))
-      calldatacopy(add(data, 32), add(sub(calldatasize(), dataBytes), 128), sub(dataBytes, 160))
+      skipCheckOwner := calldataload(add(sub(calldatasize(), dataBytes), 128))
+      calldatacopy(add(data, 32), add(sub(calldatasize(), dataBytes), 160), sub(dataBytes, 192))
       spot := calldataload(sub(calldatasize(), 64))
     }
   }

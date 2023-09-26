@@ -33,7 +33,7 @@ interface IVault {
     int[10] equity;
     uint[] data;
     bool isTraderClosing;
-    bool isEstimatingGas;
+    bool skipCheckOwner;
   }
 
   struct TradingPoolsInfo {

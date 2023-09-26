@@ -1,7 +1,6 @@
 const { ethers } = require('hardhat');
 const { expect } = require('chai');
 const BigNumber = require('bigNumber.js');
-const { keccak256 } = require('js-sha3');
 const bs = require('black-scholes');
 const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
@@ -143,17 +142,18 @@ function strFromDecimal(value, decimal = 18) {
   return fromDecimal(value, decimal).toString(10);
 }
 
-function buildData(mergedIvs, spot, ttl) {
+function buildData(mergedIvs, spot, ttl, skipCheckOwner) {
   let data = new BigNumber(ttl).toString(16).padStart(64, '0');
+  data += new BigNumber(skipCheckOwner).toString(16).padStart(64, '0');
   mergedIvs.forEach((iv) => {
     data += iv.replace('0x', '');
   });
   data += new BigNumber(spot).toString(16).padStart(64, '0');
-  data += new BigNumber(mergedIvs.length + 6).toString(16).padStart(64, '0');
+  data += new BigNumber(mergedIvs.length + 7).toString(16).padStart(64, '0');
   return data;
 }
 
-async function signData(verifyingContract, signer, ivs, spot, ttl) {
+async function signData(verifyingContract, signer, ivs, spot, ttl, skipCheckOwner = 0) {
   const chainId = (await signer.provider.getNetwork()).chainId;
   const domain = {
     name: 'SignatureValidator',
@@ -165,6 +165,7 @@ async function signData(verifyingContract, signer, ivs, spot, ttl) {
   const types = {
     Vault: [
       {name: 'deadline', type: 'uint256'},
+      {name: 'skipCheckOwner', type: 'uint256'},
       {name: 'data', type: 'uint256[]'},
       {name: 'spot', type: 'uint256'},
       {name: 'dataLength', type: 'uint256'}
@@ -173,10 +174,10 @@ async function signData(verifyingContract, signer, ivs, spot, ttl) {
 
   const mergedIvs = mergeIv(ivs.map((iv) => buildIv(...iv)));
   const value = {
-    deadline: ttl,
+    deadline: ttl, skipCheckOwner,
     data: mergedIvs,
     spot: spot,
-    dataLength: mergedIvs.length + 6
+    dataLength: mergedIvs.length + 7
   };
   const sig = await signer._signTypedData(
     domain,
@@ -184,7 +185,7 @@ async function signData(verifyingContract, signer, ivs, spot, ttl) {
     value
   );
   const vrs = ethers.utils.splitSignature(sig);
-  const data = buildData(mergedIvs, spot, ttl);
+  const data = buildData(mergedIvs, spot, ttl, skipCheckOwner);
   return new BigNumber(vrs.v).toString(16).padStart(64, '0') + vrs.r.replace('0x', '') + vrs.s.replace('0x', '') + data;
 }
 
