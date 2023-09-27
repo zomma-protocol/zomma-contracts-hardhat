@@ -3,7 +3,7 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "../Vault.sol";
 import "../OptionMarket.sol";
 import "../Config.sol";
@@ -12,7 +12,7 @@ import "./PoolToken.sol";
 /**
  * @dev Pool contract is for makers to deposit.
  */
-contract Pool is Ownable {
+contract Pool is OwnableUpgradeable {
   using SafeDecimalMath for uint;
   using SafeERC20 for IERC20;
 
@@ -38,7 +38,6 @@ contract Pool is Ownable {
   uint public bonusRate;
   uint public withdrawFeeRate;
   uint public freeWithdrawableRate;
-  bool public initialized;
 
   event ConfigChange(ChangeType changeType, bytes value);
   event Deposit(address account, uint amount, uint shares);
@@ -53,12 +52,9 @@ contract Pool is Ownable {
   * @dev Initalize method. Can call only once.
   * @param _vault: Should be Vault address.
   * @param _token: Should be quote token address. (eg. USDC)
-  * @param owner_: Should be owner address.
   */
-  function initialize(address _vault, address _token, address owner_) external {
-    require(!initialized, "already initialized");
-    initialized = true;
-    _transferOwnership(owner_);
+  function initialize(address _vault, address _token) external initializer {
+    __Ownable_init();
     zlmRate = 800000000000000000; // 0.8
     bonusRate = 60000000000000000; // 6%
     withdrawFeeRate = 1000000000000000; // 0.1%
@@ -184,4 +180,6 @@ contract Pool is Ownable {
   function withdrawPercent(uint rate, uint acceptableAmount, uint _freeWithdrawableRate) internal virtual returns (uint) {
     return vault.withdrawPercent(rate, acceptableAmount, _freeWithdrawableRate);
   }
+
+  uint[41] private __gap;
 }

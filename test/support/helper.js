@@ -4,7 +4,7 @@ const BigNumber = require('bigNumber.js');
 const bs = require('black-scholes');
 const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
-const { getContractFactories: zkSyncGetContractFactories, createPool: zkSyncCreatePool, wallets } = require('./zksync');
+const { getContractFactories: zkSyncGetContractFactories, wallets } = require('./zksync');
 
 const INT_MAX = '57896044618658097711785492504343953926634992332820282019728792003956564819967';
 const MAX_IV = new BigNumber('0xffffffffffffff');
@@ -299,19 +299,12 @@ async function watchBalance(contract, addresses, func) {
   return balanceChanges;
 }
 
-let i = 0;
-async function createPool(poolFactory, ...args) {
-  if (args.length === 3) {
-    const salt = (i++).toString(16).padStart(64, '0');
-    args.push(`0x${salt}`);
-  }
-  if (ZKSYNC) {
-    return await zkSyncCreatePool(poolFactory, ...args);
-  }
-  const result = await (await poolFactory.create(...args)).wait();
-  const create = result.events.find((e) => e.event === 'Create').args;
-  const pool = await ethers.getContractAt('Pool', create.pool);
-  const poolToken = await ethers.getContractAt('PoolToken', create.poolToken);
+async function createPool(vaultAddress, tokenName, tokenSymbol, poolContract = 'Pool') {
+  const [PoolToken, Pool] = await getContractFactories('PoolToken', poolContract);
+  const poolToken = await PoolToken.deploy();
+  const pool = await Pool.deploy();
+  await poolToken.initialize(pool.address, tokenName, tokenSymbol);
+  await (await pool.initialize(vaultAddress, poolToken.address)).wait();
   return { pool, poolToken };
 }
 

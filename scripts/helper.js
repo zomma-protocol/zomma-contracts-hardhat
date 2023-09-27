@@ -67,7 +67,7 @@ function getEnvs() {
   const vaultType = process.env.VAULT_TYPE || 'normal';
   let oracle = process.env.ORACLE || 'chainlink';
 
-  let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract, poolFactoryContract;
+  let spotPricerContract, optionPricerContract, optionMarketContract, vaultContract, chainlinkContract, chainlinkProxyContract;
   if (isProduction) {
     optionMarketContract = 'OptionMarket';
   } else {
@@ -92,13 +92,13 @@ function getEnvs() {
   switch (vaultType) {
     case 'signed':
       vaultContract = isProduction ? 'SignedVault' : 'TestSignedVault';
-      poolFactoryContract = 'SignedPoolFactory';
+      poolContract = 'SignedPool';
       setIvs = false;
       oracle = 'zomma';
       break;
     default: // normal
       vaultContract = isProduction ? 'Vault' : 'TestVault';
-      poolFactoryContract = 'PoolFactory';
+      poolContract = 'Pool';
       setIvs = true;
       break;
   }
@@ -144,7 +144,7 @@ function getEnvs() {
     vaultContract,
     chainlinkContract,
     chainlinkProxyContract,
-    poolFactoryContract,
+    poolContract,
     setIvs,
     chainlinkDeployable,
     isChainlinkSystem

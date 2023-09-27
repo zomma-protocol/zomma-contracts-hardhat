@@ -1,7 +1,7 @@
 const assert = require('assert');
 const { getContractFactories, createPool, INT_MAX, buildIv, mergeIv, toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, createSignatureValidator, expectRevertCustom } = require('../support/helper');
 
-let PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
+let Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 const initVault = async (owner) => {
   // USDC
   const usdc = await TestERC20.connect(owner).deploy('USDC', 'USDC', 6);
@@ -10,9 +10,6 @@ const initVault = async (owner) => {
   // SPOT PRICE
   const spotPricer = await SpotPricer.connect(owner).deploy();
   await spotPricer.setPrice(toDecimalStr(1200)); // 1200
-
-  // Pool Factory
-  const poolFactory = await PoolFactory.deploy();
 
   // Option Pricer
   const optionPricer = await createOptionPricer();
@@ -32,7 +29,7 @@ const initVault = async (owner) => {
   await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
 
-  return { usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket, signatureValidator };
+  return { usdc, spotPricer, optionPricer, config, vault, optionMarket, signatureValidator };
 };
 
 describe('Vault', () => {
@@ -40,16 +37,16 @@ describe('Vault', () => {
   let now = 1667548800;
 
   before(async () => {
-    [PoolFactory, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [owner, trader, liquidator] = accounts;
   });
 
   describe('#Admin', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket, signatureValidator;
+    let usdc, spotPricer, optionPricer, config, vault, optionMarket, signatureValidator;
 
     before(async () => {
-      ({ usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket, signatureValidator } = await initVault(owner));
+      ({ usdc, spotPricer, optionPricer, config, vault, optionMarket, signatureValidator } = await initVault(owner));
 
       const reservedRates = [
         toDecimalStr(0.3),
@@ -60,7 +57,7 @@ describe('Vault', () => {
 
       for (let i = 0; i < reservedRates.length; i++) {
         const reservedRate = reservedRates[i];
-        const { pool } = await createPool(poolFactory, vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
+        const { pool } = await createPool(vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
         await config.addPool(pool.address);
         await pool.setReservedRate(reservedRate);
       }
@@ -191,10 +188,10 @@ describe('Vault', () => {
   });
 
   describe('#Trader', () => {
-    let usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket;
+    let usdc, spotPricer, optionPricer, config, vault, optionMarket;
 
     before(async () => {
-      ({ usdc, spotPricer, poolFactory, optionPricer, config, vault, optionMarket } =
+      ({ usdc, spotPricer, optionPricer, config, vault, optionMarket } =
         await initVault(owner));
 
       const reservedRates = [
@@ -206,7 +203,7 @@ describe('Vault', () => {
 
       for (let i = 0; i < reservedRates.length; i++) {
         const reservedRate = reservedRates[i];
-        const { pool } = await createPool(poolFactory, vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
+        const { pool } = await createPool(vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
         await config.addPool(pool.address);
         await pool.setReservedRate(reservedRate);
       }
@@ -286,10 +283,10 @@ describe('Vault', () => {
 
   describe('#Liquidator', () => {
     let error;
-    let usdc, spotPricer, poolFactory, settler, optionPricer, config, vault, optionMarket;
+    let usdc, spotPricer, settler, optionPricer, config, vault, optionMarket;
 
     before(async () => {
-      ({usdc, spotPricer, poolFactory, settler, optionPricer, config, vault, optionMarket} = await initVault(owner));
+      ({usdc, spotPricer, settler, optionPricer, config, vault, optionMarket} = await initVault(owner));
 
       const reservedRates = [
         toDecimalStr(0.3),
@@ -300,7 +297,7 @@ describe('Vault', () => {
 
       for (let i = 0; i < reservedRates.length; i++) {
         const reservedRate = reservedRates[i];
-        const { pool } = await createPool(poolFactory, vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
+        const { pool } = await createPool(vault.address, `Pool ${i} Share`, `P${i}-SHARE`);
         await config.addPool(pool.address);
         await pool.setReservedRate(reservedRate);
       }

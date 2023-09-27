@@ -15,15 +15,14 @@ describe('PoolToken', async () => {
   describe('#initialize', () => {
     context('when initialize once', () => {
       it('should pass', async () => {
-        assert.equal(await poolToken.initialized(), true);
         assert.equal(await poolToken.name(), 'NAME');
         assert.equal(await poolToken.symbol(), 'SYMBOL');
       });
     });
 
     context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(poolToken.initialize(accounts[1].address, 'NAME2', 'SYMBOL2'), 'already initialized');
+      it('should revert with "Initializable: contract is already initialized"', async () => {
+        await expectRevert(poolToken.initialize(accounts[1].address, 'NAME2', 'SYMBOL2'), 'Initializable: contract is already initialized');
       });
     });
   });

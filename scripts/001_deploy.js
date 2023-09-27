@@ -32,7 +32,7 @@ const {
   vaultContract,
   chainlinkContract,
   chainlinkProxyContract,
-  poolFactoryContract,
+  poolContract,
   setIvs,
   chainlinkDeployable,
   isChainlinkSystem
@@ -67,28 +67,28 @@ async function setupIvs(optionMarket, optionPricer) {
   }
 }
 
-async function createPools(vault, config, poolFactory) {
+async function createPools(vault, config) {
   const reservedRates = [
     toDecimalStr(0.3),
     toDecimalStr(0.2),
     toDecimalStr(0.1),
     toDecimalStr(0)
   ];
-  const pools = [];
   const addedPools = await config.getPools();
   for (let i = addedPools.length; i < 4; ++i) {
     console.log(`create pool ${i}...`);
     const salt = i.toString(16).padStart(64, '0');
-    let result = await (await poolFactory.create(vault.address, `Pool ${i} Share`, `P${i}-SHARE`, `0x${salt}`)).wait();
-    const create = result.events.find((e) => e.event === 'Create').args;
-    console.log(create.pool);
+    const poolToken = await deployProxy({ contract: 'PoolToken' });
+    const pool = await deployProxy({ contract: poolContract });
+    console.log('poolToken.initialize...');
+    await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
+    console.log('pool.initialize...');
+    await (await pool.initialize(vault.address, poolToken.address)).wait();
     console.log('addPool...')
-    await config.addPool(create.pool);
-    const pool = await ethers.getContractAt('Pool', create.pool);
+    await config.addPool(pool.address);
     const reservedRate = reservedRates[i] || reservedRates[0];
     console.log('setReservedRate...')
     await pool.setReservedRate(reservedRate);
-    pools.push(create.pool);
   }
 }
 
@@ -184,7 +184,6 @@ async function main() {
     console.log('spotPricer.reinitialize...');
     await spotPricer.reinitialize(oracleAddress);
   }
-  const poolFactory = await getOrDeploy(process.env.FACTORY, { contract: poolFactoryContract });
   const settler = await getOrDeploy(process.env.SETTLER, { contract: 'Settler' });
   const optionPricer = await getOrDeployProxy(process.env.OPTION_PRICER, { contract: optionPricerContract });
   const optionMarket = await getOrDeployProxy(process.env.OPTION_MARKET, {
@@ -236,7 +235,7 @@ async function main() {
   }
 
   await setupCdf(optionPricer);
-  await createPools(vault, config, poolFactory);
+  await createPools(vault, config);
   if (!isProduction) {
     await setupIvs(optionMarket, optionPricer);
   }
@@ -282,7 +281,6 @@ async function main() {
   console.log(`SPOT_PRICER=${spotPricer.address.toLowerCase()}`);
   console.log(`OPTION_PRICER=${optionPricer.address.toLowerCase()}`);
   console.log(`OPTION_MARKET=${optionMarket.address.toLowerCase()}`);
-  console.log(`FACTORY=${poolFactory.address.toLowerCase()}`);
   console.log(`REWARD_DISTRIBUTOR=${rewardDistributor.address.toLowerCase()}`);
   console.log(`SIGNATURE_VALIDATOR=${signatureValidator.address.toLowerCase()}`);
   console.log(`SETTLER=${settler.address.toLowerCase()}`);
@@ -310,7 +308,6 @@ async function main() {
   console.log(`process.env.SPOT_PRICER='${spotPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_PRICER='${optionPricer.address.toLowerCase()}'`);
   console.log(`process.env.OPTION_MARKET='${optionMarket.address.toLowerCase()}'`);
-  console.log(`process.env.FACTORY='${poolFactory.address.toLowerCase()}'`);
   console.log(`process.env.REWARD_DISTRIBUTOR='${rewardDistributor.address.toLowerCase()}'`);
   console.log(`process.env.SIGNATURE_VALIDATOR='${signatureValidator.address.toLowerCase()}'`);
   console.log(`process.env.SETTLER='${settler.address.toLowerCase()}'`);

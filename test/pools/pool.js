@@ -2,15 +2,15 @@ const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
 
-let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
+let Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, poolFactory, pool, config, signatureValidator;
+  let spotPricer, optionPricer, vault, pool, poolToken, config, signatureValidator;
 
   const createDefaultPool = async (vault, config) => {
-    const { pool, poolToken } = await createPool(poolFactory, vault.address, 'NAME', 'SYMBOL');
+    const { pool, poolToken } = await createPool(vault.address, 'NAME', 'SYMBOL');
     await config.addPool(pool.address);
     return { pool, poolToken };
   };
@@ -52,25 +52,25 @@ describe('Pool', () => {
   };
 
   before(async () => {
-    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
-    poolFactory = await PoolFactory.deploy();
     optionPricer = await createOptionPricer();
     signatureValidator = await createSignatureValidator();
-    ({ pool, config } = await setup());
+    ({ vault, pool, poolToken, config } = await setup());
   });
 
   describe('#initialize', () => {
     context('when initialize once', () => {
       it('should pass', async () => {
-        assert.equal(await pool.initialized(), true);
+        assert.equal(await pool.vault(), vault.address);
+        assert.equal(await pool.token(), poolToken.address);
       });
     });
 
     context('when initialize twice', () => {
-      it('should revert with "already initialized"', async () => {
-        await expectRevert(pool.initialize(accounts[1].address, accounts[1].address, accounts[1].address), 'already initialized');
+      it('should revert with "Initializable: contract is already initialized"', async () => {
+        await expectRevert(pool.initialize(accounts[1].address, accounts[1].address), 'Initializable: contract is already initialized');
       });
     });
   });

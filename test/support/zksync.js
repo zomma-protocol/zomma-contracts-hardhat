@@ -70,15 +70,6 @@ async function getContractFactories(...contracts) {
   return contractFactories;
 }
 
-async function createPool(poolFactory, ...args) {
-  const [PoolToken, Pool] = await getContractFactories('PoolToken', 'Pool')
-  const poolToken = await PoolToken.deploy();
-  const pool = await Pool.deploy();
-  await poolToken.initialize(pool.address,args[1], args[2]);
-  await (await pool.initialize(args[0], poolToken.address, wallets[0].address)).wait();
-  return { pool, poolToken };
-}
-
 async function zksyncGetContractFactory(contract) {
   const artifact = await deployer.loadArtifact(contract);
   return {
@@ -90,6 +81,5 @@ async function zksyncGetContractFactory(contract) {
 
 module.exports = {
   wallets,
-  getContractFactories,
-  createPool
+  getContractFactories
 };

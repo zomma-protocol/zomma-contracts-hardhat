@@ -2,16 +2,16 @@ const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { signData, withSignedData, ivsToPrices, getContractFactories, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, INT_MAX, toBigNumber, expectRevertCustom } = require('../../support/helper');
 
-let PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
+let Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('SignedPool', () => {
   let stakeholderAccount;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, poolFactory, pool, config, signatureValidator, signedData;
+  let spotPricer, optionPricer, pool, config, signatureValidator, signedData;
 
   const createDefaultPool = async (vault, config) => {
-    const { pool, poolToken } = await createPool(poolFactory, vault.address, 'NAME', 'SYMBOL');
+    const { pool, poolToken } = await createPool(vault.address, 'NAME', 'SYMBOL', 'SignedPool');
     await config.addPool(pool.address);
     return { pool, poolToken };
   };
@@ -54,11 +54,10 @@ describe('SignedPool', () => {
   };
 
   before(async () => {
-    [PoolFactory, Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('SignedPoolFactory', 'SignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer');
+    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('SignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
-    poolFactory = await PoolFactory.deploy();
     optionPricer = await createOptionPricer('SignedOptionPricer');
     signatureValidator = await createSignatureValidator();
     ({ pool, config } = await setup());

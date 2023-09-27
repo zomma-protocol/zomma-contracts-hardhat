@@ -2,11 +2,10 @@ const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
 const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX } = require('./support/helper');
 
-let PoolFactory, Config, Vault, OptionMarket, TestERC20, SpotPricer;
+let Config, Vault, OptionMarket, TestERC20, SpotPricer;
 async function setup(stakeholderAccount, insuranceAccount) {
   const usdc = await TestERC20.deploy('USDC', 'USDC', 6);
   const spotPricer = await SpotPricer.deploy();
-  const poolFactory = await PoolFactory.deploy();
   const optionPricer = await createOptionPricer();
   const config = await Config.deploy();
   const optionMarket = await OptionMarket.deploy();
@@ -17,11 +16,11 @@ async function setup(stakeholderAccount, insuranceAccount) {
   await optionMarket.initialize();
   await optionMarket.setVault(vault.address);
   await optionPricer.reinitialize(config.address, vault.address);
-  return { poolFactory, config, vault, usdc, spotPricer, optionPricer, optionMarket };
+  return { config, vault, usdc, spotPricer, optionPricer, optionMarket };
 };
 
-async function createDefaultPool(poolFactory, vault) {
-  const { pool } = await createPool(poolFactory, vault.address, `Pool 0 Share`, `P0-SHARE`);
+async function createDefaultPool(vault) {
+  const { pool } = await createPool(vault.address, `Pool 0 Share`, `P0-SHARE`);
   return pool
 }
 
@@ -44,13 +43,13 @@ async function trade(vault, optionMarket, usdc, spotPricer, optionPricer, trader
 
 describe('Config', () => {
   let stakeholderAccount, insuranceAccount, account1, account2;
-  let poolFactory, config, vault, optionMarket, pool, usdc;
+  let config, vault, optionMarket, pool, usdc;
 
   before(async () => {
-    [PoolFactory, Config, Vault, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('PoolFactory', 'Config', 'TestVault', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
+    [Config, Vault, OptionMarket, TestERC20, SpotPricer] = await getContractFactories('Config', 'TestVault', 'TestOptionMarket', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount, insuranceAccount, account1, account2] = accounts;
-    ({ poolFactory, config, vault, usdc, optionMarket } = await setup(stakeholderAccount, insuranceAccount));
+    ({ config, vault, usdc, optionMarket } = await setup(stakeholderAccount, insuranceAccount));
   });
 
   describe('#initialize', () => {
@@ -753,7 +752,7 @@ describe('Config', () => {
       context('when pool enable', () => {
         context('when contract account', () => {
           before(async () => {
-            pool = await createDefaultPool(poolFactory, vault);
+            pool = await createDefaultPool(vault);
             await config.addPool(pool.address);
           });
 
@@ -807,10 +806,10 @@ describe('Config', () => {
         before(async () => {
           const length = 10 - (await config.getPools()).length;
           for (let i = 0; i < length; ++i) {
-            pool = await createDefaultPool(poolFactory, vault);
+            pool = await createDefaultPool(vault);
             await config.addPool(pool.address);
           }
-          pool = await createDefaultPool(poolFactory, vault);
+          pool = await createDefaultPool(vault);
         });
 
         it('should revert with TooManyPools', async () => {
@@ -827,11 +826,11 @@ describe('Config', () => {
   });
 
   describe('#removePool', () => {
-    let poolFactory, config, vault, optionMarket, usdc, spotPricer, optionPricer, pool;
+    let config, vault, optionMarket, usdc, spotPricer, optionPricer, pool;
 
     before(async () => {
-      ({ poolFactory, config, vault, optionMarket, usdc, spotPricer, optionPricer } = await setup(stakeholderAccount, insuranceAccount));
-      pool = await createDefaultPool(poolFactory, vault);
+      ({ config, vault, optionMarket, usdc, spotPricer, optionPricer } = await setup(stakeholderAccount, insuranceAccount));
+      pool = await createDefaultPool(vault);
       await config.addPool(pool.address);
     });
 
@@ -840,10 +839,10 @@ describe('Config', () => {
         let pool2, pool3;
 
         before(async () => {
-          pool2 = await createDefaultPool(poolFactory, vault);
+          pool2 = await createDefaultPool(vault);
           await config.addPool(pool2.address);
 
-          pool3 = await createDefaultPool(poolFactory, vault);
+          pool3 = await createDefaultPool(vault);
           await config.addPool(pool3.address);
         });
 

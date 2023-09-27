@@ -35,19 +35,11 @@ async function createPools(vault, config) {
     toDecimalStr(0.1),
     toDecimalStr(0)
   ];
-  const pools = [];
   const addedPools = await config.getPools();
   for (let i = addedPools.length; i < 2; ++i) {
     console.log(`create pool ${i}...`);
-
-    const poolToken = await deploy({
-      contract: 'PoolToken'
-    });;
-
-    const pool = await deploy({
-      contract: poolContract
-    });
-
+    const poolToken = await deployProxy({ contract: 'PoolToken' });
+    const pool = await deployProxy({ contract: poolContract });
     console.log('poolToken.initialize...');
     await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
     console.log('pool.initialize...');
@@ -57,7 +49,6 @@ async function createPools(vault, config) {
     const reservedRate = reservedRates[i] || reservedRates[0];
     console.log('setReservedRate...')
     await pool.setReservedRate(reservedRate);
-    pools.push(pool.address);
   }
 }
 
