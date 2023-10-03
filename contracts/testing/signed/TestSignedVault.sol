@@ -10,6 +10,10 @@ contract TestSignedVault is SignedVault {
     timestamp = _timestamp;
   }
 
+  function getTimestampPublic() external view returns (uint) {
+    return getTimestamp();
+  }
+
   function getTimestamp() internal view override returns (uint) {
     return timestamp == 0 ? block.timestamp : timestamp;
   }

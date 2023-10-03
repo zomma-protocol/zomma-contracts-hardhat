@@ -20,6 +20,7 @@ describe('Pool', () => {
     const config = await Config.deploy();
     const optionMarket = await OptionMarket.deploy();
     const vault = await Vault.deploy();
+    await vault.setTimestamp(now);
     await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
     await config.initialize(vault.address, ZERO_ADDRESS, ZERO_ADDRESS, usdc.address, decimals);
     await config.setPoolProportion(toDecimalStr(1));
@@ -52,7 +53,7 @@ describe('Pool', () => {
   };
 
   before(async () => {
-    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('Pool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
+    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('TestPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
@@ -500,7 +501,7 @@ describe('Pool', () => {
       context('when withdraw all', () => {
         before(async () => {
           await setupDeposit(pool, usdc, accounts[1]);
-          await pool.connect(accounts[1]).withdraw(toDecimalStr(1000), '0');
+          await pool.connect(accounts[1]).withdraw(toDecimalStr(1000), '0', now);
         });
 
         it('should get all', async () => {
@@ -513,7 +514,7 @@ describe('Pool', () => {
       context('when withdraw partial', () => {
         before(async () => {
           await setupDeposit(pool, usdc, accounts[2]);
-          await pool.connect(accounts[2]).withdraw(toDecimalStr(100), '0');
+          await pool.connect(accounts[2]).withdraw(toDecimalStr(100), '0', now);
         });
 
         it('should have fee', async () => {
@@ -541,7 +542,7 @@ describe('Pool', () => {
         before(async () => {
           ({ vault, config, pool, poolToken, usdc, sharePrice } = await subSetup());
           await pool.setFreeWithdrawableRate(toDecimalStr(0.99));
-          await pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0');
+          await pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0', now);
           const accountInfo = await vault.getAccountInfo(pool.address);
           sharePrice2 = toBigNumber(accountInfo.equity).div(999);
         });
@@ -564,7 +565,7 @@ describe('Pool', () => {
 
         context('when other pool not available', () => {
           it('should revert with Unavailable', async () => {
-            await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0'), optionPricer, 'Unavailable');
+            await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), '0', now), optionPricer, 'Unavailable');
           });
         });
 
@@ -576,13 +577,13 @@ describe('Pool', () => {
 
           context('when unacceptable', () => {
             it('should revert with "unacceptable amount"', async () => {
-              await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596914')), Vault, 'UnacceptableAmount');
+              await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596914'), now), Vault, 'UnacceptableAmount');
             });
           });
 
           context('when acceptable', () => {
             before(async () => {
-              await pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596913'));
+              await pool.connect(accounts[1]).withdraw(toDecimalStr(1), toDecimalStr('1.008649863719596913'), now);
               const accountInfo = await vault.getAccountInfo(pool.address);
               sharePrice2 = toBigNumber(accountInfo.equity).div(999);
             });

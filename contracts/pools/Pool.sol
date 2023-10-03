@@ -4,15 +4,17 @@ pragma solidity 0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "../utils/Timestamp.sol";
 import "../Vault.sol";
 import "../OptionMarket.sol";
 import "../Config.sol";
+import "../SignatureValidator.sol";
 import "./PoolToken.sol";
 
 /**
  * @dev Pool contract is for makers to deposit.
  */
-contract Pool is OwnableUpgradeable {
+contract Pool is OwnableUpgradeable, Timestamp {
   using SafeDecimalMath for uint;
   using SafeERC20 for IERC20;
 
@@ -29,10 +31,14 @@ contract Pool is OwnableUpgradeable {
   uint private constant MAX_WITHDRAW_FEE_RATE = 100000000000000000; // 10%
   uint private constant MAX_FREE_WITHDRAWABLE_RATE = 1000000000000000000; // 100%
 
+  // keccak256("Withdraw(uint256 shares,uint256 acceptableAmount,uint256 deadline,uint256 gasFee,uint256 nonce)")
+  bytes32 private constant WITHDRAW_TYPEHASH = 0x6682ff92be6125d0901e00bd816fac22de7a8851a4b6b028961990f61878c873;
+
   IERC20 public quoteAsset;
   Vault public vault;
   PoolToken public token;
   Config public config;
+  SignatureValidator public signatureValidator;
   uint public quoteDecimal;
   uint public zlmRate;
   uint public bonusRate;
@@ -41,12 +47,13 @@ contract Pool is OwnableUpgradeable {
 
   event ConfigChange(ChangeType changeType, bytes value);
   event Deposit(address account, uint amount, uint shares);
-  event Withdraw(address account, uint amount, uint shares, uint fee);
+  event Withdraw(address account, uint amount, uint shares, uint fee, uint gasFee);
 
   error OutOfRange();
   error ZeroAmount();
   error ZeroShare();
   error Bankruptcy();
+  error Expired();
 
   /**
   * @dev Initalize method. Can call only once.
@@ -62,6 +69,7 @@ contract Pool is OwnableUpgradeable {
     vault = Vault(_vault);
     token = PoolToken(_token);
     config = Config(vault.config());
+    signatureValidator = SignatureValidator(vault.signatureValidator());
     quoteDecimal = config.quoteDecimal();
     quoteAsset = IERC20(config.quote());
     quoteAsset.safeIncreaseAllowance(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
@@ -108,15 +116,15 @@ contract Pool is OwnableUpgradeable {
   * @dev Deposit and get shares. Will get bonus when hf < 0.8.
   * @param amount: Amount to deposit. In decimals 18.
   */
-  function deposit(uint256 amount) external {
+  function deposit(uint amount) external {
     amount = amount.truncate(quoteDecimal);
     if (amount == 0) {
       revert ZeroAmount();
     }
     transferFrom(msg.sender, address(this), amount);
     IVault.AccountInfo memory accountInfo = getAccountInfo(address(this));
-    uint256 totalSupply = token.totalSupply();
-    uint256 shares;
+    uint totalSupply = token.totalSupply();
+    uint shares;
     if (totalSupply == 0) {
       shares = amount;
     } else {
@@ -145,20 +153,42 @@ contract Pool is OwnableUpgradeable {
     emit Deposit(msg.sender, amount, shares);
   }
 
+  function withdrawBySignature(uint shares, uint acceptableAmount, uint deadline, uint gasFee, uint nonce, uint8 v, bytes32 r, bytes32 s) external {
+    if (int(gasFee) < 0) {
+      revert OutOfRange();
+    }
+    bytes memory aheadEncodedData = abi.encode(WITHDRAW_TYPEHASH, shares, acceptableAmount, deadline, gasFee);
+    address signer = signatureValidator.recoverAndUseNonce(aheadEncodedData, nonce, v, r, s);
+    internalWithdraw(shares, acceptableAmount, deadline, gasFee, signer, msg.sender);
+  }
+
   /**
   * @dev Burn shares and withdraw. It will be charged a withdrawal fee. (Default is 0.1%)
   * @param shares: Share to burn for withdrawal. In decimals 18.
   * @param acceptableAmount: Acceptable amount after slippage. In decimals 18.
   */
-  function withdraw(uint256 shares, uint acceptableAmount) external {
-    uint256 totalSupply = token.totalSupply();
+  function withdraw(uint shares, uint acceptableAmount, uint deadline) external {
+    internalWithdraw(shares, acceptableAmount, deadline, 0, msg.sender, msg.sender);
+  }
+
+  function internalWithdraw(uint shares, uint acceptableAmount, uint deadline, uint gasFee, address account, address gasReceiver) internal virtual {
+    if (getTimestamp() > deadline) {
+      revert Expired();
+    }
+    uint totalSupply = token.totalSupply();
     uint rate = shares.decimalDiv(totalSupply);
     uint afterFeeRate = rate == ONE ? rate : rate.decimalMul(ONE - withdrawFeeRate);
-    token.burn(msg.sender, shares);
+    token.burn(account, shares);
     uint amount = withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
-    transfer(msg.sender, amount);
+    uint amountAfterGas = amount;
+    gasFee = gasFee.truncate(quoteDecimal);
+    if (gasFee > 0) {
+      amountAfterGas = amount - gasFee;
+      transfer(gasReceiver, gasFee);
+    }
+    transfer(account, amountAfterGas);
     uint fee = rate == ONE ? 0 : amount.decimalDiv(ONE - withdrawFeeRate).decimalMul(withdrawFeeRate);
-    emit Withdraw(msg.sender, amount, shares, fee);
+    emit Withdraw(account, amount, shares, fee, gasFee);
   }
 
   function transfer(address to, uint amount) private {
@@ -181,5 +211,5 @@ contract Pool is OwnableUpgradeable {
     return vault.withdrawPercent(rate, acceptableAmount, _freeWithdrawableRate);
   }
 
-  uint[41] private __gap;
+  uint[40] private __gap;
 }

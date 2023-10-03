@@ -11,7 +11,7 @@ describe('SignedPool', () => {
   let spotPricer, optionPricer, pool, config, signatureValidator, signedData;
 
   const createDefaultPool = async (vault, config) => {
-    const { pool, poolToken } = await createPool(vault.address, 'NAME', 'SYMBOL', 'SignedPool');
+    const { pool, poolToken } = await createPool(vault.address, 'NAME', 'SYMBOL', 'TestSignedPool');
     await config.addPool(pool.address);
     return { pool, poolToken };
   };
@@ -35,9 +35,10 @@ describe('SignedPool', () => {
     spot = toDecimalStr(1000),
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
-    nowTime = now
+    nowTime = now,
+    skipCheckOwner = 0
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, skipCheckOwner);
   };
 
   const setupDeposit = async (pool, usdc, from, signedData, decimals = 6) => {
@@ -50,18 +51,18 @@ describe('SignedPool', () => {
     await usdc.mint(stakeholderAccount.address, toDecimalStr(1000, decimals));
     await usdc.approve(vault.address, toDecimalStr(100000000000, decimals));
     await withSignedData(vault, signedData).deposit(toDecimalStr(1000));
-    await withSignedData(vault, await createSignedData({ nonce: vault.address })).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
+    await withSignedData(vault, await createSignedData()).trade([expiry, toDecimalStr(1100), 1, toDecimalStr(10), INT_MAX], now);
   };
 
   before(async () => {
-    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('SignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer');
+    [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer] = await getContractFactories('TestSignedPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestSignedVault', 'TestERC20', 'TestSpotPricer');
     accounts = await ethers.getSigners();
     [stakeholderAccount] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer('SignedOptionPricer');
     signatureValidator = await createSignatureValidator();
     ({ pool, config } = await setup());
-    signedData = await createSignedData();
+    signedData = await createSignedData({ skipCheckOwner: 1 });
   });
 
   describe('#deposit', () => {
@@ -312,7 +313,7 @@ describe('SignedPool', () => {
       context('when withdraw all', () => {
         before(async () => {
           await setupDeposit(pool, usdc, accounts[1], signedData);
-          await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1000), '0');
+          await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1000), '0', now);
         });
 
         it('should get all', async () => {
@@ -325,7 +326,7 @@ describe('SignedPool', () => {
       context('when withdraw partial', () => {
         before(async () => {
           await setupDeposit(pool, usdc, accounts[2], signedData);
-          await withSignedData(pool.connect(accounts[2]), signedData).withdraw(toDecimalStr(100), '0');
+          await withSignedData(pool.connect(accounts[2]), signedData).withdraw(toDecimalStr(100), '0', now);
         });
 
         it('should have fee', async () => {
@@ -353,7 +354,7 @@ describe('SignedPool', () => {
         before(async () => {
           ({ vault, config, pool, poolToken, usdc, sharePrice } = await subSetup());
           await pool.setFreeWithdrawableRate(toDecimalStr(0.99));
-          await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0');
+          await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0', now);
           const accountInfo = await withSignedData(vault, signedData).getAccountInfo(pool.address);
           sharePrice2 = toBigNumber(accountInfo.equity).div(999);
         });
@@ -376,7 +377,7 @@ describe('SignedPool', () => {
 
         context('when other pool not available', () => {
           it('should revert with Unavailable', async () => {
-            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0'), optionPricer, 'Unavailable');
+            await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), '0', now), optionPricer, 'Unavailable');
           });
         });
 
@@ -388,13 +389,13 @@ describe('SignedPool', () => {
 
           context('when unacceptable', () => {
             it('should revert with "unacceptable amount"', async () => {
-              await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), toDecimalStr('1.008650173069400929')), Vault, 'UnacceptableAmount');
+              await expectRevertCustom(withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), toDecimalStr('1.008650173069400929'), now), Vault, 'UnacceptableAmount');
             });
           });
 
           context('when acceptable', () => {
             before(async () => {
-              await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), toDecimalStr('1.008650173069400928'));
+              await withSignedData(pool.connect(accounts[1]), signedData).withdraw(toDecimalStr(1), toDecimalStr('1.008650173069400928'), now);
               const accountInfo = await withSignedData(vault, signedData).getAccountInfo(pool.address);
               sharePrice2 = toBigNumber(accountInfo.equity).div(999);
             });

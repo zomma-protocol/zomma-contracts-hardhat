@@ -30,7 +30,7 @@ describe('Vault', () => {
 
   const tradeBySignature = async (vault, signer, data, deadline, gasFee, signedData = null) => {
     if (!signedData) {
-      signedData = await createSignedData({ nonce: vault.address });
+      signedData = await createSignedData();
     }
     return withSignedData(vault, signedData).tradeBySignature(...(await signTrade(signatureValidator, signer, data, deadline, gasFee)))
   };

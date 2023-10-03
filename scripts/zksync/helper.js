@@ -31,7 +31,7 @@ async function deploy({ contract, deployed, args = [] }) {
   const artifact = await deployer.loadArtifact(contract);
   console.log(`deploy ${contract}...`);
   const instance = await deployer.deploy(artifact, args);
-  console.log(instance.address.toLocaleLowerCase());
+  console.log(instance.address);
   if (deployed) {
     await deployed(instance);
   }
@@ -51,7 +51,7 @@ async function deployProxy({ contract, deployed, args = [] }) {
   console.log(`deploy ${contract} Proxy...`);
   const instance = await deployer.hre.zkUpgrades.deployProxy(deployer.zkWallet, artifact, [], { initializer: false });
   await instance.deployed();
-  console.log(instance.address.toLocaleLowerCase());
+  console.log(instance.address);
   console.log(`${contract} Admin`, (await upgrades.erc1967.getAdminAddress(instance.address)));
   console.log(`${contract} Implementation`, (await upgrades.erc1967.getImplementationAddress(instance.address)));
   if (deployed) {

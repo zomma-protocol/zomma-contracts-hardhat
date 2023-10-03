@@ -11,6 +11,13 @@ import "../../pools/Pool.sol";
 contract SignedPool is Pool {
   using Address for address;
 
+  function internalWithdraw(uint shares, uint acceptableAmount, uint deadline, uint gasFee, address account, address gasReceiver) internal override {
+    super.internalWithdraw(shares, acceptableAmount, deadline, gasFee, account, gasReceiver);
+    if (getSkipCheckOwner() != 1) {
+      _checkOwner();
+    }
+  }
+
   function getAccountInfo(address addr) internal view override returns (IVault.AccountInfo memory) {
     bytes memory data = abi.encodePacked(abi.encodeWithSelector(vault.getAccountInfo.selector, addr), getData());
     bytes memory returnData = address(vault).functionStaticCall(data);
@@ -30,10 +37,10 @@ contract SignedPool is Pool {
 
   function getData() internal pure returns (bytes memory) {
     uint dataLength = getDataLength();
-    uint leng = dataLength << 5;
-    bytes memory data = new bytes(leng);
+    uint dataBytes = dataLength << 5;
+    bytes memory data = new bytes(dataBytes);
     assembly {
-      calldatacopy(add(data, 32), sub(calldatasize(), leng), leng)
+      calldatacopy(add(data, 32), sub(calldatasize(), dataBytes), dataBytes)
     }
     return data;
   }
@@ -46,5 +53,13 @@ contract SignedPool is Pool {
       )
     }
     return dataLength;
+  }
+
+  function getSkipCheckOwner() internal pure returns (uint skipCheckOwner) {
+    uint dataLength = getDataLength();
+    uint dataBytes = dataLength << 5;
+    assembly {
+      skipCheckOwner := calldataload(add(sub(calldatasize(), dataBytes), 128))
+    }
   }
 }

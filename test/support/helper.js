@@ -265,6 +265,38 @@ async function signTrade(signatureValidator, signer, data, deadline, gasFee, non
   return [data, deadline, gasFee, nonce, vrs.v, vrs.r, vrs.s];
 }
 
+async function signPoolWithdraw(signatureValidator, signer, shares, acceptableAmount, deadline, gasFee, nonce = null) {
+  const chainId = (await signer.provider.getNetwork()).chainId;
+  const domain = {
+    name: 'SignatureValidator',
+    version: '1',
+    chainId: chainId,
+    verifyingContract: signatureValidator.address
+  };
+
+  const types = {
+    Withdraw: [
+      {name: 'shares', type: 'uint256'},
+      {name: 'acceptableAmount', type: 'uint256'},
+      {name: 'deadline', type: 'uint256'},
+      {name: 'gasFee', type: 'uint256'},
+      {name: 'nonce', type: 'uint256'}
+    ]
+  };
+  if (nonce === null) {
+    nonce = await signatureValidator.nonces(signer.address);
+  }
+
+  const value = { nonce, gasFee, shares, acceptableAmount, deadline };
+  const sig = await signer._signTypedData(
+    domain,
+    types,
+    value
+  );
+  const vrs = ethers.utils.splitSignature(sig);
+  return [shares, acceptableAmount, deadline, gasFee, nonce, vrs.v, vrs.r, vrs.s];
+}
+
 async function createOptionPricer(contract = 'TestCacheOptionPricer') {
   const [OptionPricer] = await getContractFactories(contract);
   const optionPricer = await OptionPricer.deploy();
@@ -299,7 +331,7 @@ async function watchBalance(contract, addresses, func) {
   return balanceChanges;
 }
 
-async function createPool(vaultAddress, tokenName, tokenSymbol, poolContract = 'Pool') {
+async function createPool(vaultAddress, tokenName, tokenSymbol, poolContract = 'TestPool') {
   const [PoolToken, Pool] = await getContractFactories('PoolToken', poolContract);
   const poolToken = await PoolToken.deploy();
   const pool = await Pool.deploy();
@@ -336,7 +368,7 @@ async function getSigners() {
 
 module.exports = {
   getSigners, signData, withSignedData, ivsToPrices, expectRevertWithoutReason,
-  expectRevert, expectRevertCustom, getContractFactories, createPool, signTrade,
+  expectRevert, expectRevertCustom, getContractFactories, createPool, signTrade, signPoolWithdraw,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
   toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, createSignatureValidator
 };

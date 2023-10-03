@@ -146,12 +146,13 @@ describe('Pool', () => {
     });
 
     it('should be able to unstake POOLs', async () => {
+      await vault.setTimestamp(now);
       const pools = await config.getPools();
-      const pool2 = await ethers.getContractAt('Pool', pools[1]);
+      const pool2 = await ethers.getContractAt('TestPool', pools[1]);
       const token2 = await ethers.getContractAt('PoolToken', await pool2.token());
 
       assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '7788');
-      await pool2.connect(trader).withdraw(toDecimalStr(7788), 0);
+      await pool2.connect(trader).withdraw(toDecimalStr(7788), 0, now);
       assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '0');
     });
   });

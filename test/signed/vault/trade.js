@@ -12,7 +12,6 @@ describe('SignedVault', () => {
   const createVault = async (configAddress, optionMarketAddress) => {
     const vault = await Vault.deploy();
     await vault.initialize(configAddress, spotPricer.address, optionPricer.address, optionMarketAddress, signatureValidator.address);
-    await vault.changeOwner(trader.address);
     return vault;
   }
 
@@ -32,9 +31,10 @@ describe('SignedVault', () => {
     spot = toDecimalStr(1000),
     ivs = [[expiry, strike, true, true, toDecimalStr(0.8), false], [expiry, strike, true, false, toDecimalStr(0.8), false]],
     expired = Math.floor(Date.now() / 1000) + 120,
-    nowTime = now
+    nowTime = now,
+    skipCheckOwner = 1
   } = {}) => {
-    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired);
+    return await signData(signatureValidator.address, stakeholderAccount, ivsToPrices(ivs, spot, nowTime), spot, expired, skipCheckOwner);
   };
 
   before(async () => {
@@ -137,14 +137,6 @@ describe('SignedVault', () => {
 
           context('when size is 1', () => {
             context('when trader not available', () => {
-              before(async() => {
-                await vault.connect(trader).changeOwner(trader2.address);
-              });
-
-              after(async() => {
-                await vault.connect(trader2).changeOwner(trader.address);
-              });
-
               it('should revert with Unavailable', async () => {
                 await expectRevertCustom(withSignedData(vault.connect(trader2), await createSignedData()).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), Vault, 'Unavailable');
               });
@@ -158,7 +150,7 @@ describe('SignedVault', () => {
 
             context('when missing iv', () => {
               it('should revert with InvalidMarket', async () => {
-                const signedData = await createSignedData({ ivs: [], nonce: vault.address });
+                const signedData = await createSignedData({ ivs: [] });
                 await expectRevertCustom(withSignedData(vault.connect(trader), signedData).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now), Vault, 'InvalidMarket');
               });
             });
@@ -287,11 +279,9 @@ describe('SignedVault', () => {
             context('when then other no balance account size -1', () => {
               before(async () => {
                 await withSignedData(vault.connect(trader), await createSignedData()).trade([expiry, strike, 1, toDecimalStr(1), INT_MAX], now);
-                await vault.connect(trader).changeOwner(pool3.address);
               });
 
               after(async () => {
-                await vault.connect(pool3).changeOwner(trader.address);
                 await reset();
               });
 
@@ -355,7 +345,7 @@ describe('SignedVault', () => {
                 let signedData;
 
                 beforeEach(async () => {
-                  signedData = await createSignedData({ spot: toDecimalStr(500), nonce: vault.address });
+                  signedData = await createSignedData({ spot: toDecimalStr(500) });
                 });
 
                 it('should revert with ZeroPrice', async () => {
@@ -430,7 +420,7 @@ describe('SignedVault', () => {
                   await withSignedData(vault.connect(trader), await createSignedData()).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
                   signedData2 = await createSignedData({ spot: toDecimalStr(1950) });
                   accountInfoBefore = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
-                  await withSignedData(vault.connect(trader), await createSignedData({ spot: toDecimalStr(1950), nonce: vault.address })).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now);
+                  await withSignedData(vault.connect(trader), await createSignedData({ spot: toDecimalStr(1950) })).trade([expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now);
                   accountInfoAfter = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
                   await reset();
                 });

@@ -43,7 +43,7 @@ async function createPools(vault, config) {
     console.log('poolToken.initialize...');
     await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
     console.log('pool.initialize...');
-    await (await pool.initialize(vault.address, poolToken.address, process.env.DEPLOYER)).wait();
+    await (await pool.initialize(vault.address, poolToken.address)).wait();
     console.log('addPool...')
     await config.addPool(pool.address);
     const reservedRate = reservedRates[i] || reservedRates[0];
