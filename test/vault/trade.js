@@ -464,19 +464,31 @@ describe('Vault', () => {
                 });
               });
 
-              context('when pool paused', () => {
-                before(async() => {
+              context('when pool paused and added pool2', () => {
+                let poolPosition, pool2Position;
+
+                before(async () => {
                   await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(-1), 0], now);
                   await config.setPoolPaused(pool.address, 1);
-                });
-
-                after(async() => {
+                  await mintAndDeposit(vault, usdc, pool2);
+                  await vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now);
+                  poolPosition = await vault.positionOf(pool.address, expiry, strike, true);
+                  pool2Position = await vault.positionOf(pool2.address, expiry, strike, true);
                   await config.setPoolPaused(pool.address, 2);
                   await reset();
+                  await vault.connect(pool2).withdrawPercent(toDecimalStr(1), 0, 0);
                 });
 
-                it('should revert with PoolUnavailable', async () => {
-                  await expectRevertCustom(vault.connect(trader).trade([expiry, strike, 1, toDecimalStr(2), INT_MAX], now), Vault, 'PoolUnavailable');
+                it('should be pool size 0', async () => {
+                  assert.equal(strFromDecimal(poolPosition.size), '0');
+                });
+
+                it('should be pool notional 0', async () => {
+                  assert.equal(strFromDecimal(poolPosition.notional), '0');
+                });
+
+                it('should be pool2 size 0.01', async () => {
+                  assert.equal(strFromDecimal(pool2Position.size), '-1');
                 });
               });
             });

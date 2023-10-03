@@ -2640,6 +2640,227 @@
           }
         }
       }
+    },
+    "6b541f4281bbdd39498cd3f40eeddab7c42b16907904543536a206874be403fd": {
+      "address": "0xb9F68be12C19FF0cB897259DF9F00b5368d54531",
+      "txHash": "0x9fb83c56f39b30e24203ea7eaaff2022360abc2db64d40a02ca1a14710ef6b96",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "balanceOf",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_mapping(t_address,t_int256)",
+            "contract": "Ledger",
+            "src": "contracts/Ledger.sol:18"
+          },
+          {
+            "label": "accountExpiries",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_mapping(t_address,t_array(t_uint256)dyn_storage)",
+            "contract": "Ledger",
+            "src": "contracts/Ledger.sol:19"
+          },
+          {
+            "label": "accountStrikes",
+            "offset": 0,
+            "slot": "2",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_array(t_uint256)dyn_storage))",
+            "contract": "Ledger",
+            "src": "contracts/Ledger.sol:20"
+          },
+          {
+            "label": "accountPositions",
+            "offset": 0,
+            "slot": "3",
+            "type": "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint256,t_mapping(t_bool,t_struct(Position)5880_storage))))",
+            "contract": "Ledger",
+            "src": "contracts/Ledger.sol:23"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "4",
+            "type": "t_array(t_uint256)46_storage",
+            "contract": "Ledger",
+            "src": "contracts/Ledger.sol:147"
+          },
+          {
+            "label": "config",
+            "offset": 0,
+            "slot": "50",
+            "type": "t_contract(Config)5865",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:95"
+          },
+          {
+            "label": "spotPricer",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_contract(SpotPricer)7768",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:96"
+          },
+          {
+            "label": "optionPricer",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_contract(IOptionPricer)15503",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:97"
+          },
+          {
+            "label": "optionMarket",
+            "offset": 0,
+            "slot": "53",
+            "type": "t_contract(OptionMarket)6925",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:98"
+          },
+          {
+            "label": "initialized",
+            "offset": 20,
+            "slot": "53",
+            "type": "t_bool",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:99"
+          },
+          {
+            "label": "owner",
+            "offset": 0,
+            "slot": "54",
+            "type": "t_address",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:100"
+          },
+          {
+            "label": "signatureValidator",
+            "offset": 0,
+            "slot": "55",
+            "type": "t_contract(SignatureValidator)7579",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:101"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "56",
+            "type": "t_array(t_uint256)43_storage",
+            "contract": "Vault",
+            "src": "contracts/Vault.sol:1236"
+          },
+          {
+            "label": "timestamp",
+            "offset": 0,
+            "slot": "99",
+            "type": "t_uint256",
+            "contract": "TestSignedVault",
+            "src": "contracts/testing/signed/TestSignedVault.sol:7"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)43_storage": {
+            "label": "uint256[43]",
+            "numberOfBytes": "1376"
+          },
+          "t_array(t_uint256)46_storage": {
+            "label": "uint256[46]",
+            "numberOfBytes": "1472"
+          },
+          "t_array(t_uint256)dyn_storage": {
+            "label": "uint256[]",
+            "numberOfBytes": "32"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(Config)5865": {
+            "label": "contract Config",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IOptionPricer)15503": {
+            "label": "contract IOptionPricer",
+            "numberOfBytes": "20"
+          },
+          "t_contract(OptionMarket)6925": {
+            "label": "contract OptionMarket",
+            "numberOfBytes": "20"
+          },
+          "t_contract(SignatureValidator)7579": {
+            "label": "contract SignatureValidator",
+            "numberOfBytes": "20"
+          },
+          "t_contract(SpotPricer)7768": {
+            "label": "contract SpotPricer",
+            "numberOfBytes": "20"
+          },
+          "t_int256": {
+            "label": "int256",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_array(t_uint256)dyn_storage)": {
+            "label": "mapping(address => uint256[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_int256)": {
+            "label": "mapping(address => int256)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_array(t_uint256)dyn_storage))": {
+            "label": "mapping(address => mapping(uint256 => uint256[]))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_mapping(t_uint256,t_mapping(t_uint256,t_mapping(t_bool,t_struct(Position)5880_storage))))": {
+            "label": "mapping(address => mapping(uint256 => mapping(uint256 => mapping(bool => struct Ledger.Position))))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_bool,t_struct(Position)5880_storage)": {
+            "label": "mapping(bool => struct Ledger.Position)",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_array(t_uint256)dyn_storage)": {
+            "label": "mapping(uint256 => uint256[])",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_bool,t_struct(Position)5880_storage))": {
+            "label": "mapping(uint256 => mapping(bool => struct Ledger.Position))",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_uint256,t_mapping(t_uint256,t_mapping(t_bool,t_struct(Position)5880_storage)))": {
+            "label": "mapping(uint256 => mapping(uint256 => mapping(bool => struct Ledger.Position)))",
+            "numberOfBytes": "32"
+          },
+          "t_struct(Position)5880_storage": {
+            "label": "struct Ledger.Position",
+            "members": [
+              {
+                "label": "size",
+                "type": "t_int256",
+                "offset": 0,
+                "slot": "0"
+              },
+              {
+                "label": "notional",
+                "type": "t_int256",
+                "offset": 0,
+                "slot": "1"
+              }
+            ],
+            "numberOfBytes": "64"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          }
+        }
+      }
     }
   }
 }
