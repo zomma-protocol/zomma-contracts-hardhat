@@ -229,6 +229,22 @@ describe('Vault', () => {
           });
         });
 
+        context('when then size 0.000000000000000001', () => {
+          const size = toDecimalStr('0.000000000000000001');
+
+          before(async () => {
+            await tradeBySignature(vault.connect(trader2), trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee);
+            accountInfoBefore = await vault.getAccountInfo(trader.address);
+            await tradeBySignature(vault.connect(trader2), trader, [expiry, strike, 1, size, INT_MAX], now, gasFee);
+            accountInfoAfter = await vault.getAccountInfo(trader.address);
+            await reset();
+          });
+
+          it('should decrease healthFactor', async () => {
+            assert.equal(accountInfoAfter.healthFactor.lt(accountInfoBefore.healthFactor), true);
+          });
+        });
+
         context('when hf < 1', () => {
           before(async () => {
             await tradeBySignature(vault.connect(trader2), trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee);
@@ -239,7 +255,7 @@ describe('Vault', () => {
             await spotPricer.setPrice(toDecimalStr(1000));
             await reset();
             await vault.connect(trader2).withdrawPercent(toDecimalStr(1), 0, 0);
-          })
+          });
 
           context('when then size 0.1', () => {
             let accountInfoBefore, accountInfoAfter;

@@ -65,7 +65,7 @@ describe('Pool', () => {
       const gasFee = new BigNumber(INT_MAX).plus(1).toString(10);
 
       it('should revert with OutOfRange', async () => {
-        await expectRevertCustom(withdrawBySignature(pool.connect(trader), trader, toDecimalStr(1000), '0', now, gasFee), Pool, 'OutOfRange');
+        await expectRevertCustom(withdrawBySignature(pool.connect(trader), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee), Pool, 'OutOfRange');
       });
     });
 
@@ -76,7 +76,7 @@ describe('Pool', () => {
       before(async () => {
         await setupDeposit(pool, usdc, trader);
         [traderChange] = await watchBalance(usdc, [trader.address], async () => {
-          await withdrawBySignature(pool.connect(trader), trader, toDecimalStr(1000), '0', now, gasFee);
+          await withdrawBySignature(pool.connect(trader), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
         });
       });
 
@@ -94,7 +94,7 @@ describe('Pool', () => {
         before(async () => {
           await setupDeposit(pool, usdc, trader);
           [traderChange] = await watchBalance(usdc, [trader.address], async () => {
-            await withdrawBySignature(pool.connect(trader), trader, toDecimalStr(1000), '0', now, gasFee);
+            await withdrawBySignature(pool.connect(trader), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
           });
         });
 
@@ -109,7 +109,7 @@ describe('Pool', () => {
         before(async () => {
           await setupDeposit(pool, usdc, trader);
           [traderChange, insuranceAccountChange] = await watchBalance(usdc, [trader.address, insuranceAccount.address], async () => {
-            await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr(1000), '0', now, gasFee);
+            await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
           });
         });
 
@@ -130,7 +130,7 @@ describe('Pool', () => {
       before(async () => {
         await setupDeposit(pool, usdc, trader);
         [traderChange, insuranceAccountChange] = await watchBalance(usdc, [trader.address, insuranceAccount.address], async () => {
-          await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr(1000), '0', now, gasFee);
+          await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
         });
       });
 

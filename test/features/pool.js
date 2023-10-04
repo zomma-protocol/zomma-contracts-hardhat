@@ -141,8 +141,8 @@ describe('Pool', () => {
       const token1 = await ethers.getContractAt('PoolToken', await pool1.token());
       const token2 = await ethers.getContractAt('PoolToken', await pool2.token());
 
-      assert.equal(strFromDecimal(await token1.balanceOf(trader.address)), '5566');
-      assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '7788');
+      assert.equal(strFromDecimal(await token1.balanceOf(trader.address)), '5565.999999999999999');
+      assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '7787.999999999999999');
     });
 
     it('should be able to unstake POOLs', async () => {
@@ -151,8 +151,8 @@ describe('Pool', () => {
       const pool2 = await ethers.getContractAt('TestPool', pools[1]);
       const token2 = await ethers.getContractAt('PoolToken', await pool2.token());
 
-      assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '7788');
-      await pool2.connect(trader).withdraw(toDecimalStr(7788), 0, now);
+      assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '7787.999999999999999');
+      await pool2.connect(trader).withdraw(toDecimalStr('7787.999999999999999'), 0, now);
       assert.equal(strFromDecimal(await token2.balanceOf(trader.address)), '0');
     });
   });

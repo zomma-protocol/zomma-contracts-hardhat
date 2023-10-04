@@ -872,18 +872,17 @@ contract Vault is IVault, Ledger, Timestamp {
       platformFee += fee;
       unchecked { i += 5; }
     }
-    if (origGasFee > 0) {
-      int availableAfter = internalGetAvailable(txCache, tradeInfo.account);
-      if (txCache.isTraderClosing) {
-        if (availableAfter < availableBefore) {
+    if (txCache.isTraderClosing) {
+      if (origGasFee > 0) {
+        int availableAfter = internalGetAvailable(txCache, tradeInfo.account);
+        if (availableAfter < 0 && availableAfter < availableBefore) {
           revert Unavailable();
         }
-      } else if (availableAfter < 0) {
-        revert Unavailable();
       }
-    } else if (!txCache.isTraderClosing && internalGetAvailable(txCache, tradeInfo.account) < 0) {
+    } else if (internalGetAvailable(txCache, tradeInfo.account) < 0) {
       revert Unavailable();
     }
+
     chargeFee(platformFee, FundType.Trade);
     afterTrade(txCache);
   }

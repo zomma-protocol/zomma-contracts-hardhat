@@ -30,6 +30,8 @@ contract Pool is OwnableUpgradeable, Timestamp {
   uint private constant MAX_BONUS_RATE = 1000000000000000000; // 100%
   uint private constant MAX_WITHDRAW_FEE_RATE = 100000000000000000; // 10%
   uint private constant MAX_FREE_WITHDRAWABLE_RATE = 1000000000000000000; // 100%
+  uint private constant MINIMUM_LIQUIDITY = 10**3;
+  address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
   // keccak256("Withdraw(uint256 shares,uint256 acceptableAmount,uint256 deadline,uint256 gasFee,uint256 nonce)")
   bytes32 private constant WITHDRAW_TYPEHASH = 0x6682ff92be6125d0901e00bd816fac22de7a8851a4b6b028961990f61878c873;
@@ -126,7 +128,8 @@ contract Pool is OwnableUpgradeable, Timestamp {
     uint totalSupply = token.totalSupply();
     uint shares;
     if (totalSupply == 0) {
-      shares = amount;
+      shares = amount - MINIMUM_LIQUIDITY;
+      token.mint(DEAD_ADDRESS, MINIMUM_LIQUIDITY);
     } else {
       if (accountInfo.equity <= 0) {
         revert Bankruptcy();
@@ -142,9 +145,9 @@ contract Pool is OwnableUpgradeable, Timestamp {
         adjustedAmount = (amount - bonusPart) + bonusPart.decimalMul(ONE + bonusRate);
       }
       shares = adjustedAmount * totalSupply / uint(accountInfo.equity);
-      if (shares == 0) {
-        revert ZeroShare();
-      }
+    }
+    if (shares == 0) {
+      revert ZeroShare();
     }
 
     token.mint(msg.sender, shares);
@@ -176,9 +179,16 @@ contract Pool is OwnableUpgradeable, Timestamp {
       revert Expired();
     }
     uint totalSupply = token.totalSupply();
-    uint rate = shares.decimalDiv(totalSupply);
-    uint afterFeeRate = rate == ONE ? rate : rate.decimalMul(ONE - withdrawFeeRate);
+    uint deadShares = token.balanceOf(DEAD_ADDRESS);
+    uint rate;
     token.burn(account, shares);
+    if (shares + deadShares == totalSupply) {
+      token.burn(DEAD_ADDRESS, deadShares);
+      rate = ONE;
+    } else {
+      rate = shares.decimalDiv(totalSupply);
+    }
+    uint afterFeeRate = rate == ONE ? rate : rate.decimalMul(ONE - withdrawFeeRate);
     uint amount = withdrawPercent(afterFeeRate, acceptableAmount, freeWithdrawableRate);
     uint amountAfterGas = amount;
     gasFee = gasFee.truncate(quoteDecimal);

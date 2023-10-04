@@ -1,6 +1,7 @@
 const assert = require('assert');
+const { expect } = require('chai');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX, toBigNumber } = require('../support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, buildIv, mergeIv, INT_MAX, DEAD_ADDRESS, toBigNumber } = require('../support/helper');
 
 let Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, accounts;
 describe('Pool', () => {
@@ -270,8 +271,15 @@ describe('Pool', () => {
             await setupDeposit(pool, usdc, accounts[1]);
           });
 
-          it('should get 1000 shares', async () => {
-            assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '1000');
+          it('should address(1) get 0.000000000000001 shares', async () => {
+            assert.equal(strFromDecimal(await poolToken.balanceOf(DEAD_ADDRESS)), '0.000000000000001');
+          });
+
+          it('should user get 999.999999999999999 shares', async () => {
+            assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '999.999999999999999');
+          });
+
+          it('should be balance 1000 in valut', async () => {
             assert.equal(strFromDecimal(await vault.balanceOf(pool.address)), '1000');
             assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 6), '9000');
           });
@@ -299,8 +307,15 @@ describe('Pool', () => {
             await pool2.connect(accounts[2]).deposit(toDecimalStr('0.0000019'));
           });
 
-          it('should get 0.000001 shares', async () => {
-            assert.equal(strFromDecimal(await poolToken2.balanceOf(accounts[2].address)), '0.000001');
+          it('should address(1) get 0.000000000000001 shares', async () => {
+            assert.equal(strFromDecimal(await poolToken.balanceOf(DEAD_ADDRESS)), '0.000000000000001');
+          });
+
+          it('should user get 0.000000999999999 shares', async () => {
+            assert.equal(strFromDecimal(await poolToken2.balanceOf(accounts[2].address)), '0.000000999999999');
+          });
+
+          it('should be balance 0.000001 in vault', async () => {
             assert.equal(strFromDecimal(await vault.balanceOf(pool2.address)), '0.000001');
             assert.equal(strFromDecimal(await usdc.balanceOf(accounts[2].address), 6), '9999.999999');
           });
@@ -322,15 +337,34 @@ describe('Pool', () => {
           });
         });
 
-        context('when deposit 0.0000000000000000019', () => {
+        context('when deposit 0.000000000000000999', () => {
+          it('should revert with Panic', async () => {
+            await expect(pool.connect(accounts[1]).deposit(toDecimalStr('0.000000000000000999'))).to.be.revertedWithPanic();
+          });
+        });
+
+        context('when deposit 0.000000000000001', () => {
+          it('should revert with ZeroShare', async () => {
+            await expectRevertCustom(pool.connect(accounts[1]).deposit(toDecimalStr('0.000000000000001')), Pool, 'ZeroShare');
+          });
+        });
+
+        context('when deposit 0.0000000000000010019', () => {
           before(async () => {
-            await pool.connect(accounts[1]).deposit(toDecimalStr('0.0000000000000000019'));
+            await pool.connect(accounts[1]).deposit(toDecimalStr('0.0000000000000010019'));
           });
 
-          it('should get 0.000000000000000001 shares', async () => {
+          it('should address(1) get 0.000000000000001 shares', async () => {
+            assert.equal(strFromDecimal(await poolToken.balanceOf(DEAD_ADDRESS)), '0.000000000000001');
+          });
+
+          it('should user get 0.000000000000000001 shares', async () => {
             assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '0.000000000000000001');
-            assert.equal(strFromDecimal(await vault.balanceOf(pool.address)), '0.000000000000000001');
-            assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 19), '9999.999999999999999999');
+          });
+
+          it('should be balance 0.000000000000001001 in vault', async () => {
+            assert.equal(strFromDecimal(await vault.balanceOf(pool.address)), '0.000000000000001001');
+            assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 19), '9999.999999999999998999');
           });
         });
       });
@@ -498,13 +532,20 @@ describe('Pool', () => {
         ({ vault, config, pool, poolToken, usdc } = await setup());
       });
 
+      context('when deadline', () => {
+        it('should revert with Expired', async () => {
+          await expectRevertCustom(pool.connect(accounts[1]).withdraw(toDecimalStr('999.999999999999999'), '0', now - 1), Pool, 'Expired');
+        });
+      });
+
       context('when withdraw all', () => {
         before(async () => {
           await setupDeposit(pool, usdc, accounts[1]);
-          await pool.connect(accounts[1]).withdraw(toDecimalStr(1000), '0', now);
+          await pool.connect(accounts[1]).withdraw(toDecimalStr('999.999999999999999'), '0', now);
         });
 
         it('should get all', async () => {
+          assert.equal(strFromDecimal(await poolToken.balanceOf(DEAD_ADDRESS)), '0');
           assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '0');
           assert.equal(strFromDecimal(await vault.balanceOf(pool.address)), '0');
           assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 6), '10000');
@@ -518,7 +559,7 @@ describe('Pool', () => {
         });
 
         it('should have fee', async () => {
-          assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[2].address)), '900');
+          assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[2].address)), '899.999999999999999');
           assert.equal(strFromDecimal(await vault.balanceOf(pool.address)), '900.1');
           assert.equal(strFromDecimal(await usdc.balanceOf(accounts[2].address), 6), '9099.9');
         });
@@ -550,7 +591,7 @@ describe('Pool', () => {
         it('should not reduce position', async () => {
           assert.equal(sharePrice2.gte(sharePrice), true);
           assert.equal(strFromDecimal(await vault.positionSizeOf(pool.address, expiry, strike, true)), '-10');
-          assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '999');
+          assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '998.999999999999999');
           assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 6), '9001.012928');
         });
       });
@@ -599,7 +640,7 @@ describe('Pool', () => {
             it('should reduce position', async () => {
               assert.equal(sharePrice2.gte(sharePrice), true);
               assert.equal(strFromDecimal(await vault.positionSizeOf(pool.address, expiry, strike, true)), '-9.99001');
-              assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '999');
+              assert.equal(strFromDecimal(await poolToken.balanceOf(accounts[1].address)), '998.999999999999999');
               assert.equal(strFromDecimal(await usdc.balanceOf(accounts[1].address), 6), '9001.008649');
             });
           });

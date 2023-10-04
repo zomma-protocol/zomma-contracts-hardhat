@@ -6,6 +6,7 @@ const ln = require('../../scripts/ln');
 const cdf = require('../../scripts/cdf');
 const { getContractFactories: zkSyncGetContractFactories, wallets } = require('./zksync');
 
+const DEAD_ADDRESS = '0x000000000000000000000000000000000000dead';
 const INT_MAX = '57896044618658097711785492504343953926634992332820282019728792003956564819967';
 const MAX_IV = new BigNumber('0xffffffffffffff');
 const ZKSYNC = process.env.ZKSYNC == '1';
@@ -370,5 +371,6 @@ module.exports = {
   getSigners, signData, withSignedData, ivsToPrices, expectRevertWithoutReason,
   expectRevert, expectRevertCustom, getContractFactories, createPool, signTrade, signPoolWithdraw,
   INT_MAX, buildIv, mergeIv, buildMarket, watchBalance, addPool, removePool, mintAndDeposit,
-  toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, createSignatureValidator
+  toBigNumber, toDecimal, toDecimalStr, fromDecimal, strFromDecimal, createOptionPricer, createSignatureValidator,
+  DEAD_ADDRESS
 };

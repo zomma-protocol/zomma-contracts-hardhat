@@ -203,13 +203,14 @@ describe('Vault', () => {
         });
 
         context('when hf < 1', () => {
+          let signedData2;
+
           before(async () => {
             await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(-1), 0], now, gasFee);
-            await spotPricer.setPrice(toDecimalStr(1950));
+            signedData2 = await createSignedData({ spot: toDecimalStr(1950) });
           });
 
           after(async () => {
-            await spotPricer.setPrice(toDecimalStr(1000));
             await reset();
             await withSignedData(vault, signedData).withdrawPercent(toDecimalStr(1), 0, 0);
           })
@@ -218,9 +219,9 @@ describe('Vault', () => {
             let accountInfoBefore, accountInfoAfter;
 
             before(async () => {
-              accountInfoBefore = await withSignedData(vault, signedData).getAccountInfo(trader.address);
-              await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now, gasFee);
-              accountInfoAfter = await withSignedData(vault, signedData).getAccountInfo(trader.address);
+              accountInfoBefore = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
+              await tradeBySignature(vault, trader, [expiry, strike, 1, toDecimalStr(0.1), INT_MAX], now, gasFee, signedData2);
+              accountInfoAfter = await withSignedData(vault, signedData2).getAccountInfo(trader.address);
             });
 
             it('should increase healthFactor', async () => {
@@ -232,7 +233,7 @@ describe('Vault', () => {
             const size = toDecimalStr('0.000000000000000001');
 
             it('should revert with Unavailable', async () => {
-              await expectRevertCustom(tradeBySignature(vault, trader, [expiry, strike, 1, size, INT_MAX], now, gasFee), Vault, 'Unavailable');
+              await expectRevertCustom(tradeBySignature(vault, trader, [expiry, strike, 1, size, INT_MAX], now, gasFee, signedData2), Vault, 'Unavailable');
             });
           });
         });

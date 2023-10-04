@@ -84,7 +84,7 @@ describe('PoolOwner', () => {
       const gasFee = new BigNumber(INT_MAX).plus(1).toString(10);
 
       it('should revert with OutOfRange', async () => {
-        await expectRevertCustom(withdrawBySignature(poolProxy, trader, toDecimalStr(1000), '0', now, gasFee), Pool, 'OutOfRange');
+        await expectRevertCustom(withdrawBySignature(poolProxy, trader, toDecimalStr('999.999999999999999'), '0', now, gasFee), Pool, 'OutOfRange');
       });
     });
 
@@ -95,7 +95,7 @@ describe('PoolOwner', () => {
       before(async () => {
         await setupDeposit(pool, usdc, trader);
         [traderChange] = await watchBalance(usdc, [trader.address], async () => {
-          await withdrawBySignature(poolProxy, trader, toDecimalStr(1000), '0', now, gasFee);
+          await withdrawBySignature(poolProxy, trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
         });
       });
 
@@ -113,11 +113,11 @@ describe('PoolOwner', () => {
         });
 
         after(async () => {
-          await withdrawBySignature(poolProxy, trader, toDecimalStr(1000), '0', now, gasFee);
+          await withdrawBySignature(poolProxy, trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
         });
 
         it('should revert with "Ownable: caller is not the owner"', async () => {
-          await expectRevert(withdrawBySignature(pool.connect(trader), trader, toDecimalStr(1000), '0', now, gasFee), 'Ownable: caller is not the owner');
+          await expectRevert(withdrawBySignature(pool.connect(trader), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee), 'Ownable: caller is not the owner');
         });
       });
 
@@ -128,11 +128,11 @@ describe('PoolOwner', () => {
           });
 
           after(async () => {
-            await withdrawBySignature(poolProxy, trader, toDecimalStr(1000), '0', now, gasFee);
+            await withdrawBySignature(poolProxy, trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
           });
 
           it('should revert with "Ownable: caller is not the owner"', async () => {
-            await expectRevert(withdrawBySignature(poolProxy.connect(trader), trader, toDecimalStr(1000), '0', now, gasFee), /AccessControl: account/);
+            await expectRevert(withdrawBySignature(poolProxy.connect(trader), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee), /AccessControl: account/);
           });
         });
 
@@ -142,7 +142,7 @@ describe('PoolOwner', () => {
           before(async () => {
             await setupDeposit(pool, usdc, trader);
             [traderChange, poolOwnerChange] = await watchBalance(usdc, [trader.address, poolOwner.address], async () => {
-              await withdrawBySignature(poolProxy.connect(insuranceAccount), trader, toDecimalStr(1000), '0', now, gasFee);
+              await withdrawBySignature(poolProxy.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
             });
           });
 
