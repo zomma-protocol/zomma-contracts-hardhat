@@ -36,7 +36,7 @@ async function createPool(vault, config, index, reservedRate, poolAddress, poolT
       await (await c.initialize(pool.address)).wait();
 
       console.log('grantRole...');
-      await c.grantRole('0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869', process.env.TRADER);
+      await c.grantRole('0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869', process.env.SIGNATURE_SENDER);
 
       console.log('transferOwnership...');
       await pool.transferOwnership(c.address);
@@ -47,8 +47,8 @@ async function createPool(vault, config, index, reservedRate, poolAddress, poolT
 
 // An example of a deploy script that will deploy and call a simple contract.
 async function main () {
-  if (!process.env.TRADER) {
-    throw new Error('Trader not set');
+  if (!process.env.SIGNATURE_SENDER) {
+    throw new Error('Signature sender not set');
   }
   const vault = await getContractAt(process.env.VAULT, vaultContract);
   const config = await getContractAt(process.env.CONFIG, 'Config');

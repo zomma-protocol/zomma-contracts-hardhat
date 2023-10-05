@@ -13,8 +13,8 @@ const {
 
 // An example of a deploy script that will deploy and call a simple contract.
 async function main () {
-  if (!process.env.TRADER) {
-    throw new Error('Trader not set');
+  if (!process.env.SIGNATURE_SENDER) {
+    throw new Error('Signature sender not set');
   }
   const vault = await getContractAt(process.env.VAULT, vaultContract);
   const vaultOwner = await getOrDeployProxy(process.env.VAULT_OWNER, {
@@ -24,7 +24,7 @@ async function main () {
       await (await c.initialize(vault.address)).wait();
 
       console.log('grantRole...');
-      await c.grantRole('0x872340a532bdd7bb02bea115c1b0f1ba87eac982f5b79b51ac189ffaac1b6fce', process.env.TRADER);
+      await c.grantRole('0x872340a532bdd7bb02bea115c1b0f1ba87eac982f5b79b51ac189ffaac1b6fce', process.env.SIGNATURE_SENDER);
     }
   });
   if ((await vault.owner()).toLowerCase() !== vaultOwner.address.toLowerCase()) {

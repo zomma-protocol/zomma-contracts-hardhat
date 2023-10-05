@@ -48,6 +48,7 @@ async function main () {
   await logProxy('CONFIG', config);
   await logProxy('SPOT_PRICER', spotPricer);
   await logProxy('OPTION_PRICER', optionPricer);
+  await logProxy('OPTION_MARKET', optionMarket);
   await logProxy('REWARD_DISTRIBUTOR', rewardDistributor);
 }
 

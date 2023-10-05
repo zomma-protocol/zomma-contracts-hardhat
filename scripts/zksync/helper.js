@@ -122,10 +122,6 @@ function getEnvs() {
       chainlinkProxyContract = 'TestChainlinkProxy';
       chainlinkDeployable = true;
       break;
-    case 'pyth':
-      spotPricerContract = isProduction ? 'PythSpotPricer' : 'TestPythSpotPricer';
-      vaultContract = isProduction ? 'PythVault' : 'TestPythVault';
-      isChainlinkSystem = false;
     case 'zomma':
       spotPricerContract = 'SignedSpotPricer';
       isChainlinkSystem = false;
