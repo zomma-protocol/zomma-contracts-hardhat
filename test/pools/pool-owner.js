@@ -4,7 +4,7 @@ const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDec
 
 let Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, PoolOwner, accounts;
 describe('PoolOwner', () => {
-  let stakeholderAccount, insuranceAccount, trader;
+  let stakeholderAccount, insuranceAccount, trader, liquidator;
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
@@ -32,6 +32,7 @@ describe('PoolOwner', () => {
     const { pool, poolToken } = (await createDefaultPool(vault, config));
     const poolOwner = await PoolOwner.deploy();
     await poolOwner.initialize(pool.address);
+    await poolOwner.grantRole('0xeb33521169e672634fcae38dcc3bab0be8a080072000cfbdc0e041665d727c18', liquidator.address);
     await pool.transferOwnership(poolOwner.address);
     const poolProxy = await ethers.getContractAt('TestPool', poolOwner.address);
     return { vault, config, pool, poolToken, usdc, optionMarket, poolOwner, poolProxy };
@@ -40,7 +41,7 @@ describe('PoolOwner', () => {
   before(async () => {
     [Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, PoolOwner] = await getContractFactories('TestPool', 'PoolToken', 'Config', 'TestOptionMarket', 'TestVault', 'TestERC20', 'TestSpotPricer', 'PoolOwner');
     accounts = await ethers.getSigners();
-    [stakeholderAccount, insuranceAccount, trader] = accounts;
+    [stakeholderAccount, insuranceAccount, trader, liquidator] = accounts;
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     signatureValidator = await createSignatureValidator();
@@ -53,7 +54,6 @@ describe('PoolOwner', () => {
         assert.equal(await poolOwner.pool(), pool.address);
         assert.equal(await poolOwner.owner(), stakeholderAccount.address);
         assert.equal(await poolOwner.hasRole('0x0000000000000000000000000000000000000000000000000000000000000000', stakeholderAccount.address), true);
-        assert.equal(await poolOwner.hasRole('0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869', stakeholderAccount.address), true);
       });
     });
 
@@ -228,6 +228,51 @@ describe('PoolOwner', () => {
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
         await expectRevert(poolOwner.connect(trader).withdrawToken(usdc.address), 'Ownable: caller is not the owner');
+      });
+    });
+  });
+
+  describe('#withdrawTokenByLiquidator', () => {
+    context('when has role', () => {
+      let balance, balanceAfter;
+
+      before(async () => {
+        await usdc.mint(poolOwner.address, toDecimalStr(1, 6));
+        balance = await usdc.balanceOf(liquidator.address);
+        await poolOwner.connect(liquidator).withdrawTokenByLiquidator(toDecimalStr(1, 6));
+        balanceAfter = await usdc.balanceOf(liquidator.address);
+      });
+
+      it('should pass', async () => {
+        assert.equal(strFromDecimal(balanceAfter.sub(balance), 6), '1');
+      });
+    });
+
+    context('when does not have role', () => {
+      it('should revert with "AccessControl: account"', async () => {
+        await expectRevert(poolOwner.connect(trader).withdrawTokenByLiquidator(1), /AccessControl: account/);
+      });
+    });
+  });
+
+  describe('#transferPoolOwnership', () => {
+    context('when owner', () => {
+      before(async () => {
+        await poolOwner.transferPoolOwnership(stakeholderAccount.address);
+      });
+
+      after(async () => {
+        await pool.transferOwnership(poolOwner.address);
+      });
+
+      it('should pass', async () => {
+        assert.equal(await pool.owner(), stakeholderAccount.address);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(poolOwner.connect(trader).transferPoolOwnership(trader.address), 'Ownable: caller is not the owner');
       });
     });
   });

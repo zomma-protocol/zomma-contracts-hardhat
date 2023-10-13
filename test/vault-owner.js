@@ -45,7 +45,6 @@ describe('VaultOwner', () => {
         assert.equal(await vaultOwner.vault(), vault.address);
         assert.equal(await vaultOwner.owner(), stakeholderAccount.address);
         assert.equal(await vaultOwner.hasRole('0x0000000000000000000000000000000000000000000000000000000000000000', stakeholderAccount.address), true);
-        assert.equal(await vaultOwner.hasRole('0x872340a532bdd7bb02bea115c1b0f1ba87eac982f5b79b51ac189ffaac1b6fce', stakeholderAccount.address), true);
       });
     });
 
