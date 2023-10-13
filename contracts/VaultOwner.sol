@@ -15,6 +15,9 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
   // 0x872340a532bdd7bb02bea115c1b0f1ba87eac982f5b79b51ac189ffaac1b6fce
   bytes32 private constant TRADER_ROLE = keccak256("TRADER");
 
+  // 0xeb33521169e672634fcae38dcc3bab0be8a080072000cfbdc0e041665d727c18
+  bytes32 private constant LIQUIDATOR_ROLE = keccak256("LIQUIDATOR");
+
   address public vault;
 
   fallback() external {
@@ -22,6 +25,8 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
     bytes4 selector = msg.sig;
     if (selector == Vault.tradeBySignature.selector) {
       ret = roleCall(TRADER_ROLE);
+    } else if (selector == Vault.trade.selector || selector == Vault.liquidate.selector || selector == Vault.deposit.selector) {
+      ret = roleCall(LIQUIDATOR_ROLE);
     } else {
       ret = ownerCall();
     }
@@ -33,8 +38,9 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
   function initialize(address _vault) external initializer {
     __Ownable_init();
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _setupRole(TRADER_ROLE, msg.sender);
     vault = _vault;
+    Config config = Vault(_vault).config();
+    IERC20(config.quote()).safeIncreaseAllowance(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
   }
 
   function withdrawToken(address _token) external payable onlyOwner {

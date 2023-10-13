@@ -15,6 +15,9 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
   // 0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869
   bytes32 private constant WITHDRAW_ROLE = keccak256("WITHDRAW");
 
+  // 0xeb33521169e672634fcae38dcc3bab0be8a080072000cfbdc0e041665d727c18
+  bytes32 private constant LIQUIDATOR_ROLE = keccak256("LIQUIDATOR");
+
   address public pool;
 
   fallback() external {
@@ -22,6 +25,8 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
     bytes4 selector = msg.sig;
     if (selector == Pool.withdrawBySignature.selector) {
       ret = roleCall(WITHDRAW_ROLE);
+    } else if (selector == Pool.deposit.selector || selector == Pool.withdraw.selector) {
+      ret = roleCall(LIQUIDATOR_ROLE);
     } else {
       ret = ownerCall();
     }
@@ -33,8 +38,12 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
   function initialize(address _pool) external initializer {
     __Ownable_init();
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-    _setupRole(WITHDRAW_ROLE, msg.sender);
     pool = _pool;
+    Pool(_pool).quoteAsset().safeIncreaseAllowance(_pool, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+  }
+
+  function transferPoolOwnership(address newOwner) public virtual onlyOwner {
+    Pool(pool).transferOwnership(newOwner);
   }
 
   function withdrawToken(address _token) external payable onlyOwner {
@@ -43,6 +52,10 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
 
   function withdraw() external payable onlyOwner {
     payable(msg.sender).transfer(address(this).balance);
+  }
+
+  function withdrawTokenByLiquidator(uint amount) external payable onlyRole(LIQUIDATOR_ROLE) {
+    Pool(pool).quoteAsset().safeTransfer(msg.sender, amount);
   }
 
   function ownerCall() private onlyOwner returns(bytes memory) {
