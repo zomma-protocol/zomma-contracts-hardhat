@@ -2148,6 +2148,194 @@
           }
         }
       }
+    },
+    "4433e48d48b8b4b48b8caf2525413b4726a7dbe3a25dc69eabf9e5ffa601b78e": {
+      "address": "0xb1Ca5B44ef3627A3E5Ed7a6EE877D9D997A7c7ED",
+      "txHash": "0x6b561548e7a3f233811d0f70b6784490c56b97414bca7f395556917591d7beaf",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "quoteAsset",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_contract(IERC20)3805",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:39"
+          },
+          {
+            "label": "vault",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_contract(Vault)12607",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:40"
+          },
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "103",
+            "type": "t_contract(PoolToken)14255",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:41"
+          },
+          {
+            "label": "config",
+            "offset": 0,
+            "slot": "104",
+            "type": "t_contract(Config)5568",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:42"
+          },
+          {
+            "label": "signatureValidator",
+            "offset": 0,
+            "slot": "105",
+            "type": "t_contract(SignatureValidator)6812",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:43"
+          },
+          {
+            "label": "quoteDecimal",
+            "offset": 0,
+            "slot": "106",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:44"
+          },
+          {
+            "label": "zlmRate",
+            "offset": 0,
+            "slot": "107",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:45"
+          },
+          {
+            "label": "bonusRate",
+            "offset": 0,
+            "slot": "108",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:46"
+          },
+          {
+            "label": "withdrawFeeRate",
+            "offset": 0,
+            "slot": "109",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:47"
+          },
+          {
+            "label": "freeWithdrawableRate",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:48"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_array(t_uint256)40_storage",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:230"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)40_storage": {
+            "label": "uint256[40]",
+            "numberOfBytes": "1280"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(Config)5568": {
+            "label": "contract Config",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC20)3805": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(PoolToken)14255": {
+            "label": "contract PoolToken",
+            "numberOfBytes": "20"
+          },
+          "t_contract(SignatureValidator)6812": {
+            "label": "contract SignatureValidator",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Vault)12607": {
+            "label": "contract Vault",
+            "numberOfBytes": "20"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
     }
   }
 }

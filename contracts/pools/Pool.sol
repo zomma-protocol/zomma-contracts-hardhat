@@ -56,6 +56,7 @@ contract Pool is OwnableUpgradeable, Timestamp {
   error ZeroShare();
   error Bankruptcy();
   error Expired();
+  error GasMoreThanAmount();
 
   /**
   * @dev Initalize method. Can call only once.
@@ -130,6 +131,7 @@ contract Pool is OwnableUpgradeable, Timestamp {
     if (totalSupply == 0) {
       shares = amount - MINIMUM_LIQUIDITY;
       token.mint(DEAD_ADDRESS, MINIMUM_LIQUIDITY);
+      emit Deposit(DEAD_ADDRESS, 0, MINIMUM_LIQUIDITY);
     } else {
       if (accountInfo.equity <= 0) {
         revert Bankruptcy();
@@ -184,6 +186,7 @@ contract Pool is OwnableUpgradeable, Timestamp {
     token.burn(account, shares);
     if (shares + deadShares == totalSupply) {
       token.burn(DEAD_ADDRESS, deadShares);
+      emit Withdraw(DEAD_ADDRESS, 0, deadShares, 0, 0);
       rate = ONE;
     } else {
       rate = shares.decimalDiv(totalSupply);
@@ -193,6 +196,9 @@ contract Pool is OwnableUpgradeable, Timestamp {
     uint amountAfterGas = amount;
     gasFee = gasFee.truncate(quoteDecimal);
     if (gasFee > 0) {
+      if (gasFee >= amount) {
+        revert GasMoreThanAmount();
+      }
       amountAfterGas = amount - gasFee;
       transfer(gasReceiver, gasFee);
     }

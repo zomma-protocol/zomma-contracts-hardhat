@@ -104,21 +104,37 @@ describe('Pool', () => {
       });
 
       context('when sender is not trader', () => {
-        let traderChange, insuranceAccountChange;
+        context('when withdraw all', () => {
+          let traderChange, insuranceAccountChange;
 
-        before(async () => {
-          await setupDeposit(pool, usdc, trader);
-          [traderChange, insuranceAccountChange] = await watchBalance(usdc, [trader.address, insuranceAccount.address], async () => {
-            await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
+          before(async () => {
+            await setupDeposit(pool, usdc, trader);
+            [traderChange, insuranceAccountChange] = await watchBalance(usdc, [trader.address, insuranceAccount.address], async () => {
+              await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
+            });
+          });
+
+          it('should trader get 999', async () => {
+            assert.equal(strFromDecimal(traderChange, 6), '999');
+          });
+
+          it('should insuranceAccount get 1', async () => {
+            assert.equal(strFromDecimal(insuranceAccountChange, 6), '1');
           });
         });
 
-        it('should trader get 999', async () => {
-          assert.equal(strFromDecimal(traderChange, 6), '999');
-        });
+        context('when withdraw 0.1', () => {
+          before(async () => {
+            await setupDeposit(pool, usdc, trader);
+          });
 
-        it('should insuranceAccount get 1', async () => {
-          assert.equal(strFromDecimal(insuranceAccountChange, 6), '1');
+          after(async () => {
+            await withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('999.999999999999999'), '0', now, gasFee);
+          });
+
+          it('should revert with GasMoreThanAmount', async () => {
+            await expectRevertCustom(withdrawBySignature(pool.connect(insuranceAccount), trader, toDecimalStr('0.01'), '0', now, gasFee), Pool, 'GasMoreThanAmount');
+          });
         });
       });
     });
