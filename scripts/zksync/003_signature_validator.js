@@ -25,6 +25,9 @@ async function main () {
     contract: 'SignatureValidator',
     deployed: async(c) => {
       await c.initialize();
+
+      console.log('grant user role...');
+      await c.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', vault.address);
     }
   });
 

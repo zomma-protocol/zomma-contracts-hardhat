@@ -11,6 +11,7 @@ import "./Vault.sol";
 contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
   using SafeERC20 for IERC20;
   using Address for address;
+  using Address for address payable;
 
   // 0x872340a532bdd7bb02bea115c1b0f1ba87eac982f5b79b51ac189ffaac1b6fce
   bytes32 private constant TRADER_ROLE = keccak256("TRADER");
@@ -48,7 +49,7 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
   }
 
   function withdraw() external payable onlyOwner {
-    payable(msg.sender).transfer(address(this).balance);
+    payable(msg.sender).sendValue(address(this).balance);
   }
 
   function ownerCall() private onlyOwner returns(bytes memory) {

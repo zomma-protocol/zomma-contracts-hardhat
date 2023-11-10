@@ -257,6 +257,28 @@ describe('Pool', () => {
     });
   });
 
+  describe('#setSignatureValidator', () => {
+    context('when owner', () => {
+      before(async () => {
+        await pool.setSignatureValidator(accounts[0].address);
+      });
+
+      after(async () => {
+        await pool.setSignatureValidator(signatureValidator.address);
+      });
+
+      it('should pass', async () => {
+        assert.equal(await pool.signatureValidator(), accounts[0].address);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(pool.connect(accounts[1]).setSignatureValidator(accounts[0].address), 'Ownable: caller is not the owner');
+      });
+    });
+  });
+
   describe('#deposit', () => {
     context('when empty pool', () => {
       context('when quote decimal 6', () => {

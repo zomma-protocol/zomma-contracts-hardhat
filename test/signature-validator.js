@@ -44,4 +44,12 @@ describe('SignatureValidator', () => {
       });
     });
   });
+
+  describe('#recoverAndUseNonce', () => {
+    context('when sender does not have role', () => {
+      it('should revert with "AccessControl: account"', async () => {
+        await expectRevert(signatureValidator.connect(accounts[1]).recoverAndUseNonce('0x00', 0, 0, '0x0000000000000000000000000000000000000000000000000000000000000000', '0x0000000000000000000000000000000000000000000000000000000000000000'), /AccessControl: account/);
+      });
+    });
+  });
 });

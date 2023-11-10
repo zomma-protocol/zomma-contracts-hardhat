@@ -3,12 +3,15 @@ pragma solidity 0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 interface IMintableERC20 is IERC20 {
   function mint(address account, uint amount) external;
 }
 
 contract Faucet is Ownable {
+  using Address for address payable;
+
   mapping(address => bool) public tokenClaimed;
   mapping(address => bool) public claimed;
   uint private amount = 0.01 ether;
@@ -31,14 +34,14 @@ contract Faucet is Ownable {
   }
 
   function withdraw() external onlyOwner {
-    payable(owner()).transfer(address(this).balance);
+    payable(msg.sender).sendValue(address(this).balance);
   }
 
   function claim(address payable user) external onlyOwner {
     require(!claimed[user], "can only claim once");
     require(address(this).balance >= amount, "insufficient balance");
     claimed[user] = true;
-    user.transfer(amount);
+    user.sendValue(amount);
   }
 
   function claimToken() external {

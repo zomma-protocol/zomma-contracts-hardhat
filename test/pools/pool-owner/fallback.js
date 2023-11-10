@@ -38,6 +38,7 @@ describe('PoolOwner', () => {
     await poolOwner.grantRole('0xeb33521169e672634fcae38dcc3bab0be8a080072000cfbdc0e041665d727c18', liquidator.address);
     await pool.transferOwnership(poolOwner.address);
     const poolProxy = await ethers.getContractAt('TestPool', poolOwner.address);
+    await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', pool.address);
     return { vault, config, pool, poolToken, usdc, optionMarket, poolOwner, poolProxy };
   };
 

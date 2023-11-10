@@ -12,7 +12,7 @@ const {
   poolContract
 } = getEnvs();
 
-async function createPool(vault, config, index, reservedRate, poolAddress, poolTokenAddress, poolOwnerAddress) {
+async function createPool(vault, config, signatureValidator, index, reservedRate, poolAddress, poolTokenAddress, poolOwnerAddress) {
   console.log(`create pool ${index}...`);
   const pool = await getOrDeployProxy(poolAddress, {
     contract: poolContract
@@ -27,6 +27,8 @@ async function createPool(vault, config, index, reservedRate, poolAddress, poolT
     await config.addPool(pool.address);
     console.log('setReservedRate...');
     await pool.setReservedRate(reservedRate);
+    console.log('grant user role...');
+    await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', pool.address);
   }
 
   const poolOwner = await getOrDeployProxy(poolOwnerAddress, {
@@ -58,9 +60,10 @@ async function main () {
   }
   const vault = await getContractAt(process.env.VAULT, vaultContract);
   const config = await getContractAt(process.env.CONFIG, 'Config');
+  const signatureValidator = await getContractAt(process.env.SIGNATURE_VALIDATOR, 'SignatureValidator');
 
-  const { pool, poolToken, poolOwner } = await createPool(vault, config, 2, toDecimalStr(0.3), process.env.POOL_1, process.env.POOL_TOKEN_1, process.env.POOL_OWNER_1);
-  const { pool: pool2, poolToken: poolToken2, poolOwner: poolOwner2 } = await createPool(vault, config, 3, toDecimalStr(0.2), process.env.POOL_2, process.env.POOL_TOKEN_2, process.env.POOL_OWNER_2);
+  const { pool, poolToken, poolOwner } = await createPool(vault, config, signatureValidator, 2, toDecimalStr(0.3), process.env.POOL_1, process.env.POOL_TOKEN_1, process.env.POOL_OWNER_1);
+  const { pool: pool2, poolToken: poolToken2, poolOwner: poolOwner2 } = await createPool(vault, config, signatureValidator, 3, toDecimalStr(0.2), process.env.POOL_2, process.env.POOL_TOKEN_2, process.env.POOL_OWNER_2);
 
   console.log('=== contract ===');
   console.log(`POOL_1=${pool.address}`);

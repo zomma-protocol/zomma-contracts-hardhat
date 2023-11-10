@@ -11,6 +11,7 @@ import "./Pool.sol";
 contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
   using SafeERC20 for IERC20;
   using Address for address;
+  using Address for address payable;
 
   // 0x7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e982869
   bytes32 private constant WITHDRAW_ROLE = keccak256("WITHDRAW");
@@ -51,7 +52,7 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
   }
 
   function withdraw() external payable onlyOwner {
-    payable(msg.sender).transfer(address(this).balance);
+    payable(msg.sender).sendValue(address(this).balance);
   }
 
   function withdrawTokenByLiquidator(uint amount) external payable onlyRole(LIQUIDATOR_ROLE) {

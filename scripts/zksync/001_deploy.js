@@ -28,7 +28,7 @@ const {
   poolContract
 } = getEnvs();
 
-async function createPools(vault, config) {
+async function createPools(vault, config, signatureValidator) {
   const reservedRates = [
     toDecimalStr(0.3),
     toDecimalStr(0.2),
@@ -49,6 +49,8 @@ async function createPools(vault, config) {
     const reservedRate = reservedRates[i] || reservedRates[0];
     console.log('setReservedRate...')
     await pool.setReservedRate(reservedRate);
+    console.log('grant user role...');
+    await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', pool.address);
   }
 }
 
@@ -174,6 +176,9 @@ async function main() {
   console.log('vault.initialize...');
   await vault.initialize(config.address, spotPricer.address, optionPricer.address, optionMarket.address, signatureValidator.address);
 
+  console.log('grant user role...');
+  await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', vault.address);
+
   console.log('config.initialize...');
   await config.initialize(vault.address, process.env.STAKEHOLDER || rewardDistributor.address, process.env.INSURANCE || rewardDistributor.address, usdc.address, 6);
 
@@ -198,7 +203,7 @@ async function main() {
   }
 
   await setupCdf(optionPricer);
-  await createPools(vault, config);
+  await createPools(vault, config, signatureValidator);
 
   console.log('=== api ===');
   console.log(`START_BLOCK=${block.number}`);

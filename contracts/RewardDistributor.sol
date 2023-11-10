@@ -12,6 +12,7 @@ import "./Config.sol";
 contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
   using SafeERC20 for IERC20;
   using Address for address;
+  using Address for address payable;
 
   // keccak256("Claim(uint256 id,address receiver,uint256 amount)")
   bytes32 private constant CLAIM_TYPEHASH = 0x13ed777f4e2c93099d3703a23f12c4b95cd8c3a8fb33a7f02832f607d088fb27;
@@ -38,7 +39,7 @@ contract RewardDistributor is OwnableUpgradeable, EIP712Upgradeable {
   }
 
   function withdraw() external payable onlyOwner {
-    payable(msg.sender).transfer(address(this).balance);
+    payable(msg.sender).sendValue(address(this).balance);
   }
 
   function withdrawFromVault(uint amount) external payable onlyOwner {

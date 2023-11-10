@@ -58,9 +58,9 @@ contract SpotPricer is Timestamp {
   }
 
   function checkRoundId(uint expiry, uint80 roundId) internal view virtual returns (bool) {
-    (, , uint startedAt, , ) = oracle.getRoundData(roundId);
-    (, , uint startedAt2, , ) = oracle.getRoundData(roundId + 1);
-    return startedAt > 0 && expiry >= startedAt && expiry < startedAt2;
+    (, , , uint updatedAt, ) = oracle.getRoundData(roundId);
+    (, , , uint updatedAt2, ) = oracle.getRoundData(roundId + 1);
+    return updatedAt > 0 && expiry >= updatedAt && expiry < updatedAt2;
   }
 
   uint256[47] private __gap;

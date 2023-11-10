@@ -23,6 +23,7 @@ describe('SignedVault', () => {
     await config.initialize(vault.address, stakeholderAccount.address, insuranceAccount.address, usdc.address, decimals);
     await optionMarket.initialize();
     await vault.setTimestamp(now);
+    await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', vault.address);
     return { vault, config, usdc, optionMarket };
   };
 
