@@ -17,6 +17,18 @@ contract SignedSpotPricer is SpotPricer, OwnableUpgradeable {
     oracle = IChainlink(_oracle);
   }
 
+  function setValidPeriod(uint _validPeriod) external onlyOwner {
+    validPeriod = _validPeriod;
+  }
+
+  function setMaxPrice(uint _maxPrice) external onlyOwner {
+    maxPrice = _maxPrice;
+  }
+
+  function setMinPrice(uint _minPrice) external onlyOwner {
+    minPrice = _minPrice;
+  }
+
   function settleByOwner(uint expiry, uint price) external onlyOwner {
     if (settledPrices[expiry] != 0) {
       revert Settled();

@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal } = require('./support/helper');
+const { getContractFactories, expectRevertCustom, toDecimalStr, strFromDecimal, INT_MAX } = require('./support/helper');
 
 let Vault, SpotPricer, Chainlink, ChainlinkProxy, accounts;
 describe('SpotPricer', () => {
@@ -35,12 +35,67 @@ describe('SpotPricer', () => {
   describe('#getPrice', () => {
     context('when chainlink decimals 8 ', () => {
       context('when chainlink 1200.12345678', () => {
+        const now = 1673596800; // 2023-01-13T08:00:00Z
+        let spotPricer, vault;
+
         before(async () => {
+          const [TestSpotPricer] = await getContractFactories('TestSpotPricer');
+          vault = await Vault.deploy();
+          spotPricer = await TestSpotPricer.deploy();
+          await spotPricer.initialize(chainlinkProxy.address);
+          await spotPricer.setVault(vault.address);
+          await vault.setTimestamp(now + 3600);
+          await chainlink.setNow(now);
           await chainlink.submit(toDecimalStr('1200.12345678', 8));
+          await chainlink.setNow(0);
         });
 
-        it('should get 1200.12345678', async () => {
-          assert.equal(strFromDecimal(await spotPricer.getPrice()), '1200.12345678');
+        context('when maxPrice is 1200', () => {
+          before(async () => {
+            await spotPricer.setMaxPrice(toDecimalStr('1200'));
+          });
+
+          after(async () => {
+            await spotPricer.setMaxPrice(INT_MAX);
+          });
+
+          it('should revert with AboveMaxPrice', async () => {
+            await expectRevertCustom(spotPricer.getPrice(), SpotPricer, 'AboveMaxPrice');
+          });
+        });
+
+        context('when minPrice is 1300', () => {
+          before(async () => {
+            await spotPricer.setMinPrice(toDecimalStr('1300'));
+          });
+
+          after(async () => {
+            await spotPricer.setMinPrice(1);
+          });
+
+          it('should revert with BelowMinPrice', async () => {
+            await expectRevertCustom(spotPricer.getPrice(), SpotPricer, 'BelowMinPrice');
+          });
+        });
+
+        context('when after 1 hour', () => {
+          before(async () => {
+            await vault.setTimestamp(now + 3601);
+          });
+
+          after(async () => {
+            await vault.setTimestamp(now);
+          });
+
+          it('should revert with StalePrice', async () => {
+            await expectRevertCustom(spotPricer.getPrice(), SpotPricer, 'StalePrice');
+          });
+        });
+
+        context('when normal', () => {
+          it('should get 1200.12345678', async () => {
+            assert.equal(strFromDecimal(await spotPricer.getPrice()), '1200.12345678');
+          });
         });
       });
     });
@@ -129,11 +184,44 @@ describe('SpotPricer', () => {
             await chainlink.setNow(now);
             await vault.setTimestamp(now);
             await chainlink.submit(toDecimalStr('1300', 8));
-            await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
           });
 
-          it('should get 1200', async () => {
-            assert.equal(strFromDecimal(await spotPricer.settledPrices(expiry)), '1200');
+          context('when maxPrice is 1100', () => {
+            before(async () => {
+              await spotPricer.setMaxPrice(toDecimalStr('1100'));
+            });
+
+            after(async () => {
+              await spotPricer.setMaxPrice(INT_MAX);
+            });
+
+            it('should revert with AboveMaxPrice', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'AboveMaxPrice');
+            });
+          });
+
+          context('when minPrice is 1300', () => {
+            before(async () => {
+              await spotPricer.setMinPrice(toDecimalStr('1300'));
+            });
+
+            after(async () => {
+              await spotPricer.setMinPrice(1);
+            });
+
+            it('should revert with BelowMinPrice', async () => {
+              await expectRevertCustom(spotPricer.connect(accounts[1]).settle(expiry, roundId2), SpotPricer, 'BelowMinPrice');
+            });
+          });
+
+          context('when normal', () => {
+            before(async () => {
+              await spotPricer.connect(accounts[1]).settle(expiry, roundId2);
+            });
+
+            it('should get 1200', async () => {
+              assert.equal(strFromDecimal(await spotPricer.settledPrices(expiry)), '1200');
+            });
           });
         });
 

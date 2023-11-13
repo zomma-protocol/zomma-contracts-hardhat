@@ -11,12 +11,18 @@ contract SpotPricer is Timestamp {
   mapping(uint => uint) public settledPrices;
   IChainlink public oracle;
   bool public initialized;
+  uint public validPeriod;
+  uint public maxPrice;
+  uint public minPrice;
 
   event SettlePrice(uint expiry, uint price, uint roundId);
 
   error AlreadyInitialized();
   error Settled();
   error InvalidRoundId();
+  error StalePrice();
+  error AboveMaxPrice();
+  error BelowMinPrice();
 
   /**
   * @dev Initalize method. Can call only once.
@@ -27,6 +33,9 @@ contract SpotPricer is Timestamp {
       revert AlreadyInitialized();
     }
     initialized = true;
+    validPeriod = 3600; // 1 hour
+    maxPrice = type(uint).max;
+    minPrice = 1;
     oracle = IChainlink(_oracle);
   }
 
@@ -44,6 +53,7 @@ contract SpotPricer is Timestamp {
     }
     (, int256 answer, , , ) = oracle.getRoundData(roundId);
     uint price = uint(answer) * 10**18 / 10**oracle.decimals();
+    validatePrice(price);
     settledPrices[expiry] = price;
     emit SettlePrice(expiry, price, roundId);
   }
@@ -53,8 +63,13 @@ contract SpotPricer is Timestamp {
   * @return spotPrice: Spot price. In decimals 18.
   */
   function getPrice() public view virtual returns (uint) {
-    (, int256 answer, , , ) = oracle.latestRoundData();
-    return uint(answer) * 10**18 / 10**oracle.decimals();
+    (, int256 answer, , uint updatedAt, ) = oracle.latestRoundData();
+    if (getTimestamp() > updatedAt + validPeriod) {
+      revert StalePrice();
+    }
+    uint price = uint(answer) * 10**18 / 10**oracle.decimals();
+    validatePrice(price);
+    return price;
   }
 
   function checkRoundId(uint expiry, uint80 roundId) internal view virtual returns (bool) {
@@ -63,5 +78,14 @@ contract SpotPricer is Timestamp {
     return updatedAt > 0 && expiry >= updatedAt && expiry < updatedAt2;
   }
 
-  uint256[47] private __gap;
+  function validatePrice(uint price) internal view {
+    if (price > maxPrice) {
+      revert AboveMaxPrice();
+    }
+    if (price < minPrice) {
+      revert BelowMinPrice();
+    }
+  }
+
+  uint256[44] private __gap;
 }
