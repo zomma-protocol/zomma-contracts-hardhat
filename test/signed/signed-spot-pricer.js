@@ -19,22 +19,6 @@ describe('SignedSpotPricer', () => {
     await spotPricer.initialize(chainlinkProxy.address);
   });
 
-  describe('#initialize', () => {
-    context('when initialize once', () => {
-      it('should pass', async () => {
-        assert.equal(await spotPricer.initialized(), true);
-        assert.equal(await spotPricer.oracle(), chainlinkProxy.address);
-        assert.equal(await spotPricer.owner(), owner.address);
-      });
-    });
-
-    context('when initialize twice', () => {
-      it('should revert with AlreadyInitialized', async () => {
-        await expectRevertCustom(spotPricer.initialize(other.address), SpotPricer, 'AlreadyInitialized');
-      });
-    });
-  });
-
   describe('#setOracle', () => {
     context('when owner', () => {
       before(async () => {
@@ -52,69 +36,6 @@ describe('SignedSpotPricer', () => {
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
         await expectRevert(spotPricer.connect(other).setOracle(other.address), 'Ownable: caller is not the owner');
-      });
-    });
-  });
-
-  describe('#setValidPeriod', () => {
-    context('when owner', () => {
-      before(async () => {
-        await spotPricer.setValidPeriod(2);
-      });
-      after(async () => {
-        await spotPricer.setValidPeriod(3600);
-      });
-
-      it('should pass', async () => {
-        assert.equal(await spotPricer.validPeriod(), 2);
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(spotPricer.connect(other).setValidPeriod(2), 'Ownable: caller is not the owner');
-      });
-    });
-  });
-
-  describe('#setMaxPrice', () => {
-    context('when owner', () => {
-      before(async () => {
-        await spotPricer.setMaxPrice(2);
-      });
-      after(async () => {
-        await spotPricer.setMaxPrice(INT_MAX);
-      });
-
-      it('should pass', async () => {
-        assert.equal(await spotPricer.maxPrice(), 2);
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(spotPricer.connect(other).setMaxPrice(2), 'Ownable: caller is not the owner');
-      });
-    });
-  });
-
-  describe('#setMinPrice', () => {
-    context('when owner', () => {
-      before(async () => {
-        await spotPricer.setMinPrice(2);
-      });
-      after(async () => {
-        await spotPricer.setMinPrice(1);
-      });
-
-      it('should pass', async () => {
-        assert.equal(await spotPricer.minPrice(), 2);
-      });
-    });
-
-    context('when not owner', () => {
-      it('should revert with "Ownable: caller is not the owner"', async () => {
-        await expectRevert(spotPricer.connect(other).setMinPrice(2), 'Ownable: caller is not the owner');
       });
     });
   });

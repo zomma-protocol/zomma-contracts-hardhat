@@ -115,10 +115,6 @@ contract Pool is OwnableUpgradeable, Timestamp {
     emit ConfigChange(ChangeType.freeWithdrawableRate, abi.encodePacked(_freeWithdrawableRate));
   }
 
-  function setSignatureValidator(address _signatureValidator) external payable onlyOwner {
-    signatureValidator = SignatureValidator(_signatureValidator);
-  }
-
   /**
   * @dev Deposit and get shares. Will get bonus when hf < 0.8.
   * @param amount: Amount to deposit. In decimals 18.

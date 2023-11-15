@@ -41,9 +41,9 @@ contract Config is OwnableUpgradeable {
   uint private constant MAX_INSURANCE_PROPORTION = 1000000000000000000; // 100%
 
   address[] public pools;
-  mapping(address => bool) public poolAdded;
+  mapping(address => uint) public poolAdded;
   // willingness to be a pool
-  mapping(address => bool) public poolEnabled;
+  mapping(address => uint) public poolEnabled;
   mapping(address => uint) public poolReservedRate;
   uint public quoteDecimal;
   uint public initialMarginRiskRate;
@@ -247,7 +247,7 @@ contract Config is OwnableUpgradeable {
   * @dev Add an account as pool. Account should enable to be a pool first.
   */
   function addPool(address pool) external payable onlyOwner {
-    if (!poolEnabled[pool]) {
+    if (poolEnabled[pool] != 1) {
       revert PoolNotEnabled();
     }
     if (vault.listOfExpiries(pool).length > 0) {
@@ -256,11 +256,11 @@ contract Config is OwnableUpgradeable {
     if (pools.length >= 10) {
       revert TooManyPools();
     }
-    if (poolAdded[pool]) {
+    if (poolAdded[pool] == 1) {
       revert DuplicatedPool();
     }
     pools.push(pool);
-    poolAdded[pool] = true;
+    poolAdded[pool] = 1;
     emit AddPool(pool);
   }
 
@@ -271,7 +271,7 @@ contract Config is OwnableUpgradeable {
     if (vault.listOfExpiries(pool).length > 0) {
       revert PositionNotEmpty();
     }
-    if (!poolAdded[pool]) {
+    if (poolAdded[pool] != 1) {
       revert PoolNotFound();
     }
     uint length = pools.length;
@@ -285,16 +285,16 @@ contract Config is OwnableUpgradeable {
       unchecked { ++i; }
     }
     pools.pop();
-    poolAdded[pool] = false;
+    poolAdded[pool] = 2;
     emit RemovePool(pool);
   }
 
   function enablePool() external {
-    poolEnabled[msg.sender] = true;
+    poolEnabled[msg.sender] = 1;
   }
 
   function disablePool() external {
-    poolEnabled[msg.sender] = false;
+    poolEnabled[msg.sender] = 2;
   }
 
   function setPoolReservedRate(uint reservedRate) external {
@@ -312,14 +312,4 @@ contract Config is OwnableUpgradeable {
   function getPools() external view returns(address[] memory) {
     return pools;
   }
-
-  // function checkZeroAddress(address addr) internal pure {
-  //   assembly {
-  //     if iszero(addr) {
-  //       let ptr := mload(0x40)
-  //       mstore(ptr, 0xd92e233d00000000000000000000000000000000000000000000000000000000) // selector for `ZeroAddress()`
-  //       revert(ptr, 0x4)
-  //     }
-  //   }
-  // }
 }

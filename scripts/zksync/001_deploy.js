@@ -24,35 +24,8 @@ const {
   chainlinkContract,
   chainlinkProxyContract,
   chainlinkDeployable,
-  isChainlinkSystem,
-  poolContract
+  isChainlinkSystem
 } = getEnvs();
-
-async function createPools(vault, config, signatureValidator) {
-  const reservedRates = [
-    toDecimalStr(0.3),
-    toDecimalStr(0.2),
-    toDecimalStr(0.1),
-    toDecimalStr(0)
-  ];
-  const addedPools = await config.getPools();
-  for (let i = addedPools.length; i < 2; ++i) {
-    console.log(`create pool ${i}...`);
-    const poolToken = await deployProxy({ contract: 'PoolToken' });
-    const pool = await deployProxy({ contract: poolContract });
-    console.log('poolToken.initialize...');
-    await poolToken.initialize(pool.address, `Pool ${i} Share`, `P${i}-SHARE`);
-    console.log('pool.initialize...');
-    await (await pool.initialize(vault.address, poolToken.address)).wait();
-    console.log('addPool...')
-    await config.addPool(pool.address);
-    const reservedRate = reservedRates[i] || reservedRates[0];
-    console.log('setReservedRate...')
-    await pool.setReservedRate(reservedRate);
-    console.log('grant user role...');
-    await signatureValidator.grantRole('0x2db9fd3d099848027c2383d0a083396f6c41510d7acfd92adc99b6cffcf31e96', pool.address);
-  }
-}
 
 async function setupCdf(optionPricer) {
   if ((await optionPricer.cdf(cdf.keys[cdf.keys.length - 1])).toString(10) !== cdf.values[cdf.values.length - 1]) {
@@ -120,8 +93,6 @@ async function main() {
   let oracleAddress;
   if (isChainlinkSystem) {
     oracleAddress = process.env.CHAINLINK_PROXY || chainlinkDeployable && await createChainlink(chainlinkContract, chainlinkProxyContract);
-  } else if (oracle === 'pyth') {
-    oracleAddress = process.env.PYTH;
   } else {
     oracleAddress = ZERO_ADDRESS;
   }
@@ -130,19 +101,18 @@ async function main() {
     deployed: async(c) => {
       if (oracleAddress) {
         console.log('spotPricer.initialize...');
-        if (isChainlinkSystem) {
-          await c.initialize(oracleAddress);
-        } else if (oracle === 'pyth') {
-          await c.initialize(oracleAddress, process.env.PYTH_PRICE_ID);
-        } else {
-          await c.initialize(oracleAddress);
-        }
+        await (await c.initialize(oracleAddress)).wait();
       } else if (!isProduction) {
         console.log('spotPricer.setPrice...');
         await c.setPrice('1000000000000000000000'); // 1000
       } else {
         console.warn('should set Oracle');
       }
+      console.log('spotPricer.setMaxPrice...');
+      await c.setMaxPrice(toDecimalStr(100000));
+
+      console.log('spotPricer.setMinPrice...');
+      await c.setMinPrice(toDecimalStr(0.001));
     }
   });
   if (!isProduction && oracleAddress && oracleAddress.toLowerCase() !== (await spotPricer.oracle()).toLowerCase()) {
@@ -203,7 +173,6 @@ async function main() {
   }
 
   await setupCdf(optionPricer);
-  await createPools(vault, config, signatureValidator);
 
   console.log('=== api ===');
   console.log(`START_BLOCK=${block.number}`);

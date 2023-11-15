@@ -34,16 +34,4 @@ contract TestSpotPricer is SpotPricer {
   function getTimestamp() internal view override returns (uint) {
     return vault.getTimestampPublic();
   }
-
-  function setValidPeriod(uint _validPeriod) external {
-    validPeriod = _validPeriod;
-  }
-
-  function setMaxPrice(uint _maxPrice) external {
-    maxPrice = _maxPrice;
-  }
-
-  function setMinPrice(uint _minPrice) external {
-    minPrice = _minPrice;
-  }
 }

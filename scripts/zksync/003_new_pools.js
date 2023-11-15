@@ -62,8 +62,8 @@ async function main () {
   const config = await getContractAt(process.env.CONFIG, 'Config');
   const signatureValidator = await getContractAt(process.env.SIGNATURE_VALIDATOR, 'SignatureValidator');
 
-  const { pool, poolToken, poolOwner } = await createPool(vault, config, signatureValidator, 2, toDecimalStr(0.3), process.env.POOL_1, process.env.POOL_TOKEN_1, process.env.POOL_OWNER_1);
-  const { pool: pool2, poolToken: poolToken2, poolOwner: poolOwner2 } = await createPool(vault, config, signatureValidator, 3, toDecimalStr(0.2), process.env.POOL_2, process.env.POOL_TOKEN_2, process.env.POOL_OWNER_2);
+  const { pool, poolToken, poolOwner } = await createPool(vault, config, signatureValidator, 0, toDecimalStr(0.3), process.env.POOL_1, process.env.POOL_TOKEN_1, process.env.POOL_OWNER_1);
+  const { pool: pool2, poolToken: poolToken2, poolOwner: poolOwner2 } = await createPool(vault, config, signatureValidator, 1, toDecimalStr(0.2), process.env.POOL_2, process.env.POOL_TOKEN_2, process.env.POOL_OWNER_2);
 
   console.log('=== contract ===');
   console.log(`POOL_1=${pool.address}`);

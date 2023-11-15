@@ -55,7 +55,6 @@ describe('Config', () => {
   describe('#initialize', () => {
     context('when initialize once', () => {
       it('should pass', async () => {
-        // assert.equal(await config.initialized(), true);
         assert.equal(await config.vault(), vault.address);
         assert.equal(await config.quote(), usdc.address);
         assert.equal(await config.quoteDecimal(), 6);
@@ -759,7 +758,7 @@ describe('Config', () => {
           context('when add once', () => {
             it('should pass', async () => {
               assert.equal((await config.pools(0)), pool.address);
-              assert.equal((await config.poolAdded(pool.address)), true);
+              assert.equal((await config.poolAdded(pool.address)), 1);
             });
           });
 
@@ -782,7 +781,7 @@ describe('Config', () => {
           context('when position empty', () => {
             it('should pass', async () => {
               assert.equal((await config.pools(0)), account1.address);
-              assert.equal((await config.poolAdded(account1.address)), true);
+              assert.equal((await config.poolAdded(account1.address)), 1);
             });
           });
 
@@ -855,7 +854,7 @@ describe('Config', () => {
             assert.equal((await config.pools(0)),  pool.address);
             assert.equal((await config.pools(1)),  pool3.address);
             assert.equal((await config.getPools()).length, 2);
-            assert.equal((await config.poolAdded(pool2.address)), false);
+            assert.equal((await config.poolAdded(pool2.address)), 2);
           });
         });
 
@@ -867,7 +866,7 @@ describe('Config', () => {
           it('should pass', async () => {
             assert.equal((await config.pools(0)),  pool.address);
             assert.equal((await config.getPools()).length, 1);
-            assert.equal((await config.poolAdded(pool3.address)), false);
+            assert.equal((await config.poolAdded(pool3.address)), 2);
           });
         });
 
@@ -905,7 +904,7 @@ describe('Config', () => {
     });
 
     it('should pass', async () => {
-      assert.equal((await config.poolEnabled(account1.address)),  true);
+      assert.equal((await config.poolEnabled(account1.address)),  1);
     });
   });
 
@@ -916,7 +915,7 @@ describe('Config', () => {
     });
 
     it('should pass', async () => {
-      assert.equal((await config.poolEnabled(account2.address)),  false);
+      assert.equal((await config.poolEnabled(account2.address)),  2);
     });
   });
 

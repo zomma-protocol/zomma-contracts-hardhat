@@ -1,23 +1,22 @@
 //SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.20;
 
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "./interfaces/IChainlink.sol";
 import "./utils/Timestamp.sol";
 
 /**
  * @dev Spot price oracle, original version uses chainlink.
  */
-contract SpotPricer is Timestamp {
+contract SpotPricer is OwnableUpgradeable, Timestamp {
   mapping(uint => uint) public settledPrices;
   IChainlink public oracle;
-  bool public initialized;
   uint public validPeriod;
   uint public maxPrice;
   uint public minPrice;
 
   event SettlePrice(uint expiry, uint price, uint roundId);
 
-  error AlreadyInitialized();
   error Settled();
   error InvalidRoundId();
   error StalePrice();
@@ -28,15 +27,24 @@ contract SpotPricer is Timestamp {
   * @dev Initalize method. Can call only once.
   * @param _oracle: Should be chainlink proxy address.
   */
-  function initialize(address _oracle) public virtual {
-    if (initialized) {
-      revert AlreadyInitialized();
-    }
-    initialized = true;
+  function initialize(address _oracle) external initializer {
+    __Ownable_init();
     validPeriod = 3600; // 1 hour
     maxPrice = type(uint).max;
     minPrice = 1;
     oracle = IChainlink(_oracle);
+  }
+
+  function setValidPeriod(uint _validPeriod) external onlyOwner {
+    validPeriod = _validPeriod;
+  }
+
+  function setMaxPrice(uint _maxPrice) external onlyOwner {
+    maxPrice = _maxPrice;
+  }
+
+  function setMinPrice(uint _minPrice) external onlyOwner {
+    minPrice = _minPrice;
   }
 
   /**
@@ -87,5 +95,5 @@ contract SpotPricer is Timestamp {
     }
   }
 
-  uint256[44] private __gap;
+  uint256[45] private __gap;
 }

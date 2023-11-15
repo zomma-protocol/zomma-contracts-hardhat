@@ -68,8 +68,13 @@ async function getOrDeployProxy(address, { contract, deployed, args = [] }) {
   }
 }
 
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getEnvs() {
-  const isProduction = process.env.PRODUCTION === '1';
+  // const isProduction = process.env.PRODUCTION === '1';
+  const isProduction = true;
   const optionPricerType = process.env.OPTION_PRICER_TYPE || 'normal';
   const vaultType = process.env.VAULT_TYPE || 'normal';
   let oracle = process.env.ORACLE || 'chainlink-interim';
@@ -157,5 +162,6 @@ module.exports = {
   deployProxy,
   getOrDeployProxy,
   getEnvs,
-  getWallet
+  getWallet,
+  sleep
 }
