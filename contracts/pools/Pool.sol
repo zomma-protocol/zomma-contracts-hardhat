@@ -73,10 +73,12 @@ contract Pool is OwnableUpgradeable, Timestamp {
     token = PoolToken(_token);
     config = Config(vault.config());
     signatureValidator = SignatureValidator(vault.signatureValidator());
-    quoteDecimal = config.quoteDecimal();
-    quoteAsset = IERC20(config.quote());
-    quoteAsset.safeIncreaseAllowance(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    internalRefreshQuote();
     config.enablePool();
+  }
+
+  function refreshQuote() external payable onlyOwner {
+    internalRefreshQuote();
   }
 
   function setReservedRate(uint reservedRate) external payable onlyOwner {
@@ -225,6 +227,14 @@ contract Pool is OwnableUpgradeable, Timestamp {
 
   function withdrawPercent(uint rate, uint acceptableAmount, uint _freeWithdrawableRate) internal virtual returns (uint) {
     return vault.withdrawPercent(rate, acceptableAmount, _freeWithdrawableRate);
+  }
+
+  function internalRefreshQuote() internal virtual {
+    if (config.quote() != address(quoteAsset)) {
+      quoteDecimal = config.quoteDecimal();
+      quoteAsset = IERC20(config.quote());
+      quoteAsset.forceApprove(address(vault), 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    }
   }
 
   uint[40] private __gap;

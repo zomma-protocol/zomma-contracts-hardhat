@@ -24,7 +24,9 @@ contract Config is OwnableUpgradeable {
     poolProportion,
     insuranceProportion,
     insuranceAccount,
-    stakeholderAccount
+    stakeholderAccount,
+    quote,
+    quoteDecimal
   }
 
   uint private constant MAX_INITIAL_MARGIN_RISK_RATE = 1000000000000000000; // 100%
@@ -241,6 +243,13 @@ contract Config is OwnableUpgradeable {
   function setPoolPaused(address pool, uint status) external payable onlyOwner {
     poolPaused[pool] = status;
     emit SetPoolPaused(pool, status);
+  }
+
+  function setQuote(address _quote, uint _quoteDecimal) external payable onlyOwner {
+    quote = _quote;
+    quoteDecimal = _quoteDecimal;
+    emit Change(ChangeType.quote, abi.encodePacked(_quote));
+    emit Change(ChangeType.quoteDecimal, abi.encodePacked(_quoteDecimal));
   }
 
   /**

@@ -8,7 +8,7 @@ describe('Pool', () => {
   const now = 1673596800; // 2023-01-13T08:00:00Z
   const expiry = 1674201600; // 2023-01-20T08:00:00Z
   const strike = toDecimalStr(1100);
-  let spotPricer, optionPricer, vault, pool, poolToken, config, signatureValidator;
+  let spotPricer, optionPricer, vault, pool, poolToken, config, signatureValidator, usdc;
 
   const createDefaultPool = async (vault, config) => {
     const { pool, poolToken } = await createPool(vault.address, 'NAME', 'SYMBOL');
@@ -59,7 +59,7 @@ describe('Pool', () => {
     spotPricer = await SpotPricer.deploy();
     optionPricer = await createOptionPricer();
     signatureValidator = await createSignatureValidator();
-    ({ vault, pool, poolToken, config } = await setup());
+    ({ vault, pool, poolToken, config, usdc } = await setup());
   });
 
   describe('#initialize', () => {
@@ -73,6 +73,53 @@ describe('Pool', () => {
     context('when initialize twice', () => {
       it('should revert with "Initializable: contract is already initialized"', async () => {
         await expectRevert(pool.initialize(accounts[1].address, accounts[1].address), 'Initializable: contract is already initialized');
+      });
+    });
+  });
+
+  describe('#refreshQuote', () => {
+    context('when owner', () => {
+      context('when no change', () => {
+        before(async () => {
+          await pool.refreshQuote();
+        });
+
+        it('should be usdc', async () => {
+          assert.equal(await pool.quoteAsset(), usdc.address);
+        });
+
+        it('should be 6', async () => {
+          assert.equal(await pool.quoteDecimal(), 6);
+        });
+      });
+
+      context('when change', () => {
+        let usdc2;
+
+        before(async () => {
+          usdc2 = await TestERC20.deploy('USDC', 'USDC', 18);
+          await config.setQuote(usdc2.address, 18);
+          await pool.refreshQuote();
+        });
+
+        after(async () => {
+          await config.setQuote(usdc.address, 6);
+          await pool.refreshQuote();
+        });
+
+        it('should be usdc2', async () => {
+          assert.equal(await pool.quoteAsset(), usdc2.address);
+        });
+
+        it('should be 18', async () => {
+          assert.equal(await pool.quoteDecimal(), 18);
+        });
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(pool.connect(accounts[1]).refreshQuote(), 'Ownable: caller is not the owner');
       });
     });
   });

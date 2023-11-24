@@ -740,6 +740,32 @@ describe('Config', () => {
     });
   });
 
+  describe('#setQuote', () => {
+    context('when owner', () => {
+      before(async () => {
+        await config.setQuote(account1.address, 18);
+      });
+
+      after(async () => {
+        await config.setQuote(usdc.address, 6);
+      });
+
+      it('should be quote acccount', async () => {
+        assert.equal(await config.quote(), account1.address);
+      });
+
+      it('should be decimal 18', async () => {
+        assert.equal(await config.quoteDecimal(), 18);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(config.connect(account1).setQuote(account1.address, 18), 'Ownable: caller is not the owner');
+      });
+    });
+  });
+
   describe('#addPool', () => {
     context('when owner', () => {
       context('when pool does not enable', () => {
