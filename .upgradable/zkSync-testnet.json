@@ -1894,6 +1894,494 @@
           }
         }
       }
+    },
+    "5a8b979338172cf433fa5921e1f23acfcc87a3dc95482f5a6ca5ce11748199a3": {
+      "address": "0x5Af2F0Ea6575A65e3e0BFcc8D079E1A7280E53fb",
+      "txHash": "0x8da4f3ae5c30bdab24604beb89c162b94f378b40b4a87ab362701aad61cc7522",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "pools",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_array(t_address)dyn_storage",
+            "contract": "Config",
+            "src": "contracts/Config.sol:45"
+          },
+          {
+            "label": "poolAdded",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "Config",
+            "src": "contracts/Config.sol:46"
+          },
+          {
+            "label": "poolEnabled",
+            "offset": 0,
+            "slot": "103",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "Config",
+            "src": "contracts/Config.sol:48"
+          },
+          {
+            "label": "poolReservedRate",
+            "offset": 0,
+            "slot": "104",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "Config",
+            "src": "contracts/Config.sol:49"
+          },
+          {
+            "label": "quoteDecimal",
+            "offset": 0,
+            "slot": "105",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:50"
+          },
+          {
+            "label": "initialMarginRiskRate",
+            "offset": 0,
+            "slot": "106",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:51"
+          },
+          {
+            "label": "liquidateRate",
+            "offset": 0,
+            "slot": "107",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:52"
+          },
+          {
+            "label": "clearRate",
+            "offset": 0,
+            "slot": "108",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:53"
+          },
+          {
+            "label": "liquidationReward",
+            "offset": 0,
+            "slot": "109",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:54"
+          },
+          {
+            "label": "minLiquidation",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:55"
+          },
+          {
+            "label": "riskFreeRate",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_int256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:56"
+          },
+          {
+            "label": "priceRatio",
+            "offset": 0,
+            "slot": "112",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:57"
+          },
+          {
+            "label": "priceRatio2",
+            "offset": 0,
+            "slot": "113",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:58"
+          },
+          {
+            "label": "priceRatioUtilization",
+            "offset": 0,
+            "slot": "114",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:59"
+          },
+          {
+            "label": "spotFee",
+            "offset": 0,
+            "slot": "115",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:60"
+          },
+          {
+            "label": "optionFee",
+            "offset": 0,
+            "slot": "116",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:61"
+          },
+          {
+            "label": "minPremium",
+            "offset": 0,
+            "slot": "117",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:62"
+          },
+          {
+            "label": "exerciseFeeRate",
+            "offset": 0,
+            "slot": "118",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:63"
+          },
+          {
+            "label": "profitFeeRate",
+            "offset": 0,
+            "slot": "119",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:64"
+          },
+          {
+            "label": "poolProportion",
+            "offset": 0,
+            "slot": "120",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:65"
+          },
+          {
+            "label": "insuranceProportion",
+            "offset": 0,
+            "slot": "121",
+            "type": "t_uint256",
+            "contract": "Config",
+            "src": "contracts/Config.sol:66"
+          },
+          {
+            "label": "vault",
+            "offset": 0,
+            "slot": "122",
+            "type": "t_contract(Vault)13379",
+            "contract": "Config",
+            "src": "contracts/Config.sol:67"
+          },
+          {
+            "label": "quote",
+            "offset": 0,
+            "slot": "123",
+            "type": "t_address",
+            "contract": "Config",
+            "src": "contracts/Config.sol:68"
+          },
+          {
+            "label": "insuranceAccount",
+            "offset": 0,
+            "slot": "124",
+            "type": "t_address",
+            "contract": "Config",
+            "src": "contracts/Config.sol:69"
+          },
+          {
+            "label": "stakeholderAccount",
+            "offset": 0,
+            "slot": "125",
+            "type": "t_address",
+            "contract": "Config",
+            "src": "contracts/Config.sol:70"
+          },
+          {
+            "label": "poolPaused",
+            "offset": 0,
+            "slot": "126",
+            "type": "t_mapping(t_address,t_uint256)",
+            "contract": "Config",
+            "src": "contracts/Config.sol:72"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_address)dyn_storage": {
+            "label": "address[]",
+            "numberOfBytes": "32"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(Vault)13379": {
+            "label": "contract Vault",
+            "numberOfBytes": "20"
+          },
+          "t_int256": {
+            "label": "int256",
+            "numberOfBytes": "32"
+          },
+          "t_mapping(t_address,t_uint256)": {
+            "label": "mapping(address => uint256)",
+            "numberOfBytes": "32"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
+    },
+    "044c682034c00e2f06141c334b7ccb7057e67ab2324d4ead5e6efb2aa504608c": {
+      "address": "0x65097f3Fb048f97675490589E0213C2e2a144D73",
+      "txHash": "0xfe9444d624928aa37179761d998ab1fb10a8b0b6f71234632e6b2f2f03ee027f",
+      "layout": {
+        "solcVersion": "0.8.20",
+        "storage": [
+          {
+            "label": "_initialized",
+            "offset": 0,
+            "slot": "0",
+            "type": "t_uint8",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:63",
+            "retypedFrom": "bool"
+          },
+          {
+            "label": "_initializing",
+            "offset": 1,
+            "slot": "0",
+            "type": "t_bool",
+            "contract": "Initializable",
+            "src": "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol:68"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "1",
+            "type": "t_array(t_uint256)50_storage",
+            "contract": "ContextUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/utils/ContextUpgradeable.sol:36"
+          },
+          {
+            "label": "_owner",
+            "offset": 0,
+            "slot": "51",
+            "type": "t_address",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:22"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "52",
+            "type": "t_array(t_uint256)49_storage",
+            "contract": "OwnableUpgradeable",
+            "src": "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol:94"
+          },
+          {
+            "label": "quoteAsset",
+            "offset": 0,
+            "slot": "101",
+            "type": "t_contract(IERC20)3918",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:39"
+          },
+          {
+            "label": "vault",
+            "offset": 0,
+            "slot": "102",
+            "type": "t_contract(Vault)13379",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:40"
+          },
+          {
+            "label": "token",
+            "offset": 0,
+            "slot": "103",
+            "type": "t_contract(PoolToken)17831",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:41"
+          },
+          {
+            "label": "config",
+            "offset": 0,
+            "slot": "104",
+            "type": "t_contract(Config)5745",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:42"
+          },
+          {
+            "label": "signatureValidator",
+            "offset": 0,
+            "slot": "105",
+            "type": "t_contract(SignatureValidator)7479",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:43"
+          },
+          {
+            "label": "quoteDecimal",
+            "offset": 0,
+            "slot": "106",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:44"
+          },
+          {
+            "label": "zlmRate",
+            "offset": 0,
+            "slot": "107",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:45"
+          },
+          {
+            "label": "bonusRate",
+            "offset": 0,
+            "slot": "108",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:46"
+          },
+          {
+            "label": "withdrawFeeRate",
+            "offset": 0,
+            "slot": "109",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:47"
+          },
+          {
+            "label": "freeWithdrawableRate",
+            "offset": 0,
+            "slot": "110",
+            "type": "t_uint256",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:48"
+          },
+          {
+            "label": "__gap",
+            "offset": 0,
+            "slot": "111",
+            "type": "t_array(t_uint256)40_storage",
+            "contract": "Pool",
+            "src": "contracts/pools/Pool.sol:240"
+          }
+        ],
+        "types": {
+          "t_address": {
+            "label": "address",
+            "numberOfBytes": "20"
+          },
+          "t_array(t_uint256)40_storage": {
+            "label": "uint256[40]",
+            "numberOfBytes": "1280"
+          },
+          "t_array(t_uint256)49_storage": {
+            "label": "uint256[49]",
+            "numberOfBytes": "1568"
+          },
+          "t_array(t_uint256)50_storage": {
+            "label": "uint256[50]",
+            "numberOfBytes": "1600"
+          },
+          "t_bool": {
+            "label": "bool",
+            "numberOfBytes": "1"
+          },
+          "t_contract(Config)5745": {
+            "label": "contract Config",
+            "numberOfBytes": "20"
+          },
+          "t_contract(IERC20)3918": {
+            "label": "contract IERC20",
+            "numberOfBytes": "20"
+          },
+          "t_contract(PoolToken)17831": {
+            "label": "contract PoolToken",
+            "numberOfBytes": "20"
+          },
+          "t_contract(SignatureValidator)7479": {
+            "label": "contract SignatureValidator",
+            "numberOfBytes": "20"
+          },
+          "t_contract(Vault)13379": {
+            "label": "contract Vault",
+            "numberOfBytes": "20"
+          },
+          "t_uint256": {
+            "label": "uint256",
+            "numberOfBytes": "32"
+          },
+          "t_uint8": {
+            "label": "uint8",
+            "numberOfBytes": "1"
+          }
+        }
+      }
     }
   }
 }
