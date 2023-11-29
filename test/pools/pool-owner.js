@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { ZERO_ADDRESS } = require('@openzeppelin/test-helpers/src/constants');
-const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator } = require('../support/helper');
+const { getContractFactories, expectRevert, createPool, toDecimalStr, strFromDecimal, createOptionPricer, createSignatureValidator, UINT_MAX } = require('../support/helper');
 
 let Pool, PoolToken, Config, OptionMarket, Vault, TestERC20, SpotPricer, PoolOwner, accounts;
 describe('PoolOwner', () => {
@@ -228,6 +228,34 @@ describe('PoolOwner', () => {
     context('when not owner', () => {
       it('should revert with "Ownable: caller is not the owner"', async () => {
         await expectRevert(poolOwner.connect(trader).withdrawToken(usdc.address), 'Ownable: caller is not the owner');
+      });
+    });
+  });
+
+  describe('#approvePool', () => {
+    context('when owner', () => {
+      let usdc2;
+
+      before(async () => {
+        usdc2 = await TestERC20.deploy('USDC', 'USDC', 18);
+        await config.setQuote(usdc2.address, 18);
+        await poolProxy.refreshQuote();
+        await poolOwner.approvePool();
+      });
+
+      after(async () => {
+        await config.setQuote(usdc.address, 6);
+        await poolProxy.refreshQuote();
+      });
+
+      it('should approved', async () => {
+        assert.equal(await usdc2.allowance(poolOwner.address, pool.address), UINT_MAX);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(poolOwner.connect(trader).approvePool(), 'Ownable: caller is not the owner');
       });
     });
   });

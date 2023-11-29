@@ -40,8 +40,7 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
     __Ownable_init();
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     vault = _vault;
-    Config config = Vault(_vault).config();
-    IERC20(config.quote()).safeIncreaseAllowance(_vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    internalApproveVault();
   }
 
   function withdrawToken(address _token) external payable onlyOwner {
@@ -52,11 +51,20 @@ contract VaultOwner is OwnableUpgradeable, AccessControlUpgradeable {
     payable(msg.sender).sendValue(address(this).balance);
   }
 
+  function approveVault() external payable onlyOwner {
+    internalApproveVault();
+  }
+
   function ownerCall() private onlyOwner returns(bytes memory) {
     return vault.functionCall(msg.data);
   }
 
   function roleCall(bytes32 role) private onlyRole(role) returns(bytes memory)  {
     return vault.functionCall(msg.data);
+  }
+
+  function internalApproveVault() private {
+    Config config = Vault(vault).config();
+    IERC20(config.quote()).forceApprove(vault, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
   }
 }

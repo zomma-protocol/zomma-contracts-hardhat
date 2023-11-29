@@ -40,7 +40,7 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
     __Ownable_init();
     _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     pool = _pool;
-    Pool(_pool).quoteAsset().safeIncreaseAllowance(_pool, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
+    internalApprovePool();
   }
 
   function transferPoolOwnership(address newOwner) public virtual onlyOwner {
@@ -55,6 +55,10 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
     payable(msg.sender).sendValue(address(this).balance);
   }
 
+  function approvePool() external payable onlyOwner {
+    internalApprovePool();
+  }
+
   function withdrawTokenByLiquidator(uint amount) external payable onlyRole(LIQUIDATOR_ROLE) {
     Pool(pool).quoteAsset().safeTransfer(msg.sender, amount);
   }
@@ -65,5 +69,9 @@ contract PoolOwner is OwnableUpgradeable, AccessControlUpgradeable {
 
   function roleCall(bytes32 role) private onlyRole(role) returns(bytes memory)  {
     return pool.functionCall(msg.data);
+  }
+
+  function internalApprovePool() private {
+    Pool(pool).quoteAsset().forceApprove(pool, 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
   }
 }

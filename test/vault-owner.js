@@ -1,6 +1,6 @@
 const { ethers } = require('hardhat');
 const assert = require('assert');
-const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, createOptionPricer, createSignatureValidator } = require('./support/helper');
+const { getContractFactories, expectRevert, expectRevertCustom, toDecimalStr, createOptionPricer, createSignatureValidator, UINT_MAX } = require('./support/helper');
 
 let Vault, Config, TestERC20, SpotPricer, OptionMarket, VaultOwner, accounts;
 describe('VaultOwner', () => {
@@ -103,6 +103,32 @@ describe('VaultOwner', () => {
     context('when not vaultOwner', () => {
       it('should revert with NotOwner', async () => {
         await expectRevertCustom(vault.connect(trader).changeOwner(trader.address), Vault, 'NotOwner');
+      });
+    });
+  });
+
+  describe('#approveVault', () => {
+    context('when owner', () => {
+      let usdc2;
+
+      before(async () => {
+        usdc2 = await TestERC20.deploy('USDC', 'USDC', 18);
+        await config.setQuote(usdc2.address, 18);
+        await vaultOwner.approveVault();
+      });
+
+      after(async () => {
+        await config.setQuote(usdc.address, 6);
+      });
+
+      it('should approved', async () => {
+        assert.equal(await usdc2.allowance(vaultOwner.address, vault.address), UINT_MAX);
+      });
+    });
+
+    context('when not owner', () => {
+      it('should revert with "Ownable: caller is not the owner"', async () => {
+        await expectRevert(vaultOwner.connect(trader).approveVault(), 'Ownable: caller is not the owner');
       });
     });
   });
